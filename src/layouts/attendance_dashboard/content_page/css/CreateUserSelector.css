@@ -1,0 +1,55 @@
+/* Base styles */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Custom select dropdown styling */
+.MuiPaper-root.MuiMenu-paper {
+  border-radius: 8px;
+  margin-top: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.MuiPaper-root.MuiMenu-paper .MuiMenuItem-root {
+  padding: 12px 16px;
+}
+
+.MuiPaper-root.MuiMenu-paper .MuiMenuItem-root:hover {
+  background-color: rgba(25, 118, 210, 0.08);
+}
+
+.MuiPaper-root.MuiMenu-paper .MuiMenuItem-root.Mui-selected {
+  background-color: rgba(25, 118, 210, 0.16);
+}
+
+/* Animation for select dropdown */
+.MuiPaper-root.MuiMenu-paper {
+  transform-origin: top right;
+  animation: fadeInScale 0.2s ease-out;
+}
+
+@keyframes fadeInScale {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .MuiBox-root {
+    padding: 24px !important;
+  }
+  
+  .MuiTypography-h4 {
+    font-size: 1.5rem !important;
+  }
+  
+  .MuiTypography-h5 {
+    font-size: 1.25rem !important;
+  }
+}

@@ -1,0 +1,295 @@
+/* ================ */
+/* TABLE STYLES */
+/* ================ */
+
+:root {
+    /* Breakpoints */
+    --bp-mobile: 30em;
+    --bp-tablet: 48em;
+    --bp-desktop: 62em;
+    --bp-large: 75em;
+    
+    /* Colors */
+    --primary-color: #2E7D32;
+    --primary-light: #4CAF50;
+    --primary-dark: #1B5E20;
+    --border-color: #A5D6A7;
+    --text-primary: #212121;
+    --text-secondary: #757575;
+    --background-light: #F5F5F5;
+    --background-row: #FFFFFF;
+    --background-row-alt: #F9F9F9;
+    --error-color: #D32F2F;
+    
+    /* Spacing */
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2rem;
+    
+    /* Typography */
+    --font-size-sm: 0.875rem;
+    --font-size-md: 1rem;
+    --font-size-lg: 1.25rem;
+    --font-size-xl: 1.5rem;
+  }
+  
+  /* Base Styles */
+  html {
+    box-sizing: border-box;
+  }
+  
+  *, *:before, *:after {
+    box-sizing: inherit;
+  }
+  
+  /* Table Container */
+  .container {
+    width: 100%;
+    margin: var(--space-lg) auto;
+    overflow-x: auto;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    border-radius: 8px;
+    background: var(--background-light);
+  }
+  
+  /* Responsive Table */
+  .responsive-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: var(--font-size-md);
+    color: var(--text-primary);
+  }
+  
+  /* Table Caption */
+  .responsive-table caption {
+    margin-bottom: var(--space-md);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    text-align: center;
+    color: var(--primary-dark);
+    padding: var(--space-sm);
+  }
+  
+  /* Table Header - Mobile First */
+  .responsive-table thead {
+    position: absolute;
+    clip: rect(1px, 1px, 1px, 1px);
+    padding: 0;
+    border: 0;
+    height: 1px;
+    width: 1px;
+    overflow: hidden;
+  }
+  
+  /* Table Body - Mobile */
+  .responsive-table tbody tr {
+    display: block;
+    margin-bottom: var(--space-md);
+    background: var(--background-row);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: var(--space-sm);
+  }
+  
+  .responsive-table tbody th[scope="row"] {
+    background-color: var(--primary-color);
+    color: white;
+    text-align: center;
+    padding: var(--space-sm);
+    border-radius: 4px 4px 0 0;
+    margin-bottom: var(--space-xs);
+  }
+  
+  .responsive-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: right;
+    padding: var(--space-sm);
+    border-bottom: 1px solid #eee;
+  }
+  
+  .responsive-table tbody td[data-title]:before {
+    content: attr(data-title);
+    float: left;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--primary-dark);
+    margin-right: var(--space-sm);
+  }
+  
+  /* Status Badges */
+  .status-badge {
+    display: inline-block;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: 12px;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    text-transform: capitalize;
+  }
+  
+  .status-active {
+    background-color: #E8F5E9;
+    color: var(--primary-dark);
+  }
+  
+  .status-new {
+    background-color: #E3F2FD;
+    color: #1565C0;
+  }
+  
+  .status-training {
+    background-color: #FFF8E1;
+    color: #FF8F00;
+  }
+  
+  .status-resigned {
+    background-color: #FFEBEE;
+    color: #C62828;
+  }
+  
+  /* Desktop Styles */
+  @media (min-width: 48em) {
+    .container {
+      margin: var(--space-xl) auto;
+      max-width: 100%;
+    }
+    
+    .responsive-table {
+      font-size: var(--font-size-md);
+    }
+    
+    .responsive-table thead {
+      position: sticky;
+      top: 0;
+      clip: auto;
+      height: auto;
+      width: auto;
+      overflow: visible;
+      background: var(--primary-color);
+      color: white;
+      z-index: 10;
+    }
+    
+    .responsive-table tr {
+      display: table-row;
+    }
+    
+    .responsive-table th,
+    .responsive-table td {
+      display: table-cell;
+      padding: var(--space-sm) var(--space-md);
+      text-align: left;
+      vertical-align: middle;
+    }
+    
+    .responsive-table th {
+      font-weight: 500;
+      border-right: 1px solid rgba(255,255,255,0.2);
+      white-space: nowrap;
+    }
+    
+    .responsive-table th:last-child {
+      border-right: none;
+    }
+    
+    .responsive-table tbody tr {
+      display: table-row;
+      margin-bottom: 0;
+      background: var(--background-row);
+      border: none;
+      border-radius: 0;
+      padding: 0;
+    }
+    
+    .responsive-table tbody tr:nth-of-type(even) {
+      background: var(--background-row-alt);
+    }
+    
+    .responsive-table tbody tr:hover {
+      background: rgba(46, 125, 50, 0.05);
+    }
+    
+    .responsive-table tbody th[scope="row"] {
+      background: transparent;
+      color: var(--text-primary);
+      text-align: left;
+      padding: var(--space-sm) var(--space-md);
+      border-radius: 0;
+      margin-bottom: 0;
+    }
+    
+    .responsive-table tbody td {
+      display: table-cell;
+      text-align: left;
+      padding: var(--space-sm) var(--space-md);
+      border-bottom: 1px solid var(--border-color);
+      border-left: 1px solid var(--border-color);
+    }
+    
+    .responsive-table tbody td:last-child {
+      border-right: 1px solid var(--border-color);
+    }
+    
+    .responsive-table tbody td[data-title]:before {
+      content: none;
+    }
+    
+    .responsive-table caption {
+      font-size: var(--font-size-xl);
+      padding: var(--space-md);
+    }
+  }
+  
+  /* Large Desktop Styles */
+  @media (min-width: 75em) {
+    .container {
+      max-width: 1200px;
+    }
+    
+    .responsive-table th,
+    .responsive-table td {
+      padding: var(--space-md);
+    }
+  }
+  
+  /* Loading and Error States */
+  .loading, .error, .no-data {
+    padding: var(--space-xl);
+    text-align: center;
+    font-size: var(--font-size-lg);
+  }
+  
+  .loading {
+    color: var(--text-secondary);
+  }
+  
+  .error {
+    color: var(--error-color);
+  }
+  
+  .no-data {
+    color: var(--text-secondary);
+  }
+  
+  /* Action Buttons */
+  .action-buttons {
+    display: flex;
+    gap: var(--space-sm);
+    justify-content: center;
+  }
+  
+  .action-button {
+    color: var(--primary-color);
+    padding: var(--space-xs);
+    border-radius: 50%;
+    transition: all 0.2s ease;
+  }
+  
+  .action-button:hover {
+    background: rgba(46, 125, 50, 0.1);
+    transform: scale(1.1);
+  }
