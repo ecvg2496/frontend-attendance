@@ -165,7 +165,6 @@ const DailyAttendanceTable = ({ employeeData, logsData, loading, error, onViewCl
             <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Break Status</th>
             <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Time Out</th>
             <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Time Out Status</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -208,7 +207,7 @@ const DailyAttendanceTable = ({ employeeData, logsData, loading, error, onViewCl
                     </Box>
                   ) : ''}
                 </td>
-                <td style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '18px'}}>
+                <td style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>
                   {log?.end_break ? (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
                       <span><StatusBadge status={log?.break_status || ''} /></span>
@@ -218,25 +217,15 @@ const DailyAttendanceTable = ({ employeeData, logsData, loading, error, onViewCl
              
              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 <span style={{ fontSize: '18px', display: 'inline-block' }}>
-                  {log.time_out ? formatTimeProfessional(log?.time_out) : '--:--'}
+                  {formatTimeProfessional(log?.time_out)}
                 </span>
               </td>
-                <td style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>
-                    <StatusBadge status={log?.time_out_status || ''} />
+              {log?.time_out && (
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                  <StatusBadge status={log?.time_out_status || ''} />
                 </td>
-                
-                <td style={{ ...{padding: '12px 16px', whiteSpace: 'nowrap'}}}>
-                  <Tooltip title="View Details">
-                    <IconButton 
-                      color="primary" 
-                      onClick={() => onViewClick({ employee: employeeData, log })}
-                      size="small"
-                      sx={{ fontSize: '0.7rem' }}
-                    >
-                      <VisibilityIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </td>
+              )}
+                              
               </tr>
             );
           })}

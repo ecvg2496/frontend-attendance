@@ -24,7 +24,9 @@ import {
   useMediaQuery,
   TableContainer,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material';
 import { 
   Today as TodayIcon,
@@ -41,7 +43,8 @@ import {
   HourglassEmpty as UndertimeIcon,
   WorkOff as LeaveIcon,
   Error as ErrorIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  FilterList as FilterListIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -92,7 +95,6 @@ const StatusBadge = ({ status, isDuration, duration }) => {
     Early: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
     OnTime: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
     paidLeave: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
-
     Break: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' }, 
   };
 
@@ -162,7 +164,7 @@ const formatBreakDuration = (durationMinutes) => {
 
   try {
     const duration = parseInt(durationMinutes, 10);
-    if (isNaN(duration) || duration === 0) return '0m';
+    if (isNaN(duration)) return '0m';
 
     const hours = Math.floor(duration / 60);
     const minutes = duration % 60;
@@ -171,11 +173,52 @@ const formatBreakDuration = (durationMinutes) => {
     if (hours > 0) result += `${hours}h`;
     if (minutes > 0) result += ` ${minutes}m`;
 
-    return result.trim();
+    return result.trim() || '0m';
   } catch (e) {
     console.error('Error formatting break duration:', e);
     return durationMinutes;
   }
+};
+
+// Status Filter Modal Component
+const StatusFilterModal = ({ open, onClose, statusFilters, onFilterChange }) => {
+  const statusOptions = [
+    { value: 'Present', label: 'Present' },
+    { value: 'Late', label: 'Late' },
+    { value: 'Absent', label: 'Absent' },
+    { value: 'Leave', label: 'Leave' },
+    { value: 'Floating', label: 'Floating' },
+    { value: 'Undertime', label: 'Undertime' },
+    { value: 'Overtime', label: 'Overtime' },
+  ];
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Filter by Status</DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
+          {statusOptions.map((option) => (
+            <FormControlLabel
+              key={option.value}
+              control={
+                <Checkbox
+                  checked={statusFilters[option.value] || false}
+                  onChange={() => onFilterChange(option.value)}
+                  color="primary"
+                />
+              }
+              label={option.label}
+            />
+          ))}
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} color="primary">
+          Apply Filters
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
 };
 
 // Main Table Component with Joined Data
@@ -199,7 +242,7 @@ const DailyAttendanceTable = ({
   };
 
   const getInitialClientName = (fullName) => {
-  if (!fullName) return '?';
+    if (!fullName) return '?';
     const nameParts = fullName.trim().split(' ');
     const firstInitial = nameParts[0]?.charAt(0).toUpperCase() || '';
     const lastInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1].charAt(0).toUpperCase() : '';
@@ -397,7 +440,7 @@ const DailyAttendanceTable = ({
                         <StatusBadge 
                           status={formatBreakDuration(log?.break_duration)} 
                           isDuration 
-                          duration={log?.break_duration} // ← Add this!
+                          duration={log?.break_duration}
                         />
                       )}
                       </div>
@@ -456,25 +499,35 @@ const AttendanceAdminLogs = () => {
   const [overviewPage, setOverviewPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const itemsPerPage = 5;
-  
+  const [statusFilters, setStatusFilters] = useState({
+    Present: true,
+    Late: true,
+    Absent: true,
+    Leave: true,
+    Floating: true,
+    Undertime: true,
+    Overtime: true,
+  });
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const navigate = useNavigate();
-    const isAdmin = () => {
-          const employeeData = localStorage.getItem("employee");
-          if (employeeData) {
-            const employee = JSON.parse(employeeData);
-            return employee.is_admin === 1 || employee.is_admin === true || employee.is_admin === "1";
-          }
-          return false;
-        };
-      
-        // Redirect if not admin
-        useEffect(() => {
-          if (!isAdmin()) {
-            navigate('/authentication/sign-in/');
-          } 
-    }, [navigate]);
+  
+  const isAdmin = () => {
+    const employeeData = localStorage.getItem("employee");
+    if (employeeData) {
+      const employee = JSON.parse(employeeData);
+      return employee.is_admin === 1 || employee.is_admin === true || employee.is_admin === "1";
+    }
+    return false;
+  };
 
-  // Filter data based on current Philippine time and search term
+  // Redirect if not admin
+  useEffect(() => {
+    if (!isAdmin()) {
+      navigate('/authentication/sign-in/');
+    } 
+  }, [navigate]);
+
+  // Filter data based on current Philippine time, search term, and status filters
   const filterData = (data) => {
     let filtered = [...data];
     
@@ -530,7 +583,31 @@ const AttendanceAdminLogs = () => {
       });
     }
     
+    // Apply status filters
+    filtered = filtered.filter(log => {
+      if (!log.status) return false;
+      
+      if (log.status === 'Present' && !statusFilters.Present) return false;
+      if (log.status === 'Leave' && !statusFilters.Leave) return false;
+      if (log.status === 'Floating' && !statusFilters.Floating) return false;
+      if (log.status === 'Absent' && !statusFilters.Absent) return false;
+      
+      // Check time statuses
+      if (log.time_in_status === 'Late' && !statusFilters.Late) return false;
+      if (log.time_out_status === 'Undertime' && !statusFilters.Undertime) return false;
+      if (log.overtime && log.overtime > 0 && !statusFilters.Overtime) return false;
+      
+      return true;
+    });
+    
     return filtered;
+  };
+
+  const handleStatusFilterChange = (status) => {
+    setStatusFilters(prev => ({
+      ...prev,
+      [status]: !prev[status]
+    }));
   };
 
   const filteredData = filterData(logsData);
@@ -551,7 +628,7 @@ const AttendanceAdminLogs = () => {
   useEffect(() => {
     setCurrentPage(1);
     setOverviewPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, statusFilters]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -615,6 +692,7 @@ const AttendanceAdminLogs = () => {
   const formatMinutesToHours = (minutes) => {
     if (!minutes && minutes !== 0) return '--';
     const mins = parseFloat(minutes);
+    if (isNaN(mins)) return '0h 0m';
     const hours = Math.floor(mins / 60);
     const remainingMins = mins % 60;
     return `${hours}h ${remainingMins}m`;
@@ -623,7 +701,7 @@ const AttendanceAdminLogs = () => {
   const calculateStats = (data) => {
     const lateCount = data.filter(log => log.time_in_status === 'Late').length;
     const undertimeCount = data.filter(log => log.time_out_status === 'Undertime').length;
-    const overtimeCount = data.filter(log => log.overtime && log.overtime > 0).length;
+    const overtimeCount = data.filter(log => log.overtime && parseFloat(log.overtime) > 0).length;
     const presentCount = data.filter(log => log.status === 'Present').length;
     const leaveCount = data.filter(log => log.status === 'Leave').length;
     const floatingCount = data.filter(log => log.status === 'Floating').length;
@@ -631,7 +709,7 @@ const AttendanceAdminLogs = () => {
     
     const totalUndertime = data.reduce((total, log) => {
       if (log.time_out_status === 'Undertime' && log.undertime_hours) {
-        return total + parseFloat(log.undertime_hours);
+        return total + (parseFloat(log.undertime_hours) || 0);
       }
       return total;
     }, 0);
@@ -643,10 +721,15 @@ const AttendanceAdminLogs = () => {
 
     const totalMakeupHours = data.reduce((total, log) => {
       if (log.make_up_hours) {
-        return total + parseFloat(log.make_up_hours);
+        return total + (parseFloat(log.make_up_hours) || 0);
       }
       return total;
     }, 0);
+
+    // Calculate percentages safely
+    const safePercentage = (numerator, denominator) => {
+      return denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
+    };
 
     return {
       totalLogs: data.length,
@@ -660,6 +743,10 @@ const AttendanceAdminLogs = () => {
       overtime: overtimeCount,
       totalOvertimeHours: (totalOvertimeMinutes / 60).toFixed(2),
       totalMakeupHours: totalMakeupHours.toFixed(2),
+      presentPercentage: safePercentage(presentCount, data.length),
+      leavePercentage: safePercentage(leaveCount, data.length),
+      floatingPercentage: safePercentage(floatingCount, data.length),
+      absentPercentage: safePercentage(absentCount, data.length),
     };
   };
 
@@ -675,7 +762,7 @@ const AttendanceAdminLogs = () => {
       'Break Start': formatTimeProfessional(log.start_break),
       'Break End': formatTimeProfessional(log.end_break),
       'Break Status': log.start_break ? 'Taken' : 'Missed',
-      'Break Duration': `${log.break_duration} mins`,
+      'Break Duration': `${log.break_duration || 0} mins`,
       'Time Out': formatTimeProfessional(log.time_out),
       'Time Out Status': log.time_out_status || '',
       'Status': log.status || 'Absent',
@@ -729,21 +816,21 @@ const AttendanceAdminLogs = () => {
               '& .MuiTab-root': { minHeight: 48, fontSize: '0.8rem' }
             }}
           >
-           <Tab label={
-            <Typography sx={{ fontSize: '1.5rem', fontWeight: 400 }}>Attendance Logs</Typography>
-                      }
-                      icon={<TodayIcon fontSize="medium" />}
-                      iconPosition="start"
-                    />
-                    <Tab
-                      label={
-                        <Typography sx={{ fontSize: '1.5rem', fontWeight: 400, color: 'black !important' }}>
-                          Overview
-                        </Typography>
-                      }
-                      icon={<DateRangeIcon fontSize="medium" />}
-                      iconPosition="start"
-                    />
+            <Tab label={
+              <Typography sx={{ fontSize: '1.5rem', fontWeight: 400 }}>Attendance Logs</Typography>
+            }
+            icon={<TodayIcon fontSize="medium" />}
+            iconPosition="start"
+            />
+            <Tab
+              label={
+                <Typography sx={{ fontSize: '1.5rem', fontWeight: 400, color: 'black !important' }}>
+                  Overview
+                </Typography>
+              }
+              icon={<DateRangeIcon fontSize="medium" />}
+              iconPosition="start"
+            />
           </Tabs>
           <CardContent sx={{ p: 1 }}>
             {tabValue === 0 && (
@@ -752,24 +839,33 @@ const AttendanceAdminLogs = () => {
                   <Typography variant="h3" color="primary">
                     Employee Logs
                   </Typography>
-                  <TextField
-                    variant="outlined"
-                    size="small"
-                    placeholder="Search by name..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon fontSize="small" />
-                        </InputAdornment>
-                      ),
-                      sx: { fontSize: '0.8rem' }
-                    }}
-                    sx={{ width: '250px' }}
-                  />
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      variant="outlined"
+                      size="small"
+                      placeholder="Search by name..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchIcon fontSize="small" />
+                          </InputAdornment>
+                        ),
+                        sx: { fontSize: '0.8rem' }
+                      }}
+                      sx={{ width: '250px' }}
+                    />
+                    <Button
+                      variant="outlined"
+                      startIcon={<FilterListIcon />}
+                      onClick={() => setFilterModalOpen(true)}
+                      size="small"
+                    >
+                      Filter
+                    </Button>
+                  </Box>
                 </Box>
-                
                 <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
                   <Chip 
                     label={`${stats.totalLogs} Records`}
@@ -819,13 +915,13 @@ const AttendanceAdminLogs = () => {
                   </Button>
                 </Box>
                    
-                  <DailyAttendanceTable 
+                <DailyAttendanceTable 
                   employeeData={employeeData}
                   logsData={paginatedData}
                   loading={loading}
                   error={error}
                   onViewClick={handleViewClick}
-                  />
+                />
               
                 <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                   <Pagination
@@ -845,33 +941,35 @@ const AttendanceAdminLogs = () => {
                   <Typography variant="h3" color="primary">
                     Overview Logs
                   </Typography>
-                  <TextField
-                    variant="outlined"
-                    size="small"
-                    placeholder="Search by name..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon fontSize="small" />
-                        </InputAdornment>
-                      ),
-                      sx: { fontSize: '0.8rem' }
-                    }}
-                    sx={{ width: '250px' }}
-                  />
-                  <Button
-                   variant="contained"
-                   color="success"
-                   startIcon={<DownloadIcon fontSize="small" />}
-                    onClick={exportToExcel}
-                    disabled={!logsData.length}
-                    size="small"
-                    sx={{ fontSize: '0.7rem' }}
-                   >
-                  Export Excel
-                </Button>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      variant="outlined"
+                      size="small"
+                      placeholder="Search by name..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchIcon fontSize="small" />
+                          </InputAdornment>
+                        ),
+                        sx: { fontSize: '0.8rem' }
+                      }}
+                      sx={{ width: '250px' }}
+                    />
+                    <Button
+                      variant="contained"
+                      color="success"
+                      startIcon={<DownloadIcon fontSize="small" />}
+                      onClick={exportToExcel}
+                      disabled={!logsData.length}
+                      size="small"
+                      sx={{ fontSize: '0.7rem' }}
+                    >
+                      Export Excel
+                    </Button>
+                  </Box>
                 </Box>
                 
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
@@ -885,25 +983,25 @@ const AttendanceAdminLogs = () => {
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Present:</Typography>
                         <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#4CAF50' }}>
-                          {stats.present} ({Math.round((stats.present / stats.totalLogs) * 100)}%)
+                          {stats.present} ({stats.presentPercentage}%)
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Leaves:</Typography>
                         <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.leave} ({Math.round((stats.leave / stats.totalLogs) * 100)}%)
+                          {stats.leave} ({stats.leavePercentage}%)
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Floating Holidays:</Typography>
                         <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.floating} ({Math.round((stats.floating / stats.totalLogs) * 100)}%)
+                          {stats.floating} ({stats.floatingPercentage}%)
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Absent:</Typography>
                         <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#F44336' }}>
-                          {stats.absent} ({Math.round((stats.absent / stats.totalLogs) * 100)}%)
+                          {stats.absent} ({stats.absentPercentage}%)
                         </Typography>
                       </Box>
                     </Box>
@@ -977,7 +1075,6 @@ const AttendanceAdminLogs = () => {
                 }}>
                   <DailyAttendanceTable 
                     employeeData={employeeData}
-                    // Show all logs without filtering by date
                     logsData={searchTerm 
                       ? logsData.filter(log => {
                           if (!log.employee_details) return false;
@@ -1032,6 +1129,14 @@ const AttendanceAdminLogs = () => {
           </CardContent>
         </Card>
 
+        {/* Status Filter Modal */}
+        <StatusFilterModal
+          open={filterModalOpen}
+          onClose={() => setFilterModalOpen(false)}
+          statusFilters={statusFilters}
+          onFilterChange={handleStatusFilterChange}
+        />
+
         {/* Log Details Modal */}
         <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="md" fullWidth>
           <DialogTitle sx={{ fontSize: '0.9rem' }}>
@@ -1070,7 +1175,7 @@ const AttendanceAdminLogs = () => {
                         'No break recorded'}
                     </Typography>
                     <Typography sx={{ fontSize: '0.75rem' }}>Work Hours: {selectedLog.log.work_hours || '0'} hours</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Overtime: {selectedLog.log.overtime || '0'} hours</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Overtime: {formatMinutesToHours(selectedLog.log.overtime)}</Typography>
                     <Typography sx={{ fontSize: '0.75rem' }}>Undertime: {selectedLog.log.undertime_hours || '0'} hours</Typography>
                     <Typography sx={{ fontSize: '0.75rem' }}>Make Up Hours: {selectedLog.log.make_up_hours || '0'} hours</Typography>
                     <Typography sx={{ fontSize: '0.75rem' }}>Status: <StatusBadge status={selectedLog.log.status} /></Typography>

@@ -17,7 +17,7 @@
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
     "@keyvaluesystems/react-stepper": "^1.0.4",
-    "@mui/icons-material": "5.11.16",
+    "@mui/icons-material": "^6.0.0",
     "@mui/lab": "^6.0.0-beta.10",
     "@mui/material": "^6.1.6",
     "@mui/system": "^6.1.6",
@@ -48,7 +48,6 @@
     "exceljs": "^4.4.0",
     "formik": "^2.4.6",
     "formik-mui": "^5.0.0-alpha.1",
-    "formik-mui-lab": "^1.0.0",
     "formik-mui-x-date-pickers": "^2.0.0-alpha.0",
     "jwt-decode": "^4.0.0",
     "material-ui-popup-state": "^1.9.3",
@@ -101,6 +100,8 @@
     ]
   },
   "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-keywords": "^5.1.0",
     "eslint": "8.39.0",
     "eslint-config-prettier": "8.8.0",
     "eslint-plugin-import": "2.27.5",

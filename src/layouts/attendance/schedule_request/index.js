@@ -421,10 +421,9 @@ const CustomizeScheduleRequestForm = () => {
           alignItems: 'center',
           mb: 2,
           p: 2,
-          backgroundColor: '#f5f5f5',
           borderRadius: 1
         }}>
-          <Typography variant="h5" color="primary">
+          <Typography variant="h3" color="primary">
             Custom Schedule Requests
           </Typography>
         </Box>

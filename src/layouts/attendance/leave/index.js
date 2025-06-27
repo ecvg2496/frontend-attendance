@@ -279,23 +279,22 @@ const LeaveTable = ({ data, loading, error, type, leaveTypes }) => {
               )}
               {type === 'approved' && (
                 <>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '180px' }}>Date Filed</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Type</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '200px' }}>Dates</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '100px' }}>Days</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Reason</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Remarks</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '180px' }}>Date Filed</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Processed By</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '180px' }}>Date Approved</th>
                 </>
               )}
               {type === 'rejected' && (
                 <>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Type</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '200px' }}>Dates</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '100px' }}>Days</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Reason</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '180px' }}>Date Filed</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Type</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '200px' }}>Leave Dates</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Reason</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Remarks</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Processed By</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '180px' }}>Date Rejected</th>
@@ -341,19 +340,16 @@ const LeaveTable = ({ data, loading, error, type, leaveTypes }) => {
 
                   {type === 'approved' && (
                     <>
-                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
-                        {leaveType}
-                        {isHalfDay && (
-                          <Chip 
-                            label={item.half_day_type === 'first_half' ? 'Morning Half' : 'Afternoon Half'} 
-                            size="small" 
-                            color="info"
-                            sx={{ ml: 1, fontSize: '0.7rem' }}
-                          />
-                        )}
+                      <td style={{ padding: '12px 16px', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                        <Box fontSize="0.75rem">
+                          {formatDateTime(item.applied_at)}
+                        </Box>
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'left' }}>
-                        <Box fontSize="0.75rem" color="#666">
+                        {leaveType}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                        <Box fontSize="0.75rem">
                           {formatDate(item.start_date)} - {formatDate(item.end_date)}
                         </Box>
                       </td>
@@ -364,11 +360,7 @@ const LeaveTable = ({ data, loading, error, type, leaveTypes }) => {
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'left' }}>{item?.reason || "N/A"}</td>
                       <td style={{ padding: '12px 16px', textAlign: 'left' }}>{item?.remarks}</td>
-                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
-                        <Box fontSize="0.75rem" color="#666">
-                          {formatDateTime(item.applied_at)}
-                        </Box>
-                      </td>
+                   
                       <td style={{ padding: '12px 16px', textAlign: 'left' }}>
                         <Box color="#666">
                           {item.processed_by || 'System'}
@@ -380,40 +372,29 @@ const LeaveTable = ({ data, loading, error, type, leaveTypes }) => {
 
                   {type === 'rejected' && (
                     <>
-                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
-                        {leaveType}
-                        {isHalfDay && (
-                          <Chip 
-                            label={item.half_day_type === 'first_half' ? 'Morning Half' : 'Afternoon Half'} 
-                            size="small" 
-                            color="info"
-                            sx={{ ml: 1, fontSize: '0.7rem' }}
-                          />
-                        )}
-                      </td>
-                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                      <td style={{ padding: '12px 16px', textAlign: 'left', whiteSpace: 'nowrap' }}>
                         <Box>
-                          {formatDate(item.start_date)} - {formatDate(item.end_date)}
-                        </Box>
-                      </td>
-                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
-                        {isHalfDay && item.start_date === item.end_date ? '0.5 day' : 
-                         isHalfDay ? '1.5 days' : 
-                         `${days} day${days !== 1 ? 's' : ''}`}
-                      </td>
-                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>{item.reason}</td>                   
-                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
-                        <Box color="#666">
                           {formatDateTime(item.applied_at)}
                         </Box>
                       </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                        {leaveType}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                        <Box>
+                          {formatDate(item.start_date)} - {formatDate(item.end_date)} (  {isHalfDay && item.start_date === item.end_date ? '0.5 day' : 
+                         isHalfDay ? '1.5 days' : 
+                         `${days} day${days !== 1 ? 's' : ''}`})
+                        </Box>
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>{item.reason}</td>                   
                       <td style={{ padding: '12px 16px', textAlign: 'left' }}>{item.remarks || '-'}</td>
                       <td style={{ padding: '12px 16px', textAlign: 'left' }}>
                         <Box fontSize="0.75rem" color="#666">
                           {item.processed_by || 'System'}
                         </Box>
                       </td>
-                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>{formatDateFixer(item.approval_date) || ""}</td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left', whiteSpace: 'nowrap' }}>{formatDateFixer(item.approval_date) || ""}</td>
                     </>
                   )}
                 </tr>
@@ -1208,7 +1189,7 @@ const LeaveFormModal = () => {
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={6} mb ={3}>
             <TextField
               fullWidth
               label="Team"
