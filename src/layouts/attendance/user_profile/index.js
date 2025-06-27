@@ -24,6 +24,7 @@ import {
   Email, 
   Phone, 
   Edit, 
+  Cancel,
   LocationOn 
 } from "@mui/icons-material";
 import { axiosPrivate } from "api/axios";
@@ -257,6 +258,7 @@ const UserProfile = ({ onClose }) => {
           <Box>
             <Button
               variant="outlined"
+              startIcon={<Cancel />}
               onClick={onClose}
               sx={{ mr: 2 }}
             >

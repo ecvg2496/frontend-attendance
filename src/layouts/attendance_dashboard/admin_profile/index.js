@@ -23,7 +23,8 @@ import {
   Person, 
   Email, 
   Phone, 
-  Edit, 
+  Edit,
+  Cancel, 
   LocationOn 
 } from "@mui/icons-material";
 import { axiosPrivate } from "api/axios";
@@ -257,6 +258,7 @@ const AdminProfile = ({ onClose }) => {
               variant="outlined"
               onClick={onClose}
               sx={{ mr: 2 }}
+              startIcon = {<Cancel />}
             >
               Close
             </Button>

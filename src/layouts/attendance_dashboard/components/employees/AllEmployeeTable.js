@@ -137,18 +137,18 @@ const AllEmployeeTable = ({ employees, loading, error, onEditClick, onEmployeeTy
             color: 'white'
           }}>
             <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>Actions</th>
-            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>Name</th>
-            <th scope="col" style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>Position</th>
-            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>Status</th>
-            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>Type</th>
-            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>Employment Date</th>
-            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>Work Set-up</th>
-            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>Schedule & Hours</th>
-            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>Team</th>
-            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>Processed by</th>
-            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>Regularization Date</th>
-            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>Resignation Date</th>
-            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>Last Updated</th>
+            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Name</th>
+            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Position</th>
+            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Status</th>
+            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Type</th>
+            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Employment Date</th>
+            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Work Set-up</th>
+            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Schedule & Hours</th>
+            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Team</th>
+            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Processed by</th>
+            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Regularization Date</th>
+            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Resignation Date</th>
+            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Last Updated</th>
           </tr>
         </thead>
         <tbody>
@@ -156,13 +156,13 @@ const AllEmployeeTable = ({ employees, loading, error, onEditClick, onEmployeeTy
             <tr key={employee.id} style={{ fontSize: '0.9rem' }}>
                 <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                 <IconButton 
-                  size="small"  
+                  size="medium"  
                   color="primary" 
                   sx={{ '&:hover': { backgroundColor: 'rgba(46, 125, 50, 0.1)' } }}
                   title="Edit Details"
                   onClick={() => onEditClick(employee)}
                 >
-                  <EditIcon fontSize="small" />  
+                  <EditIcon fontSize="medium" />  
                 </IconButton>
                </td>
                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>

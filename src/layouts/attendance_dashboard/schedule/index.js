@@ -154,7 +154,7 @@ const ScheduleRequestTable = ({
               </IconButton>
             </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                <Box fontSize="0.75rem" color="#666">
+                <Box fontSize="0.9rem">
                   {formatDateTime(request.created_at)}
                 </Box>
               </td>
@@ -174,10 +174,10 @@ const ScheduleRequestTable = ({
                   <div key={i}>{formatDisplayDate(day.date)}</div>
                 ))}
               </td>
-            <td style={{ padding: '12px 16px' }}>
+            <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
               {request.schedule_days.map((day, i) => (
                 <Box key={i} mb={2}>
-                  <Typography variant="body2">
+                  <Typography variant="body2" sx={{fontSize: '0.9rem'}}>
                     {formatDisplayTime(day.time_in)} - {formatDisplayTime(day.time_out)} 
                   </Typography>
                   {day.start_break && day.end_break && (

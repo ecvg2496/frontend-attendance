@@ -46,7 +46,7 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import axios from 'axios';
+import axios from 'api/axios';
 import SideNavBar from "../../content_page/sidebar";
 import { useNavigate } from "react-router-dom";
 
@@ -60,7 +60,21 @@ const getCurrentPhilippineDate = () => {
 };
 
 // Status Badge Component
-const StatusBadge = ({ status, isDuration = false }) => {
+const StatusBadge = ({ status, isDuration, duration }) => {
+  const getMatchedStyle = (statusText) => {
+    if (isDuration) {
+      return duration > 60 ? statusStyles.Overbreak : statusStyles.Break;
+    }
+    if (statusText.includes("Early")) return statusStyles.Early;
+    if (statusText.includes("Late")) return statusStyles.Late;
+    if (statusText.includes("Undertime")) return statusStyles.Undertime;
+    if (statusText.includes("Overtime")) return statusStyles.Overtime;
+    if (statusText.includes("Overbreak")) return statusStyles.Overbreak;
+    if (statusText.includes("On Time")) return statusStyles.OnTime;
+    if (statusText.includes("Paid Leave")) return statusStyles.paidLeave;
+    return statusStyles[statusText];
+  };
+
   const statusStyles = {
     Active: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
     Inactive: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
@@ -68,21 +82,28 @@ const StatusBadge = ({ status, isDuration = false }) => {
     Floating: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
     Present: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
     Working: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
+    Overtime: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
     Late: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
     Undertime: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
-    Absent : { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
+    Absent: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
     Taken: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
-    Missed: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' }
+    Missed: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
+    Overbreak: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
+    Early: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
+    OnTime: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
+    paidLeave: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
+
+    Break: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' }, 
   };
 
   return (
     <span style={{
       padding: '2px 8px',
       borderRadius: '10px',
-      fontSize: '0.95em',
+      fontSize: '1.2em',
       fontWeight: '600',
-      textTransform: isDuration ? 'none' : 'capitalize',
-      ...statusStyles[status] || { background: '#e0e0e0' }
+      textTransform: 'capitalize',
+      ...(getMatchedStyle(status) || { background: '#e0e0e0', color: '#333' })
     }}>
       {status}
     </span>
@@ -113,7 +134,7 @@ const formatDisplayDate = (dateString) => {
   
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
-    month: 'short',
+    month: 'long',
     day: 'numeric',
     year: 'numeric'
   });
@@ -138,18 +159,19 @@ const formatTimeToAMPM = (timeString) => {
 
 const formatBreakDuration = (durationMinutes) => {
   if (durationMinutes === null || durationMinutes === undefined) return '--';
-  
+
   try {
     const duration = parseInt(durationMinutes, 10);
-    
-    if (isNaN(duration)) return '0 mins';
-    
-    if (duration > 59) {
-      const hours = Math.floor(duration / 60);
-      return `${hours} ${hours !== 1 ? 'hours' : 'hour'}`;
-    }
-    
-    return `${duration} ${duration !== 1 ? 'mins' : 'min'}`;
+    if (isNaN(duration) || duration === 0) return '0m';
+
+    const hours = Math.floor(duration / 60);
+    const minutes = duration % 60;
+
+    let result = '';
+    if (hours > 0) result += `${hours}h`;
+    if (minutes > 0) result += ` ${minutes}m`;
+
+    return result.trim();
   } catch (e) {
     console.error('Error formatting break duration:', e);
     return durationMinutes;
@@ -165,8 +187,6 @@ const DailyAttendanceTable = ({
   onViewClick 
 }) => {
   const theme = useTheme();
-  const isXLargeScreen = useMediaQuery(theme.breakpoints.up('xl'));
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
   const [clientData, setClientData] = useState({});
   const [clientLoading, setClientLoading] = useState(false);
   const [clientError, setClientError] = useState(null);
@@ -176,6 +196,14 @@ const DailyAttendanceTable = ({
     const firstInitial = firstName ? firstName.charAt(0) : '';
     const lastInitial = lastName ? lastName.charAt(0) : '';
     return `${firstInitial}${lastInitial}`.toUpperCase();
+  };
+
+  const getInitialClientName = (fullName) => {
+  if (!fullName) return '?';
+    const nameParts = fullName.trim().split(' ');
+    const firstInitial = nameParts[0]?.charAt(0).toUpperCase() || '';
+    const lastInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1].charAt(0).toUpperCase() : '';
+    return `${firstInitial}${lastInitial}` || '?';
   };
 
   // Fetch client data for each employee
@@ -191,7 +219,7 @@ const DailyAttendanceTable = ({
         await Promise.all(uniqueEmployeeIds.map(async (employeeId) => {
           try {
             const response = await axios.get(
-              `http://localhost:8000/api/attendance/employees/${employeeId}/assigned-clients/`
+              `/attendance/employees/${employeeId}/assigned-clients/`
             );
             clientMap[employeeId] = response.data[0] || null;
           } catch (err) {
@@ -220,8 +248,6 @@ const DailyAttendanceTable = ({
 
   return (
     <Box width="100%" overflow="auto" position="relative">
- 
-      
        <table style={{ 
         width: '100%',
         minWidth: '1200px',
@@ -232,13 +258,13 @@ const DailyAttendanceTable = ({
           <tr style={{ 
            backgroundColor: '#00B4D8', color: 'white', textAlign: 'left'
           }}>
-            <th scope="col" style={{ padding: '8px 12px', textAlign: 'left'}}>Date</th>
-            <th scope="col" style={{ padding: '8px 12px', textAlign: 'left'}}>Employee</th>
-            <th scope="col" style={{ padding: '8px 12px', textAlign: 'left' }}>Client</th>
-            <th scope="col" style={{ padding: '8px 12px'}}>Time In/Out</th>
-            <th scope="col" style={{ padding: '8px 12px'}}>Break</th>
-            <th scope="col" style={{ padding: '8px 12px'}}>Status</th>
-            <th scope="col" style={{ padding: '8px 12px'}}>Actions</th>
+            <th scope="col" style={{ padding: '8px 12px', textAlign: 'left', fontSize: '1.1rem'}}>Date</th>
+            <th scope="col" style={{ padding: '8px 12px', textAlign: 'left', fontSize: '1.1rem'}}>Employee</th>
+            <th scope="col" style={{ padding: '8px 12px', textAlign: 'left', fontSize: '1.1rem' }}>Client</th>
+            <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Time In/Out</th>
+            <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Break</th>
+            <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Status</th>
+            <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -252,7 +278,7 @@ const DailyAttendanceTable = ({
                 : 'Unknown';
               
               const client = clientData[log.employee] || {};
-              const clientInitials = getInitials(client.name);
+              const clientInitials = getInitialClientName(client.name);
               const clientName = client.name || 'Not assigned';
               const clientEmail = employee?.time_in && employee?.time_out 
                 ? `${formatTimeToAMPM(employee?.time_in)} - ${formatTimeToAMPM(employee?.time_out)}` 
@@ -298,7 +324,7 @@ const DailyAttendanceTable = ({
                   {/* Client Column */}
                   <td data-title="Client" style={{ 
                     padding: '8px 12px',
-                    textAlign: 'left'
+                    textAlign: 'left', whiteSpace: 'nowrap'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Avatar 
@@ -336,25 +362,25 @@ const DailyAttendanceTable = ({
 
                   {/* Time In/Out Column */}
                   <td data-title="Time In/Out" style={{ 
-                    padding: '8px 12px'
+                    padding: '8px 12px', whiteSpace: 'nowrap'
                   }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <ClockIcon fontSize="small" color="action" />
-                        <span style={{ fontSize: '0.8rem' }}>
-                          {log.time_in ? formatTimeProfessional(log.time_in) : '--:--'}
+                        <ClockIcon fontSize="medium" color="action" />
+                        <span style={{ fontSize: '1rem' }}>
+                          {log.time_in ? formatTimeProfessional(log.time_in) : ''}
                         </span>
                         {log.time_in_status && (
                           <StatusBadge status={log.time_in_status} />
                         )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <OvertimeIcon fontSize="small" color="action" />
-                        <span style={{ fontSize: '0.8rem' }}>
-                          {log.time_out ? formatTimeProfessional(log.time_out) : '--:--'}
+                        <OvertimeIcon fontSize="medium" color="action" />
+                        <span style={{ fontSize: '1rem' }}>
+                          {log.time_out ? formatTimeProfessional(log.time_out) : ''}
                         </span>
                         {log.time_out_status && (
-                          <StatusBadge status={log.time_out_status} />
+                          <StatusBadge status={log?.time_out_status} />
                         )}
                       </div>
                     </div>
@@ -363,18 +389,22 @@ const DailyAttendanceTable = ({
                   <td data-title="Break" style={{ padding: '8px 12px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <ClockIcon fontSize="small" color="action" />
-                        <span style={{ fontSize: '0.8rem' }}>
-                          {log.start_break ? formatTimeProfessional(log.start_break) : '--:--'}
+                        <ClockIcon fontSize="medium" color="action" />
+                        <span style={{ fontSize: '1rem' }}>
+                          {log.start_break ? formatTimeProfessional(log.start_break) : ''}
                         </span>
-                        {log.start_break && (
-                          <StatusBadge status={formatBreakDuration(log.break_duration)} isDuration />
-                        )}
+                       {log.start_break && (
+                        <StatusBadge 
+                          status={formatBreakDuration(log?.break_duration)} 
+                          isDuration 
+                          duration={log?.break_duration} // ← Add this!
+                        />
+                      )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <OvertimeIcon fontSize="small" color="action" />
-                        <span style={{ fontSize: '0.8rem' }}>
-                          {log.end_break ? formatTimeProfessional(log.end_break) : '--:--'}
+                        <OvertimeIcon fontSize="medium" color="action" />
+                        <span style={{ fontSize: '1rem' }}>
+                          {log.end_break ? formatTimeProfessional(log.end_break) : ''}
                         </span>
                         {log.end_break && (
                           <StatusBadge status={log.break_status} />
@@ -385,16 +415,14 @@ const DailyAttendanceTable = ({
 
                   {/* Status Column */}
                   <td data-title="Status" style={{ 
-                    padding: '8px 12px',
-                    textAlign: 'center'
+                    padding: '8px 12px', fontSize: '1rem'
                   }}>
                     <StatusBadge status={log.status || 'Absent'} />
                   </td>
                   
                   {/* Actions Column */}
                   <td data-title="Actions" style={{ 
-                    padding: '8px 12px',
-                    textAlign: 'center'
+                    padding: '8px 12px'
                   }}>
                     <IconButton 
                       size="small"  
@@ -532,8 +560,8 @@ const AttendanceAdminLogs = () => {
         
         // Fetch all employees and logs
         const [employeesRes, logsRes] = await Promise.all([
-          axios.get('http://localhost:8000/api/attendance/employees/'),
-          axios.get('http://localhost:8000/api/attendance/logs/')
+          axios.get('/attendance/employees/'),
+          axios.get('/attendance/logs/')
         ]);
 
         const employees = employeesRes.data;
@@ -691,7 +719,7 @@ const AttendanceAdminLogs = () => {
   return (
     <SideNavBar>
       <Box sx={{ p: 2, mt: -12 }}>
-        <Card sx={{ mb: 10, minHeight: 'calc(100vh - 64px)'}}>
+        <Card sx={{ mb: 10, minHeight: 'calc(104vh - 64px)'}}>
           <Tabs 
             value={tabValue} 
             onChange={handleTabChange}
@@ -701,14 +729,27 @@ const AttendanceAdminLogs = () => {
               '& .MuiTab-root': { minHeight: 48, fontSize: '0.8rem' }
             }}
           >
-            <Tab label="Attendance Logs" icon={<TodayIcon fontSize="small" />} iconPosition="start" />
-            <Tab label="Overview" icon={<DateRangeIcon fontSize="small" />} iconPosition="start" />
+           <Tab label={
+            <Typography sx={{ fontSize: '1.5rem', fontWeight: 400 }}>Attendance Logs</Typography>
+                      }
+                      icon={<TodayIcon fontSize="medium" />}
+                      iconPosition="start"
+                    />
+                    <Tab
+                      label={
+                        <Typography sx={{ fontSize: '1.5rem', fontWeight: 400, color: 'black !important' }}>
+                          Overview
+                        </Typography>
+                      }
+                      icon={<DateRangeIcon fontSize="medium" />}
+                      iconPosition="start"
+                    />
           </Tabs>
           <CardContent sx={{ p: 1 }}>
             {tabValue === 0 && (
               <Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="subtitle1" color="primary">
+                  <Typography variant="h3" color="primary">
                     Employee Logs
                   </Typography>
                   <TextField
@@ -736,7 +777,7 @@ const AttendanceAdminLogs = () => {
                     variant="outlined" 
                     icon={<PersonIcon fontSize="small" />} 
                     size="small"
-                    sx={{ fontSize: '0.7rem' }}
+                    sx={{ fontSize: '1.2rem' }}
                   />
                   <Chip 
                     label={`${stats.present} Present`}
@@ -744,7 +785,7 @@ const AttendanceAdminLogs = () => {
                     variant="outlined" 
                     icon={<PresentIcon fontSize="small" />} 
                     size="small"
-                    sx={{ fontSize: '0.7rem' }}
+                    sx={{ fontSize: '1.2rem' }}
                   />
                   <Chip 
                     label={`${stats.late} Late`}
@@ -752,7 +793,7 @@ const AttendanceAdminLogs = () => {
                     variant="outlined" 
                     icon={<LateIcon fontSize="small" />} 
                     size="small"
-                    sx={{ fontSize: '0.7rem' }}
+                    sx={{ fontSize: '1.2rem' }}
                   />
                   <Chip 
                     label={`${stats.absent} Absent`}
@@ -760,7 +801,7 @@ const AttendanceAdminLogs = () => {
                     variant="outlined" 
                     icon={<AbsentIcon fontSize="small" />} 
                     size="small"
-                    sx={{ fontSize: '0.7rem' }}
+                    sx={{ fontSize: '1.2rem' }}
                   />
                 </Box>
 
@@ -801,7 +842,7 @@ const AttendanceAdminLogs = () => {
             {tabValue === 1 && (
               <Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="subtitle1" color="primary" sx={{ fontSize: '1.4rem' }}>
+                  <Typography variant="h3" color="primary">
                     Overview Logs
                   </Typography>
                   <TextField

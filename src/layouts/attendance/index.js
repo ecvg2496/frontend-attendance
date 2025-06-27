@@ -11,10 +11,6 @@ import {
   LinearProgress,
   Modal,
   TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -31,7 +27,6 @@ import {
   FreeBreakfast as FreeBreakfastIcon,
   LunchDining as LunchDiningIcon,
   ExitToApp as ExitToAppIcon,
-  CheckCircle as CheckCircleIcon,
   History as HistoryIcon,
   Work as WorkIcon,
   Timer as TimerIcon,
@@ -39,23 +34,11 @@ import {
   Public as PublicIcon,
   HourglassEmpty as HourglassEmptyIcon,
   AddCircle as AddCircleIcon,
-  Close as CloseIcon,
-  Search as SearchIcon,
-  Refresh as RefreshIcon
+  Search as SearchIcon
 } from '@mui/icons-material';
-import WbSunnyIcon from '@mui/icons-material/WbSunny'; // Sunny icon
-import CloudIcon from '@mui/icons-material/Cloud'; // Cloud icon
-import NightsStayIcon from '@mui/icons-material/NightsStay'; // Night icon
-import EventAvailableIcon from '@mui/icons-material/EventAvailable';
-import axios from 'axios';
+import axios from 'api/axios';
 import SideNavBar from './content_page/nav_bar';
 import './content_page/css/admintable.css';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import ClearIcon from '@mui/icons-material/Clear';
-import { format, parse, differenceInMinutes, isBefore, isAfter, addMinutes, addHours } from 'date-fns';
-
-const API_BASE_URL = 'http://localhost:8000/api/attendance';
 
 // Helper functions for Philippine Time (PHT)
 const getCurrentPHTDate = () => {
@@ -107,13 +90,18 @@ const formatTimeToHMS = (date) => {
 
 const formatDisplayDate = (dateString) => {
   try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      timeZone: "Asia/Manila",
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    // Ensure the date string is in the correct format
+    const dateParts = dateString.split('-');
+    if (dateParts.length === 3) {
+      const date = new Date(`${dateParts[0]}-${dateParts[1]}-${dateParts[2]}`);
+      return date.toLocaleDateString('en-US', {
+        timeZone: "Asia/Manila",
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+    return dateString; // Return original if not in expected format
   } catch (e) {
     return 'Invalid date';
   }
@@ -126,13 +114,6 @@ const calculateTimeDifference = (time1, time2) => {
   const t2 = new Date(`2000-01-01T${time2}Z`);
   
   return (t2 - t1) / (1000 * 60);
-};
-
-const calculateWorkHours = (timeIn, timeOut, breakDuration = 0) => {
-  if (!timeIn || !timeOut) return 0;
-  
-  const minutes = calculateTimeDifference(timeIn, timeOut) - breakDuration;
-  return (minutes / 60).toFixed(2);
 };
 
 const formatDigitalTime = (date) => {
@@ -171,7 +152,6 @@ const formatTimeFromSeconds = (seconds) => {
 
 const EmployeeAttendanceDashboard = () => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [tabValue, setTabValue] = useState(0);
   const [employee, setEmployee] = useState(null);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -187,18 +167,9 @@ const EmployeeAttendanceDashboard = () => {
   });
   const [breakDelayRemaining, setBreakDelayRemaining] = useState(null);
   const [breakDelayProgress, setBreakDelayProgress] = useState(0);
-  const [lateDuration, setLateDuration] = useState(0);
-  const [overtimeDuration, setOvertimeDuration] = useState(0);
-  const [openManualEntry, setOpenManualEntry] = useState(false);
   const [clientAttendanceData, setClientAttendanceData] = useState([]);
   const [clientLoading, setClientLoading] = useState(false);
   const [leaveCredits, setLeaveCredits] = useState([]);
-  const [manualEntry, setManualEntry] = useState({
-    date: formatDateToYMD(getCurrentPHTDate()),
-    action: 'timeIn',
-    time: formatTimeToHMS(getCurrentPHTDate()),
-    notes: ''
-  });
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
     action: null,
@@ -218,6 +189,9 @@ const EmployeeAttendanceDashboard = () => {
     { label: "Today's Attendance", icon: <AccessTimeIcon /> },
     { label: "History", icon: <HistoryIcon /> },
   ];
+  const [lateDuration, setLateDuration] = useState(null);
+  const [overtimeDuration, setOvertimeDuration] = useState(null);
+
 
   const speak = (text) => {
     if ('speechSynthesis' in window) {
@@ -284,7 +258,7 @@ const EmployeeAttendanceDashboard = () => {
     // Fetch leave credits for current year
     const currentYear = new Date().getFullYear();
     const response = await axios.get(
-      `${API_BASE_URL}/leave-credits/?employee_id=${employeeId}&year=${currentYear}`
+      `/attendance/leave-credits/?employee_id=${employeeId}&year=${currentYear}`
     );
     setLeaveCredits(response.data);
   } catch (err) {
@@ -293,7 +267,6 @@ const EmployeeAttendanceDashboard = () => {
   }
 };
 
-  // Update break timer if break is active
   useEffect(() => {
     let interval;
     if (todayRecord?.start_break && !todayRecord?.end_break && !breakAlert.acknowledged) {
@@ -337,7 +310,7 @@ const EmployeeAttendanceDashboard = () => {
     setClientLoading(true);
     try {
       const clientResponse = await axios.get(
-        `${API_BASE_URL}/employees/${employeeId}/assigned-clients/`
+        `/attendance/employees/${employeeId}/assigned-clients/`
       );
       const assignedClients = clientResponse.data;
       localStorage.setItem("assignedClients", JSON.stringify(assignedClients));
@@ -417,41 +390,41 @@ const EmployeeAttendanceDashboard = () => {
   setLoading(true);
   setError(null);
   try {
-    const now = getCurrentPHTDate();
+     const now = getCurrentPHTDate();
     const today = formatDateToYMD(now);
     const yesterday = formatDateToYMD(new Date(now.getTime() - 24 * 60 * 60 * 1000));
-
-    // First check if there's a record for today
-    const todayResponse = await axios.get(`${API_BASE_URL}/logs`, {  
+    
+    // Convert to same format for comparison
+    const todayFormatted = formatDateToYMD(now);
+    const yesterdayFormatted = formatDateToYMD(new Date(now.getTime() - 24 * 60 * 60 * 1000));
+    console.log('Today from system:', formatDateToYMD(getCurrentPHTDate()));
+    const todayResponse = await axios.get(`/attendance/logs`, {  
       params: { 
         employee_id: employeeId,
-        date: today
+        date: formatDateToYMD(getCurrentPHTDate())
       }
     });
     
-    let existingRecord = todayResponse.data?.results?.[0] || null;
+    let existingRecord = todayResponse.data?.logs?.[0] || null;
 
-    // If no record for today, check for open records from yesterday (for graveyard shifts)
-    if (!existingRecord) {
-      const yesterdayResponse = await axios.get(`${API_BASE_URL}/logs`, {  
+      if (!existingRecord) {
+      const yesterdayResponse = await axios.get(`/attendance/logs`, {  
         params: { 
           employee_id: employeeId,
-          date: yesterday,
+          date: formatDateToYMD(new Date(now.getTime() - 24 * 60 * 60 * 1000)),
           time_out__isnull: true
         }
       });
       
       const yesterdayRecords = yesterdayResponse.data?.results || [];
       if (yesterdayRecords.length > 0) {
-        // Find the most recent open record from yesterday
         const mostRecentOpenRecord = yesterdayRecords[0];
         existingRecord = mostRecentOpenRecord;
       }
     }
 
-    // If still no record, check for any open records (regardless of date)
     if (!existingRecord) {
-      const openRecordsResponse = await axios.get(`${API_BASE_URL}/logs`, {  
+      const openRecordsResponse = await axios.get(`/attendance/logs`, {  
         params: { 
           employee_id: employeeId,
           time_out__isnull: true,
@@ -464,8 +437,6 @@ const EmployeeAttendanceDashboard = () => {
       if (openRecords.length > 0) {
         const mostRecentOpenRecord = openRecords[0];
         const recordDate = formatDateToYMD(new Date(mostRecentOpenRecord.date));
-        
-        // Only use open record if it's from today or yesterday (for graveyard shifts)
         if (recordDate === today || recordDate === yesterday) {
           existingRecord = mostRecentOpenRecord;
         }
@@ -489,7 +460,7 @@ const EmployeeAttendanceDashboard = () => {
     setTodayRecord(existingRecord);
     
     // Load all records for history
-    const allRecordsResponse = await axios.get(`${API_BASE_URL}/logs`, {
+    const allRecordsResponse = await axios.get(`/attendance/logs`, {
       params: {
         employee_id: employeeId,
         ordering: '-date'
@@ -504,7 +475,6 @@ const EmployeeAttendanceDashboard = () => {
     setLoading(false);
   }
 };
-
 
   const showConfirmationDialog = (actionType) => {
     const now = getCurrentPHTDate();
@@ -565,7 +535,6 @@ const EmployeeAttendanceDashboard = () => {
       const timeString = formatTimeToHMS(now);
       const date = formatDateToYMD(now);
   
-      // Check if we have a record for today
       let recordToUpdate = todayRecord && todayRecord.date === date ? todayRecord : null;
   
       if (actionType === 'timeOut') {
@@ -583,47 +552,36 @@ const EmployeeAttendanceDashboard = () => {
           status: 'Active',
         };
   
-        // Calculate work hours (including break)
         const timeInDate = new Date(`${recordToUpdate.date}T${recordToUpdate.time_in}`);
         const timeOutDate = new Date(`${date}T${timeString}`);
         const workMinutes = (timeOutDate - timeInDate) / (1000 * 60) - (recordToUpdate.break_duration || 0);
         payload.work_hours = (workMinutes / 60).toFixed(2);
-  
-        // Parse scheduled end time (supports both 12h and 24h formats)
         const scheduledEndStr = employee.time_out;
         let scheduledEndHours = parseInt(scheduledEndStr.split(':')[0]);
         const scheduledEndMinutes = parseInt(scheduledEndStr.split(':')[1]);
         
-        // Convert to 24-hour format if needed
         if (scheduledEndStr.includes('AM') && scheduledEndHours === 12) {
           scheduledEndHours = 0;
         } else if (scheduledEndStr.includes('PM') && scheduledEndHours !== 12) {
           scheduledEndHours += 12;
         }
-  
-        // Create scheduled end datetime (assume same day as time-in)
+
         const scheduledEnd = new Date(`${recordToUpdate.date}T${scheduledEndHours.toString().padStart(2, '0')}:${scheduledEndMinutes.toString().padStart(2, '0')}:00`);
   
-        // Handle overnight shifts - if time out is early morning (00:00-06:00) and scheduled end is later in the day
-        // we need to compare with previous day's schedule
         if (timeOutDate.getHours() < 6 && scheduledEnd.getHours() >= 18) {
           scheduledEnd.setDate(scheduledEnd.getDate() - 1);
         }
-        // Or if time out is evening and scheduled end is early morning next day
+
         else if (timeOutDate.getHours() >= 18 && scheduledEnd.getHours() < 6) {
           scheduledEnd.setDate(scheduledEnd.getDate() + 1);
         }
   
-        // Calculate time difference
         const timeDiffMs = timeOutDate - scheduledEnd;
         const diffMinutes = Math.floor(timeDiffMs / (1000 * 60));
-  
-        // Calculate overbreak
         const maxBreakMinutes = employee.employment_type === 'training' ? 15 : 60;
         const actualBreakMinutes = recordToUpdate.break_duration || 0;
         const overbreakMinutes = Math.max(0, actualBreakMinutes - maxBreakMinutes);
   
-        // Determine time out status
         let statusParts = [];
         
         if (diffMinutes < 0) {
@@ -648,8 +606,7 @@ const EmployeeAttendanceDashboard = () => {
         }
   
         payload.time_out_status = statusParts.join(' | ');
-  
-        const responseUpdate = await axios.patch(`${API_BASE_URL}/logs/${recordToUpdate.id}/`, payload);
+        const responseUpdate = await axios.patch(`/attendance/logs/${recordToUpdate.id}/`, payload);
         setTodayRecord(responseUpdate.data);
         setSuccess('Successfully recorded time out');
         await fetchTodayAttendance(employee.id);
@@ -668,45 +625,36 @@ const EmployeeAttendanceDashboard = () => {
         case 'timeIn':
           optimisticUpdate.time_in = timeString;
           
-          // Parse scheduled time (supports both 12h and 24h formats)
           const scheduledTimeStr = employee.time_in;
           let scheduledHours = parseInt(scheduledTimeStr.split(':')[0]);
           const scheduledMinutes = parseInt(scheduledTimeStr.split(':')[1]);
           
-          // Convert to 24-hour format if needed
           if (scheduledTimeStr.includes('AM') && scheduledHours === 12) {
             scheduledHours = 0;
           } else if (scheduledTimeStr.includes('PM') && scheduledHours !== 12) {
             scheduledHours += 12;
           }
         
-          // Create scheduled time using today's date
           const scheduledStart = new Date(date);
           scheduledStart.setHours(scheduledHours, scheduledMinutes, 0, 0);
-          
-          // Create actual time-in using today's date
+
           const actualStart = new Date(date);
           const [actualHours, actualMins, actualSecs] = timeString.split(':').map(Number);
           actualStart.setHours(actualHours, actualMins, actualSecs, 0);
-        
-          // Calculate time difference in minutes
+
           const timeDiffMinutes = Math.floor((actualStart - scheduledStart) / (1000 * 60));
-        
-          // Determine if this is a same-day comparison or spans midnight
+
           const isSameDayComparison = 
             (actualStart.getHours() >= 6 && scheduledStart.getHours() >= 6) || 
             (actualStart.getHours() < 6 && scheduledStart.getHours() < 6);
         
           let finalDiffMinutes = timeDiffMinutes;
-          
-          // If times are on opposite sides of midnight (e.g., evening vs morning)
+ 
           if (!isSameDayComparison) {
             if (actualStart.getHours() < 6 && scheduledStart.getHours() >= 18) {
-              // Actual is early morning, scheduled is previous evening
-              finalDiffMinutes = timeDiffMinutes + (24 * 60); // Add 24 hours
+              finalDiffMinutes = timeDiffMinutes + (24 * 60); 
             } else if (actualStart.getHours() >= 18 && scheduledStart.getHours() < 6) {
-              // Actual is evening, scheduled is next morning
-              finalDiffMinutes = timeDiffMinutes - (24 * 60); // Subtract 24 hours
+              finalDiffMinutes = timeDiffMinutes - (24 * 60); 
             }
           }
         
@@ -723,8 +671,7 @@ const EmployeeAttendanceDashboard = () => {
             optimisticUpdate.late_duration = null;
             optimisticUpdate.early_duration = null;
           }
-        
-          // Reset other fields
+
           optimisticUpdate.start_break = null;
           optimisticUpdate.end_break = null;
           optimisticUpdate.time_out = null;
@@ -779,9 +726,9 @@ const EmployeeAttendanceDashboard = () => {
   
       let response;
       if (payload.id) {
-        response = await axios.patch(`${API_BASE_URL}/logs/${payload.id}/`, payload);
+        response = await axios.patch(`attendance/logs/${payload.id}/`, payload);
       } else {
-        response = await axios.post(`${API_BASE_URL}/logs/`, payload);
+        response = await axios.post(`attendance/logs/`, payload);
       }
   
       setTodayRecord(response.data);
@@ -802,11 +749,8 @@ const EmployeeAttendanceDashboard = () => {
     const todayDateStr = formatDateToYMD(currentPHTDate);
     const isWeekend = currentPHTDate.getDay() === 0 || currentPHTDate.getDay() === 6; 
     const isMondayMorning = currentPHTDate.getDay() === 1 && currentPHTDate.getHours() < 12;
-    
-    // Check if we should disable all buttons (Weekend with no time-in and not Monday morning)
     const shouldDisableAll = isWeekend && (!todayRecord || !todayRecord.time_in) && !isMondayMorning;
-    
-    // If it's weekend with no time-in and not Monday morning, disable all buttons
+
     if (shouldDisableAll) {
       return { 
         status: 'disabled', 
@@ -815,11 +759,9 @@ const EmployeeAttendanceDashboard = () => {
       };
     }
   
-    // Check if todayRecord exists and is for today
     const isTodayRecord = todayRecord && todayRecord.date === todayDateStr;
   
     if (!isTodayRecord) {
-      // Only enable timeIn button if no record exists for today
       return action === 'timeIn' ? 
         { status: 'enabled', disabled: false, tooltip: 'Time in now' } : 
         { status: 'disabled', disabled: true, tooltip: 'Only available for today\'s record' };
@@ -975,11 +917,6 @@ const EmployeeAttendanceDashboard = () => {
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              {/* <img 
-                src="/images/manila.png" 
-                alt="Manila" 
-                style={{ width: 50, height: 50, marginRight: 10 }} 
-              /> */}
               <Box>
                 <Typography variant="body1" sx={{ color: theme.palette.secondary.contrastText }}>
                   {currentTime.pht.time12}
@@ -1649,8 +1586,6 @@ const EmployeeAttendanceDashboard = () => {
                                 hasEarlyStatus ? theme.palette.success.main : 'inherit'
                         }}>
                           {record.time_in_status}
-                          {/* {hasLateStatus && lateDuration && ` ${lateDuration}`}
-                          {hasEarlyStatus && earlyDuration && ` ${earlyDuration}`} */}
                           
                         </Typography>
                       )}
@@ -1748,14 +1683,8 @@ const EmployeeAttendanceDashboard = () => {
   return (
     <SideNavBar>
       <Box sx={{ p: 3, mt: -13 }}>
-        {/* <Typography variant="h4" color="primary" gutterBottom>
-          Employee Attendance
-        </Typography> */}
-        
         {renderTimeDisplay()}
-        
         {renderEmployeeInfo()}
-        
         {employee && (
           <>
            <Tabs

@@ -669,7 +669,7 @@ const CustomizeScheduleRequestForm = () => {
                   rows={3}
                   value={formData.justification}
                   onChange={(e) => setFormData({...formData, justification: e.target.value})}
-                  placeholder="Please explain why you need this schedule change"
+                  placeholder="Reason"
                   variant="outlined"
                 />
               </Box>
@@ -691,6 +691,7 @@ const CustomizeScheduleRequestForm = () => {
                     setShowModal(false);
                     setResponseMsg("");
                   }}
+                  startIcon={<Cancel />}
                   sx={{ minWidth: 120 }}
                 >
                   Cancel
@@ -700,9 +701,10 @@ const CustomizeScheduleRequestForm = () => {
                   color="primary"
                   onClick={handleSubmit}
                   disabled={loading}
+                  startIcon={<Send />}
                   sx={{ minWidth: 120, color: 'white !important' }}
                 >
-                  {loading ? <CircularProgress size={24} /> : 'Submit Request'}
+                  {loading ? <CircularProgress size={24} /> : 'Submit'}
                 </Button>
               </Box>
             </Paper>

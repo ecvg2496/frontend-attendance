@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import {
   Box,
   Card,
   Chip,
+  Stack,
   Typography,
   TextField,
   Button,
@@ -43,10 +44,12 @@ import {
 import { useNavigate } from "react-router-dom";
 import SideNavBar from 'layouts/attendance_dashboard/content_page/sidebar';
 import LaunchIcon from '@mui/icons-material/Launch';
+import InfoIcon from '@mui/icons-material/Info';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { axiosPrivate } from 'api/axios';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 
 // Constants
 const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
@@ -304,7 +307,7 @@ const LeaveActionModal = ({ open, onClose, leaveApplication, onApprove, onReject
             </Grid>
             <Grid item xs={6}>
               <Typography variant="body1" style={{ fontWeight: '400' }}>
-                No. of Days: {calculateLeaveDays(leaveApplication?.start_date, leaveApplication?.end_date) || '1'} day(s)
+                No. of Days: {leaveApplication?.duration} day(s)
               </Typography>
             </Grid>
             <Grid item xs={12}>
@@ -428,41 +431,55 @@ const LeaveActionModal = ({ open, onClose, leaveApplication, onApprove, onReject
   );
 };
 
-const EmployeeTable = ({ 
+const LeaveCreditTable = ({ 
   employees = [], 
   loading, 
   error, 
   selectedEmployees,
   onSelectEmployee,
   onSubmitSelected,
-  year
+  year,
+  refreshData
 }) => {
   const [selectAll, setSelectAll] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editableCredits, setEditableCredits] = useState({});
+  const [processing, setProcessing] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  // Filter out Resigned and Floating status employees
-  const activeEmployees = employees.filter(employee => 
-    employee?.status !== "Resigned" && employee?.status !== "Floating" && employee?.status !== "AWOL" && employee?.status !== "Terminated" 
+  // Filter out inactive employees
+  const activeEmployees = useMemo(() => 
+    employees.filter(employee => 
+      employee?.status !== "Resigned" && 
+      employee?.status !== "Floating" && 
+      employee?.status !== "AWOL" && 
+      employee?.status !== "Terminated"
+    ),
+    [employees]
   );
-
+  
+  // Initialize editable credits
   useEffect(() => {
-    const selectableEmployees = activeEmployees.filter(emp => {
-        const hasRegular = (emp.leave_credits || []).some(lc => 
-          lc.leave_type === 'regular' && lc.year === year
-        );
-        const hasSpecial = (emp.leave_credits || []).some(lc => 
-          lc.leave_type === 'birthday' && lc.year === year
-        );
-        return !(hasRegular && hasSpecial);
-    }).map(emp => emp.id);
-    
-    setSelectAll(
-        selectedEmployees.length === selectableEmployees.length && 
-        selectableEmployees.length > 0
-    );
-  }, [selectedEmployees, activeEmployees, year]);
+    const credits = {};
+    activeEmployees.forEach(employee => {
+      const regularCredit = employee.leave_credits?.find(lc => 
+        lc.leave_type === 'regular' && lc.year === year
+      );
+      const birthdayCredit = employee.leave_credits?.find(lc => 
+        lc.leave_type === 'birthday' && lc.year === year
+      );
+      
+      credits[employee.id] = {
+        regular: regularCredit?.total_days ?? '',
+        birthday: birthdayCredit?.total_days ?? ''
+      };
+    });
+    setEditableCredits(credits);
+  }, [activeEmployees, year]);
 
-  const handleSelectAll = (event) => {
-    const selectableEmployees = activeEmployees.filter(emp => {
+  // Calculate selectable employees
+  const selectableEmployees = useMemo(() => 
+    activeEmployees.filter(emp => {
       const hasRegular = (emp.leave_credits || []).some(lc => 
         lc.leave_type === 'regular' && lc.year === year
       );
@@ -470,23 +487,193 @@ const EmployeeTable = ({
         lc.leave_type === 'birthday' && lc.year === year
       );
       return !(hasRegular && hasSpecial);
-    }).map(emp => emp.id);
-    
+    }).map(emp => emp.id),
+    [activeEmployees, year]
+  );
+
+  // Update selectAll state
+  useEffect(() => {
+    setSelectAll(
+      selectedEmployees.length === selectableEmployees.length && 
+      selectableEmployees.length > 0
+    );
+  }, [selectedEmployees, selectableEmployees]);
+
+  const handleSelectAll = (event) => {
     if (event.target.checked) {
-      onSelectEmployee(selectableEmployees);
+      onSelectEmployee([...selectableEmployees]);
     } else {
       onSelectEmployee([]);
     }
   };
 
-  const handleSelectEmployee = (employeeId) => {
+  const handleSelectEmployee = useCallback((employeeId) => {
     if (selectedEmployees.includes(employeeId)) {
       onSelectEmployee(selectedEmployees.filter(id => id !== employeeId));
     } else {
       onSelectEmployee([...selectedEmployees, employeeId]);
     }
-  };
+  }, [selectedEmployees, onSelectEmployee]);
 
+  const handleCreditChange = useCallback((employeeId, field, value) => {
+    let numericValue = value === '' ? '' : parseFloat(value);
+    
+    // Validate the input
+    if (numericValue !== '' && isNaN(numericValue)) return;
+    
+    // Apply constraints
+    if (field === 'regular' && numericValue !== '' && (numericValue < 0 || numericValue > 5)) return;
+    if (field === 'birthday' && numericValue !== '' && (numericValue < 0 || numericValue > 1)) return;
+    
+    setEditableCredits(prev => ({
+      ...prev,
+      [employeeId]: {
+        ...prev[employeeId],
+        [field]: numericValue
+      }
+    }));
+  }, []);
+
+  const handleSaveCredits = useCallback(async () => {
+    try {
+      setProcessing(true);
+      
+      const updates = [];
+      for (const employeeId in editableCredits) {
+        const employee = activeEmployees.find(e => e.id === parseInt(employeeId));
+        if (!employee) continue;
+        
+        const { regular, birthday } = editableCredits[employeeId];
+        
+        // Skip if values are empty
+        if (regular === '' || birthday === '') continue;
+
+        const regularCredit = employee.leave_credits?.find(lc => 
+          lc.leave_type === 'regular' && lc.year === year
+        );
+        const birthdayCredit = employee.leave_credits?.find(lc => 
+          lc.leave_type === 'birthday' && lc.year === year
+        );
+        
+        if (regularCredit) {
+          updates.push(
+            axiosPrivate.patch(`attendance/leave-credits/${regularCredit.id}/`, {
+              total_days: regular
+            })
+          );
+        } else {
+          updates.push(
+            axiosPrivate.post('attendance/leave-credits/', {
+              employee: employeeId,
+              leave_type: 'regular',
+              year: year,
+              total_days: regular,
+              is_paid: 0
+            })
+          );
+        }
+        
+        if (birthdayCredit) {
+          updates.push(
+            axiosPrivate.patch(`attendance/leave-credits/${birthdayCredit.id}/`, {
+              total_days: birthday
+            })
+          );
+        } else {
+          updates.push(
+            axiosPrivate.post('attendance/leave-credits/', {
+              employee: employeeId,
+              leave_type: 'birthday',
+              year: year,
+              total_days: birthday,
+              is_paid_birthday: 0
+            })
+          );
+        }
+      }
+      
+      await Promise.all(updates);
+      await refreshData();
+      
+      setSnackbar({
+        open: true,
+        message: 'Leave credits updated successfully',
+        severity: 'success'
+      });
+      setEditMode(false);
+    } catch (error) {
+      console.error('Error updating leave credits:', error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'Failed to update leave credits',
+        severity: 'error'
+      });
+    } finally {
+      setProcessing(false);
+    }
+  }, [editableCredits, activeEmployees, year, refreshData]);
+
+  const handleInitializeSelected = useCallback(async () => {
+    try {
+      setProcessing(true);
+      
+      const storedEmployee = localStorage.getItem('employee');
+      const currentEmployee = storedEmployee ? JSON.parse(storedEmployee) : null;
+      const createdBy = currentEmployee 
+        ? `${currentEmployee.first_name} ${currentEmployee.last_name}` 
+        : 'System Admin';
+      
+      await axiosPrivate.post('attendance/leave-credits/initialize/', {
+        employee_ids: selectedEmployees,
+        year,
+        created_by: createdBy
+      });
+      
+      await refreshData();
+      setSelectedEmployees([]);
+      
+      setSnackbar({
+        open: true,
+        message: `Successfully initialized leave credits for ${selectedEmployees.length} employees`,
+        severity: 'success'
+      });
+      
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.error || 'Failed to initialize leave credits',
+        severity: 'error'
+      });
+    } finally {
+      setProcessing(false);
+    }
+  }, [selectedEmployees, year, refreshData]);
+
+  const renderEditableCreditCell = (employeeId, field) => {
+    if (!editMode) {
+      const creditValue = editableCredits[employeeId]?.[field] ?? '';
+      return (
+        <Box fontSize="0.9rem">
+          {creditValue === '' ? '-' : creditValue}
+        </Box>
+      );
+    }
+    
+    return (
+      <TextField
+        type="number"
+        size="small"
+        value={editableCredits[employeeId]?.[field] ?? ''}
+        onChange={(e) => handleCreditChange(employeeId, field, e.target.value)}
+        inputProps={{
+          min: 0,
+          max: field === 'regular' ? 5 : 1,
+          step: 0.5
+        }}
+        sx={{ width: '70px' }}
+      />
+    );
+  };
 
   if (loading) {
     return <Box display="flex" justifyContent="center" p={2}><CircularProgress size={24} /></Box>;
@@ -502,6 +689,46 @@ const EmployeeTable = ({
 
   return (
     <Box width="100%" overflow="auto" position="relative">
+      {/* Header with Edit Button */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h5" color="primary">
+          Employee Leave Credits ({year})
+        </Typography>
+        {editMode ? (
+          <Stack direction="row" spacing={1}>
+            <Button 
+              variant="contained" 
+              color="success" 
+              size="small"
+              onClick={handleSaveCredits}
+              disabled={processing}
+              startIcon={processing ? <CircularProgress size={20} /> : null}
+            >
+              Save
+            </Button>
+            <Button 
+              variant="outlined" 
+              color="error" 
+              size="small"
+              onClick={() => setEditMode(false)}
+              disabled={processing}
+            >
+              Cancel
+            </Button>
+          </Stack>
+        ) : (
+          <Button 
+            variant="contained" 
+            color="primary" 
+            size="small"
+            onClick={() => setEditMode(true)}
+            sx={{color: 'white !important'}}
+          >
+            Edit Credits
+          </Button>
+        )}
+      </Box>
+
       <table style={{ 
         width: '100%',
         minWidth: '1200px',
@@ -521,8 +748,26 @@ const EmployeeTable = ({
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Employee</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Schedule</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Regularization Date</th>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Regular Leave</th>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Birthday Leave</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+              <Box display="flex" alignItems="center" gap={1}>
+                Regular Leave
+                {editMode && (
+                  <Tooltip title="Max 5 days">
+                    <InfoIcon fontSize="small" />
+                  </Tooltip>
+                )}
+              </Box>
+            </th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+              <Box display="flex" alignItems="center" gap={1}>
+                Birthday Leave
+                {editMode && (
+                  <Tooltip title="Max 1 day">
+                    <InfoIcon fontSize="small" />
+                  </Tooltip>
+                )}
+              </Box>
+            </th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Status</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Processed By</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Date Processed</th>
@@ -577,56 +822,21 @@ const EmployeeTable = ({
                   <Box display="flex" alignItems="center" gap={0.5}>
                     {formatTimeProfessional(employee?.time_in)} - {formatTimeProfessional(employee?.time_out)} 
                   </Box>
-                    <div>
+                  <div>
                     {employee?.contract_hours} hrs
-                    </div>
+                  </div>
                 </td>
 
                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                   {formatDisplayDate(employee?.employment_date || 'N/A')}
                 </td>
+                
                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                  {(employee?.leave_credits?.length || 0) > 0 ? (
-                    employee.leave_credits
-                      .filter(lc => lc?.leave_type.toLowerCase() === 'regular')
-                      .map(lc => {
-                        const remainingDays = lc.total_days - (lc.is_paid || 0);
-                        const isZeroCredits = remainingDays === 0;
-                        return (
-                          <Box
-                            key={`regular-${lc.year}`}
-                            fontSize="0.9rem"
-                            color={isZeroCredits ? 'error.main' : 'inherit'}
-                          >
-                            {remainingDays}
-                          </Box>
-                        );
-                      })
-                  ) : (
-                    <Box color="error.main" fontSize="0.9rem">None</Box>
-                  )}
+                  {renderEditableCreditCell(employee.id, 'regular')}
                 </td>
 
                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                  {(employee?.leave_credits?.length || 0) > 0 ? (
-                    employee.leave_credits
-                      .filter(lc => lc?.leave_type.toLowerCase() === 'birthday')
-                      .map(lc => {
-                        const remainingDays = (lc.total_days) - (lc.is_paid_birthday || 0);
-                        const isZeroCredits = remainingDays === 0;
-                        return (
-                          <Box
-                            key={`birthday-${lc.year}`}
-                            fontSize="0.9rem"
-                            color={isZeroCredits ? 'error.main' : 'inherit'}
-                          >
-                            {remainingDays}
-                          </Box>
-                        );
-                      })
-                  ) : (
-                    <Box color="error.main" fontSize="0.9rem">None</Box>
-                  )}
+                  {renderEditableCreditCell(employee.id, 'birthday')}
                 </td>
                 
                 <td style={{ padding: '12px 16px' }}>
@@ -642,8 +852,9 @@ const EmployeeTable = ({
                     <Box color="error.main" fontSize="0.9rem">N/A</Box>
                   )}
                 </td>
-                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                    {formatDisplayDate(employee.leave_credits[0]?.processed_at) || ""}
+                
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                  {formatDisplayDate(employee.leave_credits[0]?.processed_at) || ""}
                 </td>
               </tr>
             );
@@ -667,17 +878,34 @@ const EmployeeTable = ({
           <Button 
             variant="contained" 
             color="primary" 
-            onClick={onSubmitSelected}
+            onClick={handleInitializeSelected}
             startIcon={<CheckCircle />}
             sx={{ minWidth: 300, color: 'white !important' }}
+            disabled={processing}
           >
             Initialize Leave Credits ({selectedEmployees.length} Selected)
           </Button>
         </Box>
       )}
+      
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+          severity={snackbar.severity} 
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
+
 
  const LeaveApplications = ({ clients, loading, error, refreshData }) => { 
   const [selectedLeave, setSelectedLeave] = useState(null);
@@ -756,8 +984,8 @@ const EmployeeTable = ({
           status: 'approved',
           remarks: remarks,
           is_paid: isBirthdayLeave ? true : isPaid,
-          processed_by: processedBy,
           approval_date: processedAt,
+          processed_by: processedBy
         }
       );
 
@@ -810,8 +1038,8 @@ const EmployeeTable = ({
       await axiosPrivate.patch(`attendance/leave-applications/${id}/`, {
         status: 'rejected',
         remarks: remarks,
-        processed_by: processedBy,
-        approval_date: processedAt
+        approval_date: processedAt,
+        processed_by: processedBy
       });
       
       setSnackbar({
@@ -1058,7 +1286,11 @@ const EmployeeTable = ({
                 <tr key={client.id} style={{ borderBottom: '1px solid #e0e0e0', ':hover': { backgroundColor: '#f5f5f5' } }}>
                   <td style={{ padding: '12px 16px' }}>
                     <IconButton onClick={() => handleOpenModal(client)}>
-                      <LaunchIcon color="primary" />
+                      {client.status?.toLowerCase() === 'pending' ? (
+                        <LaunchIcon color="primary" />
+                      ) : (
+                        <VisibilityIcon color="primary" />
+                      )}
                     </IconButton>
                   </td>
                   <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
@@ -1086,8 +1318,7 @@ const EmployeeTable = ({
                     {client.start_date && client.end_date && (
                       <div>
                         <span style={{color: 'black'}}>
-                          ({calculateLeaveDays(client.start_date, client.end_date)}{" "}
-                          {calculateLeaveDays(client.start_date, client.end_date) === 1 ? 'day' : 'days'})
+                          ({client?.duration} {parseFloat(client?.duration) === 1 ? 'day' : 'days'})
                         </span>
                       </div>
                     )}
@@ -1146,10 +1377,10 @@ const EmployeeTable = ({
                     {client.remarks || ''}
                 </td>
                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                    {client.processed_by || ''}
+                    {client.processed_by || (client.status !== 'pending' ? 'System' : '')}
                 </td>
                  <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                    {formatDisplayDate(client.approval_date) || ''}
+                    {client.status !== 'pending' ? formatDisplayDate(client.approval_date) || '' : ''}
                 </td>
                   
                 </tr>
@@ -1440,7 +1671,7 @@ useEffect(() => {
           <Divider sx={{ my: 2 }} />
           
           {activeTab === 0 ? (
-            <EmployeeTable
+            <LeaveCreditTable
               employees={filteredData}
               loading={loading}
               error={error}
@@ -1448,6 +1679,7 @@ useEffect(() => {
               onSelectEmployee={handleSelectEmployee}
               onSubmitSelected={handleSubmitSelected}
               year={year}
+              refreshData={fetchData}
             />
           ) : (
             <LeaveApplications

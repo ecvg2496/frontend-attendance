@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { axiosPrivate } from 'api/axios';
 import {
   Box,
@@ -13,45 +12,24 @@ import {
   Alert,
   Snackbar,
   FormControlLabel,
-  IconButton, 
-  MenuItem, 
-  Checkbox
+  Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
-import {
-  Search as SearchIcon,
-  Edit,
-  PersonAdd,
-  Delete,
-  Close
-} from '@mui/icons-material';
+import { Search as SearchIcon, FilterList } from '@mui/icons-material';
 import { useNavigate } from "react-router-dom";
 import SideNavBar from 'layouts/attendance_dashboard/content_page/sidebar';
 
 // Constants
 const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
 const currentYear = new Date().getFullYear();
-const yearOptions = Array.from({length: 5}, (_, i) => currentYear + i);
-
-// Helper Functions
-const formatDisplayDate = (dateString) => {
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      timeZone: "Asia/Manila",
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  } catch (e) {
-    return 'Invalid date';
-  }
-};
 
 const StatusBadge = ({ status }) => {
   const statusStyles = {
     Active: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
     'Newly Hired': { background: 'linear-gradient(to right, #2196F3, #64B5F6)', color: 'white' },
-    Probation: { background: 'linear-gradient(to right, #FF9800, #FFB74D)', color: 'white' },
     Floating: { background: 'linear-gradient(to right, #FF9800, #FFB74D)', color: 'white' },
     'On Leave': { background: 'linear-gradient(to right, #9C27B0, #BA68C8)', color: 'white' },
     Resigned: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
@@ -72,6 +50,20 @@ const StatusBadge = ({ status }) => {
       {status}
     </span>
   );
+};
+
+const formatDisplayDate = (dateString) => {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      timeZone: "Asia/Manila",
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  } catch (e) {
+    return 'Invalid date';
+  }
 };
 
 const EmployeeTable = ({ 
@@ -114,6 +106,7 @@ const EmployeeTable = ({
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>No Pay</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Balance</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Status</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Last Update</th>
           </tr>
         </thead>
         <tbody>
@@ -122,7 +115,10 @@ const EmployeeTable = ({
             const regularLeave = leaveCredits.find(lc => lc.leave_type === 'regular' && lc.year === year);
             const birthdayLeave = leaveCredits.find(lc => lc.leave_type === 'birthday' && lc.year === year);
             const hasLeaveCredits = regularLeave || birthdayLeave;
-
+            const latestProcessedDate = leaveCredits.reduce((latest, lc) => {
+              const processedAt = new Date(lc.processed_at);
+              return (isNaN(processedAt) ? latest : (!latest || processedAt > new Date(latest) ? lc.processed_at : latest));
+            }, null);
             return (
               <tr key={employee.id} style={{ 
                 borderBottom: '1px solid #e0e0e0'
@@ -156,7 +152,7 @@ const EmployeeTable = ({
                     <span>No credits</span>
                   )}
                 </td>
-                <td style={{ padding: '12px 16px' }}>
+                <td style={{ padding: '12px 16px', color: 'green' }}>
                   {hasLeaveCredits ? (
                     <Box display="flex" flexDirection="column" gap={1}>
                       {regularLeave && <span>{regularLeave.total_days || 0}</span>}
@@ -166,11 +162,11 @@ const EmployeeTable = ({
                     <Box color="error.main" fontSize="0.9rem">N/A</Box>
                   )}
                 </td>
-                <td style={{ padding: '12px 16px', color: 'teal' }}>
+                <td style={{ padding: '12px 16px', color: 'green' }}>
                   {hasLeaveCredits ? (
                     <Box display="flex" flexDirection="column" gap={1}>
                       {regularLeave && <span>{regularLeave?.is_paid || 0}</span>}
-                      {birthdayLeave && <span>{birthdayLeave?.is_paid || 0}</span>}
+                      {birthdayLeave && <span>{birthdayLeave?.is_paid_birthday || 0}</span>}
                     </Box>
                   ) : null}
                 </td>
@@ -198,8 +194,11 @@ const EmployeeTable = ({
                     </Box>
                   ) : null}
                 </td>
-                <td style={{ padding: '12px 16px' }}>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                   <StatusBadge status={employee?.status || 'Unknown'} />
+                </td>
+                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                   {formatDisplayDate(latestProcessedDate)}
                 </td>
               </tr>
             );
@@ -218,7 +217,7 @@ export default function BrowseUserPTO() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeLetter, setActiveLetter] = useState(null);
-  const [year, setYear] = useState(currentYear);
+  const [year] = useState(currentYear);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [statusFilters, setStatusFilters] = useState({
     Active: true,
@@ -229,9 +228,10 @@ export default function BrowseUserPTO() {
     AWOL: false,
     Terminated: false
   });
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const modalRef = useRef(null);
   const navigate = useNavigate();
 
-  // Calculate paginated data
   const filteredData = useMemo(() => {
     let filtered = [...allUsers];
     
@@ -265,29 +265,12 @@ export default function BrowseUserPTO() {
 
   const totalPages = Math.ceil(filteredData.length / pageSize);
 
-  const isAdmin = useCallback(() => {
-    const employeeData = localStorage.getItem("employee");
-    if (employeeData) {
-      const employee = JSON.parse(employeeData);
-      return employee.is_admin === 1 || employee.is_admin === true || employee.is_admin === "1";
-    }
-    return false;
-  }, []);
-
-  useEffect(() => {
-    if (!isAdmin()) {
-      navigate('/authentication/sign-in/');
-    }
-  }, [isAdmin, navigate]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const [employeesResponse, leaveCreditsResponse] = await Promise.all([
         axiosPrivate.get('attendance/employees/'),
-        axiosPrivate.get('attendance/leave-credits/', {
-          params: { year }
-        })
+        axiosPrivate.get('attendance/leave-credits/', { params: { year } })
       ]);
 
       const leaveCreditsByEmployee = {};
@@ -298,91 +281,119 @@ export default function BrowseUserPTO() {
         leaveCreditsByEmployee[lc.employee].push(lc);
       });
 
-      const employeesWithLeaveCredits = employeesResponse.data.map(emp => ({
+      setAllUsers(employeesResponse.data.map(emp => ({
         ...emp,
         leave_credits: leaveCreditsByEmployee[emp.id] || []
-      }));
-
-      setAllUsers(employeesWithLeaveCredits);
+      })));
       setLoading(false);
-      setCurrentPage(1);
     } catch (err) {
       setError(err.message);
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchData();
   }, [year]);
 
-  const handleLetterClick = useCallback((letter) => {
-    setActiveLetter(activeLetter === letter ? null : letter);
-  }, [activeLetter]);
+  useEffect(() => {
+    const employeeData = localStorage.getItem("employee");
+    if (!employeeData || !JSON.parse(employeeData).is_admin) {
+      navigate('/authentication/sign-in/');
+    } else {
+      fetchData();
+    }
+  }, [fetchData, navigate]);
 
-  const handleCloseSnackbar = useCallback(() => {
-    setSnackbar(prev => ({ ...prev, open: false }));
-  }, []);
+  const StatusFilterModal = useCallback(() => {
+    const [localFilters, setLocalFilters] = useState(statusFilters);
 
-  const StatusFilterCheckbox = () => (
-    <Box sx={{ mb: 2, p: 2, borderRadius: 1 }}>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-        {Object.keys(statusFilters).map(status => (
-          <FormControlLabel
-            key={status}
-            control={
-              <Checkbox
-                checked={statusFilters[status]}
-                onChange={() => setStatusFilters(prev => ({
-                  ...prev,
-                  [status]: !prev[status]
-                }))}
-                size="small"
+    useEffect(() => {
+      if (filterModalOpen) {
+        setLocalFilters(statusFilters);
+      }
+    }, [filterModalOpen, statusFilters]);
+
+    const handleApply = () => {
+      setStatusFilters(localFilters);
+      setFilterModalOpen(false);
+      setCurrentPage(1);
+    };
+
+    return (
+      <Dialog 
+        open={filterModalOpen}
+        onClose={() => setFilterModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        disableRestoreFocus
+        TransitionProps={{
+          onEnter: () => { modalRef.current = true; },
+          onExited: () => { modalRef.current = false; }
+        }}
+      >
+        <DialogTitle>Filter Employees by Status</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
+            {Object.keys(localFilters).map(status => (
+              <FormControlLabel
+                key={status}
+                control={
+                  <Checkbox
+                    checked={localFilters[status]}
+                    onChange={() => setLocalFilters(prev => ({
+                      ...prev,
+                      [status]: !prev[status]
+                    }))}
+                  />
+                }
+                label={<StatusBadge status={status} />}
               />
-            }
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <StatusBadge status={status} />
-              </Box>
-            }
-          />
-        ))}
-      </Box>
-    </Box>
-  );
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setFilterModalOpen(false)}
+            sx={{
+              border: '1px solid rgba(0, 0, 0, 0.23)',
+              padding: '6px 16px',
+              borderRadius: '4px',
+              '&:hover': {
+                border: '1px solid rgba(0, 0, 0, 0.87)',
+                backgroundColor: 'rgba(0, 0, 0, 0.04)'
+              }
+            }}
+          >
+            Close
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={handleApply}
+            color="primary"
+          >
+            Apply Filters
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  }, [filterModalOpen, statusFilters]);
 
-  const PaginationControls = () => (
-  <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mt: 2, gap: 1 }}>
-    <Button 
-      variant="outlined" 
-      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-      disabled={currentPage === 1}
-    >
-      Previous
-    </Button>
-    
-    <Typography variant="body2">
-      Page {currentPage} of {totalPages}
-    </Typography>
-    
-    <Button 
-      variant="outlined" 
-      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-      disabled={currentPage === totalPages || totalPages === 0}
-    >
-      Next
-    </Button>
-  </Box>
-  );
   return (
     <SideNavBar>
       <Card sx={{ mt: -10, minHeight: 'calc(103vh - 64px)' }}>
         <Box p={3}>
-          <Typography variant="h4" component="h1" color="primary" mb={2}>
-            Employee PTO Management
-          </Typography>
-      
-          <Box sx={{ p: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h3" component="h4" color="primary">
+              Employee PTO Management
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<FilterList />}
+              onClick={() => setFilterModalOpen(true)}
+              sx={{ minWidth: '120px' }}
+            >
+              Filters
+            </Button>
+          </Box>
+
+          <Box sx={{ p: 2, mb: 2, backgroundColor: 'background.paper', borderRadius: 1 }}>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
               <Box sx={{ flex: 1, minWidth: '200px' }}>
                 <Box sx={{ position: 'relative' }}>
@@ -391,21 +402,22 @@ export default function BrowseUserPTO() {
                     left: '8px', 
                     top: '50%', 
                     transform: 'translateY(-50%)',
-                    color: '#757575'
+                    color: 'action.active'
                   }} />
                   <TextField
                     fullWidth
                     placeholder="Search employees..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(1);
+                    }}
                     size="small"
                     sx={{ '& .MuiInputBase-input': { pl: '32px' } }}
                   />
                 </Box>
               </Box>
-          
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="body2">Page Size:</Typography>
                 <TextField
                   type="number"
@@ -416,27 +428,37 @@ export default function BrowseUserPTO() {
                     setCurrentPage(1);
                   }}
                   size="small"
-                  sx={{ width: '60px' }}
+                  sx={{ width: '80px' }}
+                  inputProps={{ min: 1 }}
                 />
               </Box>
             </Box>
           </Box>
-          
-          
-          <StatusFilterCheckbox />
-          
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2, justifyContent: 'center' }}>
+
+          <Box sx={{ 
+            display: 'flex', 
+            flexWrap: 'wrap', 
+            gap: 1, 
+            mb: 2, 
+            justifyContent: 'center',
+            p: 1,
+            backgroundColor: 'background.paper',
+            borderRadius: 1
+          }}>
             {alphabet.map(letter => (
               <Button 
                 key={letter} 
-                onClick={() => handleLetterClick(letter)}
+                onClick={() => {
+                  setActiveLetter(activeLetter === letter ? null : letter);
+                  setCurrentPage(1);
+                }}
                 variant={activeLetter === letter ? 'contained' : 'outlined'}
                 sx={{
                   minWidth: '32px', 
                   height: '32px', 
                   p: 0,
                   backgroundColor: activeLetter === letter ? '#00B4D8' : 'inherit',
-                  color: activeLetter === letter ? 'white !important' : 'inherit',
+                  color: activeLetter === letter ? 'white' : 'inherit',
                   '&:hover': {
                     backgroundColor: activeLetter === letter ? '#0088A3' : 'rgba(0, 180, 216, 0.08)'
                   }
@@ -446,8 +468,27 @@ export default function BrowseUserPTO() {
               </Button>
             ))}
           </Box>
-          <PaginationControls />
-          
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mt: 2, gap: 1 }}>
+            <Button 
+              variant="outlined" 
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <Typography variant="body2">
+              Page {currentPage} of {totalPages}
+            </Typography>
+            <Button 
+              variant="outlined" 
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages || totalPages === 0}
+            >
+              Next
+            </Button>
+          </Box>
+
           <Divider sx={{ my: 2 }} />
 
           <EmployeeTable
@@ -456,17 +497,22 @@ export default function BrowseUserPTO() {
             error={error}
             year={year}
           />
-          
         </Box>
       </Card>
+
+      <StatusFilterModal />
 
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+        <Alert 
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+          severity={snackbar.severity} 
+          sx={{ width: '100%' }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

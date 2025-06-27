@@ -671,7 +671,7 @@ function AttendanceDashboard() {
       <MDBox pt={6} pb={3} mt={-15}>
         <Grid container spacing={6}>
           <Grid item xs={12}>
-            <Card sx={{minHeight: 'calc(100vh - 64px)'}}>
+            <Card sx={{minHeight: 'calc(104vh - 64px)'}}>
               <MDBox p={3}>
                 <Tabs 
                   value={selectedTab} 

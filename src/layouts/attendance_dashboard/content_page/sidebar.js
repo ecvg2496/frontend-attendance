@@ -125,6 +125,7 @@ const CustomListItem = styled(ListItem)(({ theme, collapsed }) => ({
   margin: collapsed ? '8px 4px' : '8px 12px',
   padding: collapsed ? '12px 8px' : '12px 16px',
   justifyContent: collapsed ? 'center' : 'flex-start',
+  flexDirection: collapsed ? 'column' : 'row',
   cursor: 'pointer',
   transition: 'all 0.2s ease',
   '&:hover': {
@@ -139,6 +140,16 @@ const CustomListItem = styled(ListItem)(({ theme, collapsed }) => ({
       color: theme.palette.primary.main,
     },
   },
+}));
+
+const CustomListItemText = styled(ListItemText)(({ collapsed }) => ({
+  marginTop: collapsed ? '8px' : 0,
+  textAlign: collapsed ? 'center' : 'left',
+  '& .MuiTypography-root': {
+    fontSize: collapsed ? '0.75rem' : '1.1rem',
+    fontWeight: collapsed ? 400 : 500,
+    lineHeight: collapsed ? '1.2' : '1.5',
+  }
 }));
 
 const GlobalSideNav = ({ children }) => {
@@ -158,42 +169,6 @@ const GlobalSideNav = ({ children }) => {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const navigate = useNavigate();
   
-  // const fetchNotifications = async () => {
-  //   try {
-  //     const response = await axios.get('http://localhost:8000/api/attendance/pending-requests/');
-  //     const data = response.data || {};
-      
-  //     console.log('Notification data received:', data); // Debug log
-      
-  //     setNotificationCount(data.total || 0);
-  //     setNotificationDetails({
-  //       makeup: data.makeup_requests || 0,
-  //       schedule: data.schedule_requests || 0,
-  //       leave: data.leave_applications || 0
-  //     });
-  //   } catch (error) {
-  //     console.error('Error fetching notifications:', error);
-  //     // Set fallback values
-  //     setNotificationCount(0);
-  //     setNotificationDetails({
-  //       makeup: 0,
-  //       schedule: 0,
-  //       leave: 0
-  //     });
-  //   }
-  // };
-
-  // useEffect(() => {
-  //   // Initial fetch
-  //   fetchNotifications();
-    
-  //   // Set up polling every 15 seconds for testing
-  //   const interval = setInterval(fetchNotifications, 15000);
-    
-  //   // Clean up interval on component unmount
-  //   return () => clearInterval(interval);
-  // }, []);
-
   const handleDrawerToggle = () => {
     if (!isMobile) {
       setCollapsed(!collapsed);
@@ -340,92 +315,68 @@ const GlobalSideNav = ({ children }) => {
       <List sx={{ flexGrow: 1 }}>
         {drawerItems.map((item, index) => (
           <React.Fragment key={index}>
-            <Tooltip 
-              title={item.text} 
-              placement="right"
-              disableHoverListener={!collapsed}
+            <CustomListItem
+              button
+              collapsed={collapsed}
+              onClick={item.onClick || (item.hasSubmenu ? handleClientClick : () => handleItemClick(item.route))}
+              sx={{
+                '&:hover': {
+                  backgroundColor: theme.palette.mode === 'light' 
+                    ? 'rgba(0, 0, 0, 0.05)' 
+                    : 'rgba(255, 255, 255, 0.08)',
+                },
+              }}
             >
-              <CustomListItem
-                button
-                collapsed={collapsed}
-                onClick={item.onClick || (item.hasSubmenu ? handleClientClick : () => handleItemClick(item.route))}
+              <ListItemIcon
                 sx={{
-                  '&:hover': {
-                    backgroundColor: theme.palette.mode === 'light' 
-                      ? 'rgba(0, 0, 0, 0.05)' 
-                      : 'rgba(255, 255, 255, 0.08)',
-                  },
+                  minWidth: 'auto',
+                  mr: collapsed ? 0 : 3,
+                  justifyContent: 'center',
                 }}
               >
-                <ListItemIcon
-                  sx={{
-                    minWidth: 'auto',
-                    mr: collapsed ? 0 : 3,
-                    justifyContent: 'center',
-                  }}
-                >
-                  {item.icon}
-                </ListItemIcon>
-                {!collapsed && (
-                  <>
-                    <ListItemText
-                      primary={item.text}
-                      primaryTypographyProps={{
-                        fontSize: '1.1rem',
-                        fontWeight: '500',
-                      }}
-                    />
-                    {item.hasSubmenu && (clientMenuOpen ? <ExpandLess /> : <ExpandMore />)}
-                  </>
-                )}
-              </CustomListItem>
-            </Tooltip>
+                {item.icon}
+              </ListItemIcon>
+              <CustomListItemText
+                primary={item.text}
+                collapsed={collapsed}
+              />
+              {!collapsed && item.hasSubmenu && (clientMenuOpen ? <ExpandLess /> : <ExpandMore />)}
+            </CustomListItem>
             
             {item.hasSubmenu && !collapsed && (
               <Collapse in={clientMenuOpen} timeout="auto" unmountOnExit>
                 <List component="div" disablePadding>
                   {clientSubMenuItems.map((subItem, subIndex) => (
-                    <Tooltip 
+                    <CustomListItem
                       key={subIndex}
-                      title={subItem.text} 
-                      placement="right"
-                      disableHoverListener={!collapsed}
+                      button
+                      collapsed={collapsed}
+                      onClick={handleSubItemClick(subItem.route)}
+                      sx={{ 
+                        pl: 6,
+                        margin: collapsed ? '8px 4px' : '8px 12px 8px 36px',
+                        padding: collapsed ? '12px 8px' : '12px 16px',
+                        '&:hover': {
+                          backgroundColor: theme.palette.mode === 'light' 
+                            ? 'rgba(0, 0, 0, 0.05)' 
+                            : 'rgba(255, 255, 255, 0.08)',
+                        },
+                      }}
                     >
-                      <CustomListItem
-                        button
-                        collapsed={collapsed}
-                        onClick={handleSubItemClick(subItem.route)}
-                        sx={{ 
-                          pl: 6,
-                          margin: collapsed ? '8px 4px' : '8px 12px 8px 36px',
-                          padding: collapsed ? '12px 8px' : '12px 16px',
-                          '&:hover': {
-                            backgroundColor: theme.palette.mode === 'light' 
-                              ? 'rgba(0, 0, 0, 0.05)' 
-                              : 'rgba(255, 255, 255, 0.08)',
-                          },
+                      <ListItemIcon
+                        sx={{
+                          minWidth: 'auto',
+                          mr: collapsed ? 0 : 3,
+                          justifyContent: 'center',
                         }}
                       >
-                        <ListItemIcon
-                          sx={{
-                            minWidth: 'auto',
-                            mr: collapsed ? 0 : 3,
-                            justifyContent: 'center',
-                          }}
-                        >
-                          {subItem.icon}
-                        </ListItemIcon>
-                        {!collapsed && (
-                          <ListItemText
-                            primary={subItem.text}
-                            primaryTypographyProps={{
-                              fontSize: '1rem',
-                              fontWeight: '400',
-                            }}
-                          />
-                        )}
-                      </CustomListItem>
-                    </Tooltip>
+                        {subItem.icon}
+                      </ListItemIcon>
+                      <CustomListItemText
+                        primary={subItem.text}
+                        collapsed={collapsed}
+                      />
+                    </CustomListItem>
                   ))}
                 </List>
               </Collapse>
@@ -437,39 +388,28 @@ const GlobalSideNav = ({ children }) => {
       <Divider />
 
       {/* Logout Button */}
-      <Tooltip 
-        title="Logout" 
-        placement="right"
-        disableHoverListener={!collapsed}
+      <CustomListItem
+        button
+        collapsed={collapsed}
+        onClick={handleLogoutClick}
+        sx={{
+          mb: 2,
+        }}
       >
-        <CustomListItem
-          button
-          collapsed={collapsed}
-          onClick={handleLogoutClick}
+        <ListItemIcon
           sx={{
-            mb: 2,
+            minWidth: 'auto',
+            mr: collapsed ? 0 : 3,
+            justifyContent: 'center',
           }}
         >
-          <ListItemIcon
-            sx={{
-              minWidth: 'auto',
-              mr: collapsed ? 0 : 3,
-              justifyContent: 'center',
-            }}
-          >
-            <ColoredLogoutIcon fontSize="large" />
-          </ListItemIcon>
-          {!collapsed && (
-            <ListItemText
-              primary="Logout"
-              primaryTypographyProps={{
-                fontSize: '1.1rem',
-                fontWeight: '500',
-              }}
-            />
-          )}
-        </CustomListItem>
-      </Tooltip>
+          <ColoredLogoutIcon fontSize="large" />
+        </ListItemIcon>
+        <CustomListItemText
+          primary="Logout"
+          collapsed={collapsed}
+        />
+      </CustomListItem>
 
       {/* Footer Section */}
       {!collapsed && (

@@ -515,7 +515,7 @@ const MakeupRequestForm = () => {
   return (
     <SideNavBar>
       <Card sx={{ 
-        minHeight: 'calc(105vh - 64px)',
+        minHeight: 'calc(103vh - 64px)',
         width: '100%',      
         mt: -10
       }}>
@@ -525,10 +525,9 @@ const MakeupRequestForm = () => {
           alignItems: 'center',
           mb: 2,
           p: 2,
-          backgroundColor: '#f5f5f5',
           borderRadius: 1
         }}>
-          <Typography variant="h5" color="primary">
+          <Typography variant="h3" color="primary">
             Makeup Time Requests
           </Typography>
         </Box>
@@ -830,6 +829,7 @@ const MakeupRequestForm = () => {
                       <Button
                         variant="outlined"
                         color="inherit"
+                        startIcon={<Cancel />}
                         onClick={() => {
                           setShowModal(false);
                           setFormErrors({

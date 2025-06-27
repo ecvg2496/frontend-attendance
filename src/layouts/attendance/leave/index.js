@@ -3,6 +3,7 @@ import api from "api/axios";
 import {
   Card,
   Typography,
+  FormControl,
   Box,
   Modal,
   Tabs,
@@ -10,18 +11,25 @@ import {
   Tab,
   TextField,
   MenuItem,
+  InputLabel,
+  Select,
   Button,
   Paper,
   CircularProgress,
   IconButton,
   Grid,
   Badge,
-  Avatar,
   Chip,
   Stack,
-  Divider,
   Alert,
-  InputAdornment
+  InputAdornment,
+  FormControlLabel,
+  Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
 } from '@mui/material';
 import {
   Add,
@@ -30,19 +38,13 @@ import {
   PendingActions,
   CheckCircle,
   Cancel,
-  AccessTime,
-  SwapHoriz,
   Event,
-  ArrowBack,
   Person,
   Email,
   Phone,
   ContactEmergency,
-  CalendarToday,
-  Today,
   EventAvailable,
   Description,
-  Schedule,
   AttachFile,
   Delete
 } from '@mui/icons-material';
@@ -196,13 +198,6 @@ const LeaveTable = ({ data, loading, error, type, leaveTypes }) => {
       <Typography variant="subtitle1">No {type} leave applications found</Typography>
     </Box>
   );
-  const getInitials = (name) => {
-  if (!name) return '?';
-  const parts = name.trim().split(' ').filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  } 
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -223,166 +218,210 @@ const LeaveTable = ({ data, loading, error, type, leaveTypes }) => {
       minute: '2-digit'
     });
   };
+
   const formatDateFixer = (dateString) => {
-  if (!dateString) return ""; 
-  
-  const date = new Date(dateString);
-  return date.toLocaleString('en-PH', {
-    timeZone: 'Asia/Manila',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+    if (!dateString) return ""; 
+    const date = new Date(dateString);
+    return date.toLocaleString('en-PH', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
-  const calculateDays = (start, end) => {
+  const calculateDays = (start, end, isHalfDay) => {
+    if (!start || !end) return 0;
     const startDate = new Date(start);
     const endDate = new Date(end);
     const diffTime = Math.abs(endDate - startDate);
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const fullDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+    
+    if (isHalfDay) {
+      if (start === end) {
+        return 0.5; 
+      }
+      return fullDays - 0.5; 
+    }
+    
+    return fullDays;
   };
 
+  // Determine if we need scrolling based on the type
+  const needsScroll = type === 'approved' || type === 'rejected';
+
   return (
-    <Box width="100%" overflow="auto" position="relative" sx={{ mt: 2 }}>
-      <table style={{ 
-        width: '100%',
-        minWidth: '1500px',
-        borderCollapse: 'collapse',
-        fontSize: '0.875rem'
-      }}>
-        <thead>
-          <tr style={{ backgroundColor: '#00B4D8', color: 'white', textAlign: 'left' }}>
-            {type === 'pending' && (
-              <>
-                <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Type</th>
-                <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Dates</th>
-                <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Days</th>
-                <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Reason</th>
-                <th style={{ padding: '12px 16px', whiteSpace: 'nowrap'}}>Date Filed</th>
-                <th style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>Remarks</th>
-                <th style={{ padding: '12px 16px', whiteSpace: 'nowrap'}}>Processed By</th>
-              </>
-            )}
-            {type === 'approved' && (
-              <>
-                <th style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>Type</th>
-                <th style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>Dates</th>
-                <th style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>Days</th>
-                <th style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>Reason</th>
-                <th style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>Remarks</th>
-                <th style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>Date Filed</th>
-                <th style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>Processed By</th>
-                <th style={{ padding: '12px 16px', whiteSpace: 'nowrap'}}>Date Approved</th>
-              </>
-            )}
-            {type === 'rejected' && (
-              <>
-                <th style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>Type</th>
-                <th style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>Dates</th>
-                <th style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>Days</th>
-                <th style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>Reason</th>
-                <th style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>Date Filed</th>
-                <th style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>Remarks</th>
-                <th style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>Processed By</th>
-                <th style={{ padding: '12px 16px', whiteSpace: 'nowrap'}}>Date Rejected</th>
-              </>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((item, index) => {
-            const leaveType = leaveTypes.find(lt => lt.value === item.leave_type)?.label || item.leave_type;
-            const days = calculateDays(item.start_date, item.end_date);
+    <Box width="100%" position="relative">
+      <Box 
+        sx={{ 
+          overflowX: needsScroll ? 'auto' : 'visible',
+          width: '100%',
+          maxWidth: '100%'
+        }}
+      >
+        <table style={{ 
+          width: '100%',
+          minWidth: needsScroll ? '800px' : '100%',
+          borderCollapse: 'collapse',
+          fontSize: '0.875rem'
+        }}>
+          <thead>
+            <tr style={{ backgroundColor: '#00B4D8', color: 'white' }}>
+              {type === 'pending' && (
+                <>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '180px' }}>Date Filed</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Leave Type</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '250px' }}>Leave Dates</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Reason</th>
+                </>
+              )}
+              {type === 'approved' && (
+                <>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Type</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '200px' }}>Dates</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '100px' }}>Days</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Reason</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Remarks</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '180px' }}>Date Filed</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Processed By</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '180px' }}>Date Approved</th>
+                </>
+              )}
+              {type === 'rejected' && (
+                <>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Type</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '200px' }}>Dates</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '100px' }}>Days</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Reason</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '180px' }}>Date Filed</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Remarks</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '150px' }}>Processed By</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: '180px' }}>Date Rejected</th>
+                </>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((item, index) => {
+              const leaveType = leaveTypes.find(lt => lt.value === item.leave_type)?.label || item.leave_type;
+              const days = calculateDays(item.start_date, item.end_date, item.is_half_day);
+              const isHalfDay = item.is_half_day;
 
-            return (
-              <tr 
-                key={index} 
-                style={{ 
-                  borderBottom: '1px solid #e0e0e0',
-                  '&:hover': { backgroundColor: '#f5f5f5' }
-                }}
-              >
-                {type === 'pending' && (
-                  <>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>
-                      <Box fontWeight={500}>{leaveType}</Box>
-                    </td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>
-                      <Box fontSize="0.75rem" color="#666">
-                        {formatDate(item.start_date)} - {formatDate(item.end_date)}
-                      </Box>
-                    </td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>{days}</td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>{item?.reason || "N/A"}</td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>
-                      <Box fontSize="0.75rem" color="#666">
-                        {formatDateTime(item.applied_at)}
-                      </Box>
-                    </td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>
-                      <Box fontSize="0.75rem" color="#666">
-                        {item.processed_by || 'Pending'}
-                      </Box>
-                    </td>
-                  </>
-                )}
+              return (
+                <tr 
+                  key={index} 
+                  style={{ 
+                    borderBottom: '1px solid #e0e0e0',
+                    '&:hover': { backgroundColor: '#f5f5f5' }
+                  }}
+                >
+                  {type === 'pending' && (
+                    <>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                        <Box fontSize="0.9rem" color="#666">
+                          {formatDateTime(item?.applied_at)}
+                        </Box>
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                        {item?.leave_type || ""}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                        <Box fontSize="0.9rem">
+                          {formatDate(item.start_date)} - {formatDate(item.end_date)} 
+                          {isHalfDay && item.start_date === item.end_date ? ' (0.5 day)' : 
+                          isHalfDay ? ' (0.5 days)' : 
+                          ` (${days} day${days !== 1 ? 's' : ''})`}
+                        </Box>
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>{item?.reason || "N/A"}</td>
+                    </>
+                  )}
 
-                {type === 'approved' && (
-                  <>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>{leaveType}</td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>
-                      <Box fontSize="0.75rem" color="#666">
-                        {formatDate(item.start_date)} - {formatDate(item.end_date)}
-                      </Box>
-                    </td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>{days}</td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>{item?.reason || "N/A"}</td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>{item.remarks}</td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>
-                      <Box fontSize="0.75rem" color="#666">
-                        {formatDateTime(item.applied_at)}
-                      </Box>
-                    </td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>
-                      <Box color="#666">
-                        {item.processed_by || 'System'}
-                      </Box>
-                    </td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>{formatDateFixer(item.approval_date) || ""}</td>
-                  </>
-                )}
+                  {type === 'approved' && (
+                    <>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                        {leaveType}
+                        {isHalfDay && (
+                          <Chip 
+                            label={item.half_day_type === 'first_half' ? 'Morning Half' : 'Afternoon Half'} 
+                            size="small" 
+                            color="info"
+                            sx={{ ml: 1, fontSize: '0.7rem' }}
+                          />
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                        <Box fontSize="0.75rem" color="#666">
+                          {formatDate(item.start_date)} - {formatDate(item.end_date)}
+                        </Box>
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                        {isHalfDay && item.start_date === item.end_date ? '0.5 day' : 
+                         isHalfDay ? '1.5 days' : 
+                         `${days} day${days !== 1 ? 's' : ''}`}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>{item?.reason || "N/A"}</td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>{item?.remarks}</td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                        <Box fontSize="0.75rem" color="#666">
+                          {formatDateTime(item.applied_at)}
+                        </Box>
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                        <Box color="#666">
+                          {item.processed_by || 'System'}
+                        </Box>
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>{formatDateFixer(item.approval_date) || ""}</td>
+                    </>
+                  )}
 
-                {type === 'rejected' && (
-                  <>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>{leaveType}</td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>
-                      <Box color="#666">
-                        {formatDate(item.start_date)} - {formatDate(item.end_date)}
-                      </Box>
-                    </td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>{days}</td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>{item.reason}</td>                   
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>
-                      <Box color="#666">
-                        {formatDateTime(item.applied_at)}
-                      </Box>
-                    </td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>{item.remarks || '-'}</td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>
-                      <Box fontSize="0.75rem" color="#666">
-                        {item.processed_by || 'System'}
-                      </Box>
-                    </td>
-                    <td style={{ padding: '12px 16px' , whiteSpace: 'nowrap'}}>{formatDateFixer(item.approval_date) || ""}</td>
-                  </>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  {type === 'rejected' && (
+                    <>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                        {leaveType}
+                        {isHalfDay && (
+                          <Chip 
+                            label={item.half_day_type === 'first_half' ? 'Morning Half' : 'Afternoon Half'} 
+                            size="small" 
+                            color="info"
+                            sx={{ ml: 1, fontSize: '0.7rem' }}
+                          />
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                        <Box>
+                          {formatDate(item.start_date)} - {formatDate(item.end_date)}
+                        </Box>
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                        {isHalfDay && item.start_date === item.end_date ? '0.5 day' : 
+                         isHalfDay ? '1.5 days' : 
+                         `${days} day${days !== 1 ? 's' : ''}`}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>{item.reason}</td>                   
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                        <Box color="#666">
+                          {formatDateTime(item.applied_at)}
+                        </Box>
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>{item.remarks || '-'}</td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>
+                        <Box fontSize="0.75rem" color="#666">
+                          {item.processed_by || 'System'}
+                        </Box>
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'left' }}>{formatDateFixer(item.approval_date) || ""}</td>
+                    </>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Box>
     </Box>
   );
 };
@@ -422,6 +461,14 @@ const LeaveFormModal = () => {
     date: false,
     hours: false,
   });
+  const [isHalfDay, setIsHalfDay] = useState(false);
+  const [halfDayType, setHalfDayType] = useState('first_half');
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmDialogConfig, setConfirmDialogConfig] = useState({
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
 
   const leaveTypes = [
     { value: "Bereavement Leave", label: "Bereavement Leave" },
@@ -429,7 +476,8 @@ const LeaveFormModal = () => {
     { value: "Casual Leave", label: "Casual Leave" },
     { value: "Emergency Leave", label: "Emergency Leave" },
     { value: "Maternity Leave", label: "Maternity Leave" },
-    { value: "Maternity Leave", label: "Vacation Leave" },
+    { value: "Vacation Leave", label: "Vacation Leave" },
+    { value: "Sick Leave", label: "Sick Leave" },
   ];
 
   useEffect(() => {
@@ -487,11 +535,21 @@ const LeaveFormModal = () => {
     }
   };
 
-  const calculateLeaveDays = (startDate, endDate) => {
+  const calculateLeaveDays = (startDate, endDate, isHalfDay) => {
+    if (!startDate || !endDate) return 0;
     const start = new Date(startDate);
     const end = new Date(endDate);
     const diffTime = Math.abs(end - start);
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const fullDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Inclusive counting
+    
+    if (isHalfDay) {
+      if (startDate === endDate) {
+        return 0.5; // Single day half-day leave
+      }
+      return fullDays - 0.5; // Multi-day leave with half day (e.g., 2 days becomes 1.5)
+    }
+    
+    return fullDays; // Full days
   };
 
   const validateLeaveCredits = (leaveType, days) => {
@@ -509,23 +567,49 @@ const LeaveFormModal = () => {
     return availableCredits >= days;
   };
 
+  const handleHalfDayChange = (e) => {
+    const checked = e.target.checked;
+    
+    if (checked && formData.start_date && formData.end_date && formData.start_date !== formData.end_date) {
+      // Show confirmation dialog when dates are different
+      setConfirmDialogConfig({
+        title: 'Confirm Half-Day Leave',
+        message: 'You have selected different dates with half-day leave. This will calculate as 0.5 days. Continue?',
+        onConfirm: () => {
+          setIsHalfDay(true);
+          setFormData(prev => ({ ...prev, end_date: prev.start_date }));
+          setConfirmDialogOpen(false);
+        }
+      });
+      setConfirmDialogOpen(true);
+    } else {
+      setIsHalfDay(checked);
+      if (checked) {
+        setFormData(prev => ({ ...prev, end_date: prev.start_date }));
+      }
+    }
+  };
+
   const handleDateChange = (name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
     setFormErrors(prev => ({ ...prev, [name]: false }));
     
-    if (formData.leave_type) {
-      const startDate = name === 'start_date' ? value : formData.start_date;
-      const endDate = name === 'end_date' ? value : formData.end_date;
+    if (isHalfDay && name === 'start_date') {
+      setFormData(prev => ({ ...prev, end_date: value }));
+    }
+    
+    if (formData.leave_type && (name === 'start_date' || name === 'end_date')) {
+      const days = calculateLeaveDays(
+        name === 'start_date' ? value : formData.start_date,
+        name === 'end_date' ? value : formData.end_date,
+        isHalfDay
+      );
+      const hasEnoughCredits = validateLeaveCredits(formData.leave_type, days);
       
-      if (startDate && endDate) {
-        const days = calculateLeaveDays(startDate, endDate);
-        const hasEnoughCredits = validateLeaveCredits(formData.leave_type, days);
-        
-        if (!hasEnoughCredits) {
-          setResponseMsg(`Warning: You don't have enough ${formData.leave_type} credits for this duration`);
-        } else {
-          setResponseMsg("");
-        }
+      if (!hasEnoughCredits) {
+        setResponseMsg(`Warning: You don't have enough ${formData.leave_type} credits for this duration`);
+      } else {
+        setResponseMsg("");
       }
     }
   };
@@ -572,7 +656,7 @@ const LeaveFormModal = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    const days = calculateLeaveDays(formData.start_date, formData.end_date);
+    const days = calculateLeaveDays(formData.start_date, formData.end_date, isHalfDay);
     const hasEnoughCredits = validateLeaveCredits(formData.leave_type, days);
     
     if (!hasEnoughCredits) {
@@ -589,7 +673,7 @@ const LeaveFormModal = () => {
       setLoading(true);
       const endpoint = "/attendance/leave-applications/";
       const payload = new FormData();
-      const birthDate = formData.birthdate;
+      
       payload.append("employee", formData.employee);
       payload.append("employee_name", formData.employee_name);
       payload.append("position", formData.position);
@@ -598,8 +682,11 @@ const LeaveFormModal = () => {
       payload.append("leave_type", formData.leave_type);
       payload.append("start_date", formData.start_date);
       payload.append("end_date", formData.end_date);
+      payload.append("is_half_day", isHalfDay);
+      payload.append("half_day_type", isHalfDay ? halfDayType : 'none');
       payload.append("contact_during_leave", formData.contact_during_leave || "");
       payload.append("emergency_contact", formData.emergency_contact || "");
+      
       if (file) {
         payload.append("attachment", file);
       }
@@ -623,17 +710,16 @@ const LeaveFormModal = () => {
         reason: "",
         contact_during_leave: "",
         emergency_contact: "",
-        date: "",
-        hours: "",
       }));
       setFile(null);
+      setIsHalfDay(false);
+      setHalfDayType('first_half');
       
       await fetchLeaveHistory();
       await fetchLeaveCredits(employee.id);
       setHistoryTabValue("pending");
       setShowModal(false);
       setResponseMsg("");
-   
     } catch (error) {
       console.error("Submission error:", error);
       const errorMessage = error.response?.data?.message || 
@@ -646,8 +732,10 @@ const LeaveFormModal = () => {
   };
 
   const renderFormContent = () => {
+    const days = calculateLeaveDays(formData.start_date, formData.end_date, isHalfDay);
+    
     return (
-      <Grid container spacing={3}>
+      <Grid container spacing={4}>
         <Grid item xs={12} sm={6}>
           <TextField
             select
@@ -677,39 +765,26 @@ const LeaveFormModal = () => {
                 </InputAdornment>
               )
             }}
-            SelectProps={{
-              MenuProps: {
-                PaperProps: {
-                  sx: {
-                    maxHeight: 300,
-                    '& .MuiMenuItem-root': {
-                      minHeight: '48px',
-                      padding: '8px 16px',
-                      '&.Mui-selected': {
-                        backgroundColor: 'rgba(25, 118, 210, 0.08)'
-                      }
-                    }
-                  }
-                }
-              }
-            }}
           >
             {leaveTypes.map((option) => (
-              <MenuItem 
-                key={option.value} 
-                value={option.value}
-                sx={{
-                  minHeight: '48px',
-                  padding: '15px 20px',
-                  '&:hover': {
-                    backgroundColor: 'rgba(25, 118, 210, 0.04)'
-                  }
-                }}
-              >
+              <MenuItem key={option.value} value={option.value}>
                 {option.label}
               </MenuItem>
             ))}
           </TextField>
+        </Grid>
+
+        <Grid item xs={12} sm={6}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={isHalfDay}
+                    onChange={handleHalfDayChange}
+                    color="primary"
+                  />
+                }
+                label="Half-day"
+              />
         </Grid>
 
         <Grid item xs={12} sm={6}>
@@ -730,6 +805,7 @@ const LeaveFormModal = () => {
             }}
           />
         </Grid>
+
         <Grid item xs={12} sm={6}>
           <TextField
             fullWidth
@@ -746,13 +822,22 @@ const LeaveFormModal = () => {
             InputProps={{
               startAdornment: <EventAvailable color={formErrors.end_date ? "error" : "action"} sx={{ mr: 1 }} />
             }}
+            disabled={isHalfDay}
           />
         </Grid>
 
         {formData.start_date && formData.end_date && (
           <Grid item xs={12}>
             <Alert severity="info" sx={{ mb: 2 }}>
-              This leave will use {calculateLeaveDays(formData.start_date, formData.end_date)} days of your {formData.leave_type} credits.
+              {isHalfDay ? (
+                formData.start_date === formData.end_date ? (
+                  "This is a half-day leave (0.5 day)"
+                ) : (
+                  `This leave will use 0.5 days to your ${formData.leave_type} credits.`
+                )
+              ) : (
+                `This leave will use ${days} ${days === 1 ? 'day' : 'days'} of your ${formData.leave_type} credits.`
+              )}
             </Alert>
           </Grid>
         )}
@@ -770,6 +855,7 @@ const LeaveFormModal = () => {
             }}
           />
         </Grid>
+
         <Grid item xs={12} sm={6}>
           <TextField
             fullWidth
@@ -876,20 +962,22 @@ const LeaveFormModal = () => {
   return (
     <SideNavBar>
       <Card sx={{ 
-        minHeight: 'calc(103vh - 64px)',
+        minHeight: 'calc(104vh - 64px)',
         width: '100%',
-        minWidth: '1400px',
+        maxWidth: '100%',
         margin: '0 auto',
         p: 3,
+        overflowX: 'hidden',
+        boxSizing: 'border-box',
         mt: -10
       }}>
+        <Typography variant="h3" color="primary" sx={{mb: 2}}>Leave Applications</Typography>
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
           mb: 2,
           p: 2,
-          backgroundColor: '#f5f5f5',
           borderRadius: 1
         }}>
           {leaveCredits && (
@@ -907,6 +995,7 @@ const LeaveFormModal = () => {
                     } ${remainingDays === 1 ? 'day' : 'days'}`}
                     color={remainingDays > 0 ? 'primary' : 'error'}
                     variant="outlined"
+                    sx={{mr: -2}}
                   />
                 );
               })}
@@ -995,197 +1084,242 @@ const LeaveFormModal = () => {
         </Fab>
 
         <Modal
-          open={showModal}
-          onClose={() => {
-            setShowModal(false);
-            setResponseMsg("");
-            setFile(null);
-            setFormErrors({
-              file: false,
-              leave_type: false,
-              start_date: false,
-              end_date: false,
-              reason: false,
-              date: false,
-              hours: false
-            });
-          }}
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backdropFilter: 'blur(4px)'
-          }}
-        >
-          <Paper sx={{ 
-            width: '90%',
-            maxWidth: 800,
-            maxHeight: '90vh',
-            overflow: 'auto',
-            p: 4,
-            borderRadius: 2,
-            position: 'relative'
-          }}>
-            <IconButton
-              aria-label="close"
-              onClick={() => {
-                setShowModal(false);
-                setResponseMsg("");
-                setFile(null);
-                setFormErrors({
-                  file: false,
-                  leave_type: false,
-                  start_date: false,
-                  end_date: false,
-                  reason: false,
-                  date: false,
-                  hours: false
-                });
+  open={showModal}
+  onClose={() => {
+    setShowModal(false);
+    setResponseMsg("");
+    setFile(null);
+    setIsHalfDay(false);
+    setHalfDayType('first_half');
+    setFormErrors({
+      file: false,
+      leave_type: false,
+      start_date: false,
+      end_date: false,
+      reason: false,
+      date: false,
+      hours: false
+    });
+  }}
+  sx={{
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backdropFilter: 'blur(4px)',
+    overflow: 'auto'
+  }}
+>
+  <Paper
+    sx={{
+      width: '90%',
+      maxWidth: 800,
+      maxHeight: '90vh',
+      overflowY: 'auto',
+      p: 4,
+      pb: 6,
+      borderRadius: 2,
+      position: 'relative',
+      boxShadow: 6
+    }}
+  >
+    <IconButton
+      aria-label="close"
+      onClick={() => {
+        setShowModal(false);
+        setResponseMsg("");
+        setFile(null);
+        setIsHalfDay(false);
+        setHalfDayType('first_half');
+        setFormErrors({
+          file: false,
+          leave_type: false,
+          start_date: false,
+          end_date: false,
+          reason: false,
+          date: false,
+          hours: false
+        });
+      }}
+      sx={{
+        position: 'absolute',
+        right: 16,
+        top: 16,
+        color: 'text.secondary'
+      }}
+    >
+      <Close />
+    </IconButton>
+
+    <Typography variant="h3" component="h2" color="primary" gutterBottom sx={{ fontWeight: 600 }}>
+      Leave Application
+    </Typography>
+
+    {leaveCredits && (
+      <Box sx={{ display: 'flex', gap: 3, mb: 1 }}>
+        {leaveCredits.map((credit) => {
+          const isBirthdayLeave = credit.leave_type.toLowerCase() === 'birthday';
+          const used = isBirthdayLeave ? credit.is_paid_birthday || 0 : credit.is_paid || 0;
+          const remainingDays = credit.total_days - used;
+
+          return (
+            <Chip
+              key={credit.id}
+              label={`${credit.leave_type === 'regular' ? 'Regular' : 'Birthday'} Leave: ${
+                remainingDays
+              } ${remainingDays === 1 ? 'day' : 'days'}`}
+              color={remainingDays > 0 ? 'primary' : 'error'}
+              variant="outlined"
+            />
+          );
+        })}
+      </Box>
+    )}
+
+    <Box sx={{ pt: 2 }}>
+      <Box component="form" onSubmit={handleSubmit}>
+        <Grid container spacing={3}>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Employee Name"
+              name="employee_name"
+              value={formData.employee_name}
+              variant="outlined"
+              InputProps={{
+                readOnly: true,
+                startAdornment: <Person color="action" sx={{ mr: 1 }} />
               }}
-              sx={{
-                position: 'absolute',
-                right: 16,
-                top: 16,
-                color: 'text.secondary'
+              sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Email"
+              name="email"
+              value={formData.email}
+              variant="outlined"
+              InputProps={{
+                readOnly: true,
+                startAdornment: <Email color="action" sx={{ mr: 1 }} />
               }}
-            >
-              <Close />
-            </IconButton>
+              sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
+            />
+          </Grid>
 
-            <Typography variant="h3" component="h2" color="primary" gutterBottom sx={{ fontWeight: 600 }}>
-              Leave Application
-            </Typography>
-                  {leaveCredits && (
-                  <Box sx={{ display: 'flex', gap: 3 }}>
-                    {leaveCredits.map((credit) => {
-                      const isBirthdayLeave = credit.leave_type.toLowerCase() === 'birthday';
-                      const used = isBirthdayLeave ? credit.is_paid_birthday || 0 : credit.is_paid || 0;
-                      const remainingDays = credit.total_days - used;
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Team"
+              name="team"
+              value={formData.team}
+              variant="outlined"
+              InputProps={{
+                readOnly: true,
+                startAdornment: <Person color="action" sx={{ mr: 1 }} />
+              }}
+              sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
+            />
+          </Grid>
 
-                      return (
-                        <Chip
-                          key={credit.id}
-                          label={`${credit.leave_type === 'regular' ? 'Regular' : 'Birthday'} Leave: ${
-                            remainingDays
-                          } ${remainingDays === 1 ? 'day' : 'days'}`}
-                          color={remainingDays > 0 ? 'primary' : 'error'}
-                          variant="outlined"
-                        />
-                      );
-                    })}
-                  </Box>
-                )}
-            <Box sx={{ pt: 2 }}>
-              <Box component="form" onSubmit={handleSubmit}>
-                <Grid container spacing={3}>
-                  <Grid item xs={12} sm={6} ml={-1}>
-                    <TextField
-                      fullWidth
-                      label="Employee Name"
-                      name="employee_name"
-                      value={formData.employee_name}
-                      variant="outlined"
-                      InputProps={{
-                        readOnly: true,
-                        startAdornment: <Person color="action" sx={{ mr: 1 }} />
-                      }}
-                      sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      label="Email"
-                      name="email"
-                      value={formData.email}
-                      variant="outlined"
-                      InputProps={{
-                        readOnly: true,
-                        startAdornment: <Email color="action" sx={{ mr: 1 }} />
-                      }}
-                      sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} mb={3} ml={-1}>
-                    <TextField
-                      fullWidth
-                      label="Team"
-                      name="team"
-                      value={formData.team}
-                      variant="outlined"
-                      InputProps={{
-                        readOnly: true,
-                        startAdornment: <Person color="action" sx={{ mr: 1 }} />
-                      }}
-                      sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      label="Department"
-                      name="department"
-                      value={formData.department}
-                      variant="outlined"
-                      InputProps={{
-                        readOnly: true,
-                        startAdornment: <Email color="action" sx={{ mr: 1 }} />
-                      }}
-                      sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
-                    />
-                  </Grid>
-                  
-                  {renderFormContent()}
-                  
-                  <Grid item xs={12}>
-                    <Stack direction="row" spacing={2} justifyContent="flex-end">
-                      <Button
-                        variant="outlined"
-                        color="inherit"
-                        onClick={() => {
-                          setShowModal(false);
-                          setFile(null);
-                          setFormErrors({
-                            file: false,
-                            leave_type: false,
-                            start_date: false,
-                            end_date: false,
-                            reason: false,
-                            date: false,
-                            hours: false
-                          });
-                        }}
-                        sx={{ minWidth: 120 }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="submit"
-                        variant="contained"
-                        color="primary"
-                        disabled={loading}
-                        startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Send />}
-                        sx={{ minWidth: 120, color: 'white !important' }}
-                      >
-                        {loading ? 'Submitting...' : 'Submit'}
-                      </Button>
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </Box>
-            </Box>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Department"
+              name="department"
+              value={formData.department}
+              variant="outlined"
+              InputProps={{
+                readOnly: true,
+                startAdornment: <Email color="action" sx={{ mr: 1 }} />
+              }}
+              sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
+            />
+          </Grid>
 
-            {responseMsg && (
-              <Alert
-                severity={responseMsg.includes("Error") ? "error" : "success"}
-                sx={{ mt: 3 }}
-                onClose={() => setResponseMsg("")}
+          {/* Additional dynamic form fields if any */}
+          {renderFormContent()}
+
+          <Grid item xs={12}>
+            <Stack direction="row" spacing={2} justifyContent="flex-end">
+              <Button
+                variant="outlined"
+                color="inherit"
+                onClick={() => {
+                  setShowModal(false);
+                  setFile(null);
+                  setIsHalfDay(false);
+                  setHalfDayType('first_half');
+                  setFormErrors({
+                    file: false,
+                    leave_type: false,
+                    start_date: false,
+                    end_date: false,
+                    reason: false,
+                    date: false,
+                    hours: false
+                  });
+                }}
+                startIcon={<Cancel />}
+                sx={{ minWidth: 120 }}
               >
-                {responseMsg}
-              </Alert>
-            )}
-          </Paper>
-        </Modal>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                disabled={loading}
+                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Send />}
+                sx={{ minWidth: 120, color: 'white !important' }}
+              >
+                {loading ? 'Submitting...' : 'Submit'}
+              </Button>
+            </Stack>
+          </Grid>
+        </Grid>
+      </Box>
+    </Box>
+
+    {responseMsg && (
+      <Alert
+        severity={responseMsg.includes("Error") ? "error" : "success"}
+        sx={{ mt: 3 }}
+        onClose={() => setResponseMsg("")}
+      >
+        {responseMsg}
+      </Alert>
+    )}
+  </Paper>
+</Modal>
+
+
+        {/* Confirmation Dialog */}
+        <Dialog
+          open={confirmDialogOpen}
+          onClose={() => setConfirmDialogOpen(false)}
+        >
+          <DialogTitle>{confirmDialogConfig.title}</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              {confirmDialogConfig.message}
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
+            <Button 
+              onClick={() => {
+                confirmDialogConfig.onConfirm();
+                setConfirmDialogOpen(false);
+              }} 
+              color="primary"
+              autoFocus
+            >
+              Confirm
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Card>
     </SideNavBar>
   );

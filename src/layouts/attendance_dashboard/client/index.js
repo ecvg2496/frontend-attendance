@@ -118,6 +118,7 @@ const ClientTable = ({
         <thead>
           <tr style={{ backgroundColor: '#00B4D8', color: 'white', textAlign: 'left' }}>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Actions</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Begin Date</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Client Name</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Type</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Timezone</th>
@@ -160,7 +161,13 @@ const ClientTable = ({
                   <Delete fontSize="small" />  
                 </IconButton>
               </td>
-              
+              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                {new Date(client.begin_date).toLocaleDateString('en-US', {
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+              </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 <Box display="flex" alignItems="center" gap={1}>
                   <Avatar 
@@ -604,7 +611,7 @@ const AttendanceAdminClient = () => {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <SideNavBar>
-        <Card sx={{ p: 3, position: 'relative', minHeight: 'calc(105vh - 64px)', mt: -10 }}>
+        <Card sx={{ p: 3, position: 'relative', minHeight: 'calc(104vh - 64px)', mt: -10 }}>
           <Typography variant="h5" gutterBottom color="primary" sx={{ mb: 3, fontWeight: 'bold' }}>
             Client and Employee Assignment
           </Typography>
@@ -758,7 +765,7 @@ const AttendanceAdminClient = () => {
             fullWidth
           >
             <DialogTitle sx={{ backgroundColor: '#f5f5f5', pb: 1 }}>
-              <Typography variant="h2" color = "primary" sx={{fontWeight: 'bold', fontSize: '1.2rem' }}>
+              <Typography variant="h3" color = "primary">
                 Assign Employee to {selectedClient?.name || 'Selected Client'}
               </Typography>
             </DialogTitle>
@@ -1057,12 +1064,15 @@ const AttendanceAdminClient = () => {
           <Dialog
             open={unassignDialogOpen}
             onClose={handleUnassignCancel}
-            maxWidth="xs"
+            maxWidth="small"
           >
             <DialogTitle>Confirm Unassign Employee</DialogTitle>
             <DialogContent>
               <Typography>
                 Are you sure you want to unassign {employeeToUnassign?.first_name} {employeeToUnassign?.last_name} from {selectedClient?.name}?
+              </Typography>
+                <Typography>
+                This action cannot be undone.
               </Typography>
             </DialogContent>
             <DialogActions>
@@ -1163,7 +1173,7 @@ const AttendanceAdminClient = () => {
                     <Grid container spacing={2}>
                       <Grid item xs={12}>
                         <Box display="flex" alignItems="center" gap={2}>
-                          <Avatar 
+                         <Avatar 
                             sx={{ 
                               bgcolor: clientFormData.avatarColor,
                               width: 56, 
@@ -1171,7 +1181,15 @@ const AttendanceAdminClient = () => {
                               fontSize: '1.5rem'
                             }}
                           >
-                            {clientFormData.name ? clientFormData.name[0].toUpperCase() : 'C'}
+                            {clientFormData.name 
+                              ? (() => {
+                                  const words = clientFormData.name.trim().split(/\s+/);
+                                  const firstInitial = words[0]?.[0]?.toUpperCase() || '';
+                                  const lastInitial = words.length > 1 ? words[words.length - 1][0]?.toUpperCase() : '';
+                                  return firstInitial + lastInitial || 'C';
+                                })()
+                              : 'C'
+                            }
                           </Avatar>
                           <TextField
                             fullWidth

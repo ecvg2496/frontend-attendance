@@ -43,12 +43,23 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import axios from 'axios';
+import axios from 'api/axios';
 import '../content_page/css/admintable.css';
 import SideNavBar from "../content_page/nav_bar";
 
 // Status Badge Component
 const StatusBadge = ({ status }) => {
+  const getMatchedStyle = (statusText) => {
+    if (statusText.includes("Early")) return statusStyles.Early;
+    if (statusText.includes("Late")) return statusStyles.Late;
+    if (statusText.includes("Undertime")) return statusStyles.Undertime;
+    if (statusText.includes("Overbreak")) return statusStyles.Overbreak;
+    if (statusText.includes("Overtime")) return statusStyles.Overtime;
+    if (statusText.includes("On Time")) return statusStyles.OnTime;
+    if (statusText.includes("Paid Leave")) return statusStyles.paidLeave;
+    return statusStyles[statusText];
+  };
+
   const statusStyles = {
     Active: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
     Inactive: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
@@ -56,21 +67,26 @@ const StatusBadge = ({ status }) => {
     Floating: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
     Present: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
     Working: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
+    Overtime: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
     Late: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
     Undertime: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
     Absent : { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
     Taken: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
-    Missed: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' }
+    Missed: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
+    Overbreak: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
+    Early: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
+    OnTime: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
+    paidLeave: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' }
   };
 
   return (
     <span style={{
       padding: '2px 8px',
       borderRadius: '10px',
-      fontSize: '0.7em',
+      fontSize: '1.2em',
       fontWeight: '600',
       textTransform: 'capitalize',
-      ...statusStyles[status] || { background: '#e0e0e0' }
+      ...(getMatchedStyle(status) || { background: '#e0e0e0', color: '#333' })
     }}>
       {status}
     </span>
@@ -79,7 +95,7 @@ const StatusBadge = ({ status }) => {
 
 // Time Formatter Component
 const formatTimeProfessional = (timeString) => {
-  if (!timeString) return '--:--';
+  if (!timeString) return '';
   
   try {
     const time = new Date(`2000-01-01T${timeString}`);
@@ -101,7 +117,7 @@ const formatDisplayDate = (dateString) => {
   
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
-    month: 'short',
+    month: 'long',
     day: 'numeric',
     year: 'numeric'
   });
@@ -131,46 +147,6 @@ const DailyAttendanceTable = ({ employeeData, logsData, loading, error, onViewCl
     </Box>
   );
 
-  // Enhanced responsive styles
-  // const styles = {
-  //   container: {
-  //     width: '100%',
-  //     overflow: 'auto',
-  //     maxHeight: 'calc(100vh - 300px)',
-  //   },
-  //   table: {
-  //     width: '100%',
-  //     minWidth: isXLargeScreen ? '100%' : (isLargeScreen ? '1200px' : '1100px'),
-  //     tableLayout: 'auto',
-  //     fontSize: '0.75rem'
-  //   },
-  //   header: {
-  //     position: 'sticky',
-  //     top: 0,
-  //     zIndex: 1,
-  //     backgroundColor: '#2E7D32',
-  //     color: 'white',
-  //     fontSize: '0.85rem',
-  //     '& th': {
-  //       padding: '6px 8px',
-  //       whiteSpace: 'nowrap'
-  //     }
-  //   },
-  //   cell: {
-  //     padding: '6px 8px',
-  //     fontSize: '0.8rem'
-  //   },
-  //   employeeCell: {
-  //     minWidth: '180px',
-  //     textAlign: 'left'
-  //   },
-  //   avatar: {
-  //     width: 28,
-  //     height: 28,
-  //     marginRight: 1
-  //   }
-  // };
-
   return (
       <table style={{ 
           width: '100%',
@@ -180,15 +156,16 @@ const DailyAttendanceTable = ({ employeeData, logsData, loading, error, onViewCl
         }}>
         <thead>
           <tr style={{backgroundColor: '#00B4D8', color: 'white', textAlign: 'left'}}>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>Date</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>Status</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>Time In</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>Status</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>Break</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>Duration</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>Time Out</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>Status</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>Actions</th>
+            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Date</th>
+            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Status</th>
+            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Time In</th>
+            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Time-in Status</th>
+            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Start Break</th>
+            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>End Break</th>
+            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Break Status</th>
+            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Time Out</th>
+            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Time Out Status</th>
+            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -197,56 +174,58 @@ const DailyAttendanceTable = ({ employeeData, logsData, loading, error, onViewCl
             
             return (
               <tr key={log.id}>
-                <td style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>
+                <td style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '18px'}}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <DateIcon fontSize="small" color="action" />
+                    <DateIcon fontSize="medium" color="action" />
                     {log.date ? formatDisplayDate(log.date) : "--"}
                   </Box>
                 </td>
                     
-                <td style={{ ...{padding: '12px 16px', whiteSpace: 'nowrap'}, textAlign: 'center' }}>
+                <td style={{ ...{padding: '12px 16px', whiteSpace: 'nowrap'}}}>
                   <StatusBadge status={log.status || 'Absent'} />
                 </td>
 
-                <td style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>
+                <td style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '18px'}}>
                   {log.time_in ? formatTimeProfessional(log.time_in) : '--:--'}
                 </td>
                 <td style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    {log.time_in_status}
+                    <StatusBadge status={log?.time_in_status || ''} />
                   </Box>
                 </td>
 
-                <td style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>
-                  {log.start_break ? (
+                <td style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '18px'}}>
+                  {log?.time_in ? (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
                       <span>{formatTimeProfessional(log.start_break)}</span>
                     </Box>
-                  ) : '--:--'}
-                  <div>
+                  ) : ''}
+                </td>
+                  <td style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '18px'}}>
                   {log.start_break ? (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
                       <span>{formatTimeProfessional(log.end_break)}</span>
                     </Box>
-                  ) : '--:--'}
-                  </div>
+                  ) : ''}
                 </td>
-                <td style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>
-                  {log.break_duration ? (
+                <td style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '18px'}}>
+                  {log?.end_break ? (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
-                      <span>{formatTimeProfessional(log.start_break)}</span>
+                      <span><StatusBadge status={log?.break_status || ''} /></span>
                     </Box>
-                  ) : '--:--'}
+                  ) : ''}
                 </td>
              
+             <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: '18px', display: 'inline-block' }}>
+                  {log.time_out ? formatTimeProfessional(log?.time_out) : '--:--'}
+                </span>
+              </td>
                 <td style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>
-                  {log.time_out ? formatTimeProfessional(log.time_out) : '--:--'}
-                </td>
-                <td style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>
-                  {log.time_out_status || '--:--'}
+                    <StatusBadge status={log?.time_out_status || ''} />
                 </td>
                 
-                <td style={{ ...{padding: '12px 16px', whiteSpace: 'nowrap'}, textAlign: 'center' }}>
+                <td style={{ ...{padding: '12px 16px', whiteSpace: 'nowrap'}}}>
                   <Tooltip title="View Details">
                     <IconButton 
                       color="primary" 
@@ -282,7 +261,7 @@ const AttendanceUserLogs = () => {
   });
   const [dateError, setDateError] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const itemsPerPage = 5;
+  const itemsPerPage = 7;
 
   // Disable future dates
   const disableFutureDates = (date) => {
@@ -348,42 +327,42 @@ const AttendanceUserLogs = () => {
   }, [dateRange]);
 
   useEffect(() => {
-    const fetchEmployeeData = async () => {
-      try {
-        setLoading(true);
-        const storedEmployee = localStorage.getItem('employee');
-        
-        if (!storedEmployee) {
-          throw new Error('No employee data found');
-        }
-        
-        const emp = JSON.parse(storedEmployee);
-        
-        if (!emp?.id) {
-          throw new Error('Invalid employee data');
-        }
-        
-        setEmployeeData(emp);
-        
-        const logsRes = await axios.get(`http://localhost:8000/api/attendance/logs/?employee_id=${emp.id}`);
-        
-        if (!logsRes.data?.results) {
-          throw new Error('Invalid logs data format');
-        }
-        
-        setLogsData(logsRes.data.results);
-        setError(null);
-      } catch (err) {
-        console.error('Fetch error:', err);
-        setError(err.message || 'Failed to fetch data');
-        setLogsData([]);
-      } finally {
-        setLoading(false);
+  const fetchEmployeeData = async () => {
+    try {
+      setLoading(true);
+      const storedEmployee = localStorage.getItem('employee');
+      
+      if (!storedEmployee) {
+        throw new Error('No employee data found');
       }
-    };
+      
+      const emp = JSON.parse(storedEmployee);
+      
+      if (!emp?.id) {
+        throw new Error('Invalid employee data');
+      }
+      
+      setEmployeeData(emp);
+      
+      const logsRes = await axios.get(`attendance/logs/?employee_id=${emp.id}`);
+      
+      if (!logsRes.data?.logs) {
+        throw new Error('Invalid logs data format');
+      }
+      
+      setLogsData(logsRes.data.logs); 
+      setError(null);
+    } catch (err) {
+      console.error('Fetch error:', err);
+      setError(err.message || 'Failed to fetch data');
+      setLogsData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchEmployeeData();
-  }, []);
+  fetchEmployeeData();
+}, []);
 
   const handleViewClick = (data) => {
     setSelectedLog(data);
@@ -466,22 +445,40 @@ return (
   <SideNavBar>
     <Box sx={{ p: 2 }}>
       <Card sx={{ mb: 2, mt: -12, overflow: 'auto' }}>
-        <Tabs 
+         <Tabs 
           value={tabValue} 
           onChange={handleTabChange}
           variant="fullWidth"
           sx={{ 
             '& .MuiTabs-indicator': { height: 3 },
-            '& .MuiTab-root': { minHeight: 48, fontSize: '0.8rem' }
+            '& .MuiTab-root': { minHeight: 48, fontSize: '0.8rem', color: 'black !important' },
+            width: '100%'
+            
           }}
-        >
-          <Tab label="Attendance Logs" icon={<TodayIcon fontSize="small" />} iconPosition="start" />
-          <Tab label="Overview" icon={<DateRangeIcon fontSize="small" />} iconPosition="start" />
+         >
+         <Tab
+            label={
+              <Typography sx={{ fontSize: '1.5rem', fontWeight: 500 }}>
+                Attendance Logs
+              </Typography>
+            }
+            icon={<TodayIcon fontSize="medium" />}
+            iconPosition="start"
+          />
+          <Tab
+            label={
+              <Typography sx={{ fontSize: '1.5rem', fontWeight: 500, color: 'black !important' }}>
+                Overview
+              </Typography>
+            }
+            icon={<DateRangeIcon fontSize="medium" />}
+            iconPosition="start"
+          />
         </Tabs>
         <CardContent sx={{ p: 2 }}>
           {tabValue === 0 && (
             <Box>
-              <Typography variant="subtitle1" color="primary" sx={{ mb: 1, fontSize: '1.4rem' }}>
+              <Typography variant="h3" color="primary" sx={{ mb: 1 }}>
                 {employeeData.first_name}'s Logs
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
@@ -491,7 +488,7 @@ return (
                   variant="outlined" 
                   icon={<PersonIcon fontSize="small" />} 
                   size="small"
-                  sx={{ fontSize: '0.7rem' }}
+                  sx={{ fontSize: '1.2rem' }}
                 />
                 <Chip 
                   label={`${stats.present} Present`}
@@ -499,7 +496,7 @@ return (
                   variant="outlined" 
                   icon={<PresentIcon fontSize="small" />} 
                   size="small"
-                  sx={{ fontSize: '0.7rem' }}
+                  sx={{ fontSize: '1.2rem' }}
                 />
                 <Chip 
                   label={`${stats.late} Late`}
@@ -507,7 +504,7 @@ return (
                   variant="outlined" 
                   icon={<LateIcon fontSize="small" />} 
                   size="small"
-                  sx={{ fontSize: '0.7rem' }}
+                  sx={{ fontSize: '1.2rem' }}
                 />
                 <Chip 
                   label={`${stats.absent} Absent`}
@@ -515,11 +512,10 @@ return (
                   variant="outlined" 
                   icon={<AbsentIcon fontSize="small" />} 
                   size="small"
-                  sx={{ fontSize: '0.7rem' }}
+                  sx={{ fontSize: '1.2rem' }}
                 />
               </Box>
 
-              <Box sx={{ width: '100%', overflowX: 'auto' }}>
                 <DailyAttendanceTable 
                   employeeData={employeeData}
                   logsData={paginatedData}
@@ -527,7 +523,6 @@ return (
                   error={error}
                   onViewClick={handleViewClick}
                 />
-              </Box>
 
               <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                 <Pagination
@@ -543,7 +538,7 @@ return (
           )}
           {tabValue === 1 && (
             <Box>
-              <Typography variant="subtitle1" color="primary" sx={{ mb: 2, fontSize: '1.2rem' }}>
+              <Typography variant="h3" color="primary" sx={{ mb: 2}}>
                 Attendance Overview for {employeeData.first_name} {employeeData.last_name}
               </Typography>
               
