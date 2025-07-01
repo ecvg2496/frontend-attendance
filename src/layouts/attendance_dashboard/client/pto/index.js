@@ -328,8 +328,10 @@ export default function BrowseUserPTO() {
           onExited: () => { modalRef.current = false; }
         }}
       >
-        <DialogTitle>Filter Employees by Status</DialogTitle>
-        <DialogContent>
+  <DialogTitle body2="h1" color="primary">
+    Filter Employees by Status
+  </DialogTitle>     
+   <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
             {Object.keys(localFilters).map(status => (
               <FormControlLabel
@@ -367,6 +369,7 @@ export default function BrowseUserPTO() {
             variant="contained" 
             onClick={handleApply}
             color="primary"
+            sx={{color: 'white !important'}}
           >
             Apply Filters
           </Button>

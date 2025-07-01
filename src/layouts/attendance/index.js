@@ -1,40 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,Typography,Button,useTheme,Tabs,Tab,
-  useMediaQuery,
-  CircularProgress,
-  Snackbar,
-  Alert,
-  Paper,
-  Tooltip,
-  Grid,
-  LinearProgress,
-  Modal,
-  TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
-  Icon,
-  InputAdornment
+  Box, Typography, Button, useTheme, Tabs, Tab,
+  useMediaQuery, CircularProgress, Snackbar, Alert,
+  Paper, Tooltip, Grid, LinearProgress, Modal,
+  TextField, Dialog, DialogTitle, DialogContent,
+  DialogActions, IconButton, Icon, InputAdornment
 } from '@mui/material';
 import {
-  Person as PersonIcon,
-  Schedule as ScheduleIcon,
-  WarningAmber as WarningAmberIcon,
-  AccessTime as AccessTimeIcon,
-  FreeBreakfast as FreeBreakfastIcon,
-  LunchDining as LunchDiningIcon,
-  ExitToApp as ExitToAppIcon,
-  History as HistoryIcon,
-  Work as WorkIcon,
-  Timer as TimerIcon,
-  ScheduleSend as ScheduleSendIcon,
-  Public as PublicIcon,
-  HourglassEmpty as HourglassEmptyIcon,
-  AddCircle as AddCircleIcon,
-  Search as SearchIcon
+  Person as PersonIcon, Schedule as ScheduleIcon,
+  WarningAmber as WarningAmberIcon, AccessTime as AccessTimeIcon,
+  FreeBreakfast as FreeBreakfastIcon, LunchDining as LunchDiningIcon,
+  ExitToApp as ExitToAppIcon, History as HistoryIcon,
+  Work as WorkIcon, Timer as TimerIcon, ScheduleSend as ScheduleSendIcon,
+  Public as PublicIcon, HourglassEmpty as HourglassEmptyIcon,
+  AddCircle as AddCircleIcon, Search as SearchIcon
 } from '@mui/icons-material';
 import axios from 'api/axios';
 import SideNavBar from './content_page/nav_bar';
@@ -49,9 +28,7 @@ const getCurrentESTDate = () => {
   return new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
 };
 
-const getPHTTimezoneLabel = () => {
-  return "GMT + 8:00";
-};
+const getPHTTimezoneLabel = () => "GMT + 8:00";
 
 const isEDT = (date) => {
   const year = date.getFullYear();
@@ -90,7 +67,6 @@ const formatTimeToHMS = (date) => {
 
 const formatDisplayDate = (dateString) => {
   try {
-    // Ensure the date string is in the correct format
     const dateParts = dateString.split('-');
     if (dateParts.length === 3) {
       const date = new Date(`${dateParts[0]}-${dateParts[1]}-${dateParts[2]}`);
@@ -101,19 +77,24 @@ const formatDisplayDate = (dateString) => {
         day: 'numeric'
       });
     }
-    return dateString; // Return original if not in expected format
+    return dateString;
   } catch (e) {
     return 'Invalid date';
   }
 };
 
-const calculateTimeDifference = (time1, time2) => {
-  if (!time1 || !time2) return 0;
-  
-  const t1 = new Date(`2000-01-01T${time1}Z`);
-  const t2 = new Date(`2000-01-01T${time2}Z`);
-  
-  return (t2 - t1) / (1000 * 60);
+const formatMinutesToHours = (minutes) => {
+  if (!minutes && minutes !== 0) return '--';
+  const mins = parseFloat(minutes);
+  const hours = Math.floor(mins / 60);
+  const remainingMins = mins % 60;
+  return `${hours}h ${remainingMins}m`;
+};
+
+const formatTimeFromSeconds = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
 const formatDigitalTime = (date) => {
@@ -134,20 +115,6 @@ const formatDigitalTime = (date) => {
       timeZone: date.timeZone
     })
   };
-};
-
-const formatMinutesToHours = (minutes) => {
-  if (!minutes && minutes !== 0) return '--';
-  const mins = parseFloat(minutes);
-  const hours = Math.floor(mins / 60);
-  const remainingMins = mins % 60;
-  return `${hours}h ${remainingMins}m`;
-};
-
-const formatTimeFromSeconds = (seconds) => {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
 const EmployeeAttendanceDashboard = () => {
@@ -185,27 +152,13 @@ const EmployeeAttendanceDashboard = () => {
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredRecords, setFilteredRecords] = useState([]);
+  const [pendingTimeOut, setPendingTimeOut] = useState(null);
+  
   const tabItems = [
     { label: "Today's Attendance", icon: <AccessTimeIcon /> },
     { label: "History", icon: <HistoryIcon /> },
   ];
-  const [lateDuration, setLateDuration] = useState(null);
-  const [overtimeDuration, setOvertimeDuration] = useState(null);
 
-
-  const speak = (text) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.0;
-      speechSynthesis.speak(utterance);
-    }
-  };
-  const formatDuration = (minutes) => {
-    if (minutes === null || minutes === undefined) return '0m';
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-  };
   // Update current time every second
   useEffect(() => {
     const timer = setInterval(() => {
@@ -232,41 +185,46 @@ const EmployeeAttendanceDashboard = () => {
       fetchClientAttendance(emp.id);
     }
   }, []);
+
   useEffect(() => {
     if (employee?.id) {
       fetchLeaveCredits(employee.id);
     }
   }, [employee]);
-  // Calculate late and overtime durations
-  useEffect(() => {
-    if (todayRecord && employee) {
-      if (todayRecord.time_in && employee.time_in) {
-        const lateMins = calculateTimeDifference(employee.time_in, todayRecord.time_in);
-        setLateDuration(Math.max(0, lateMins));
-      }
 
-      if (todayRecord.time_out && employee.time_out) {
-        const overtimeMins = calculateTimeDifference(employee.time_out, todayRecord.time_out);
-        setOvertimeDuration(Math.max(0, overtimeMins));
+  // Check for pending time-outs
+  const checkPendingTimeOut = async () => {
+    if (!employee?.id) return;
+    
+    try {
+      const response = await axios.get('/attendance/logs/pending-timeout/', {
+        params: { employee_id: employee.id }
+      });
+      
+      if (response.data.has_pending) {
+        setPendingTimeOut(response.data.log);
+      } else {
+        setPendingTimeOut(null);
       }
+    } catch (error) {
+      console.error('Error checking pending time-out:', error);
     }
-  }, [todayRecord, employee]);
+  };
 
-  //Fetch Leave
+  // Fetch leave credits
   const fetchLeaveCredits = async (employeeId) => {
-  try {
-    // Fetch leave credits for current year
-    const currentYear = new Date().getFullYear();
-    const response = await axios.get(
-      `/attendance/leave-credits/?employee_id=${employeeId}&year=${currentYear}`
-    );
-    setLeaveCredits(response.data);
-  } catch (err) {
-    console.error("Error fetching leave credits:", err);
-    // You can choose to show this error or handle silently
-  }
-};
+    try {
+      const currentYear = new Date().getFullYear();
+      const response = await axios.get(
+        `/attendance/leave-credits/?employee_id=${employeeId}&year=${currentYear}`
+      );
+      setLeaveCredits(response.data);
+    } catch (err) {
+      console.error("Error fetching leave credits:", err);
+    }
+  };
 
+  // Break duration calculation
   useEffect(() => {
     let interval;
     if (todayRecord?.start_break && !todayRecord?.end_break && !breakAlert.acknowledged) {
@@ -281,18 +239,16 @@ const EmployeeAttendanceDashboard = () => {
         
         const remainingMins = maxBreakMinutes - durationMins;
         
-        // Only show alert at 5 mins and 1 min remaining
         if (remainingMins === 5 || remainingMins === 1) {
           setBreakAlert({
             open: true,
             remainingTime: `${remainingMins} minute${remainingMins > 1 ? 's' : ''}`,
             acknowledged: false
           });
-          speak(`Your break duration is almost over. ${remainingMins} minute${remainingMins > 1 ? 's' : ''} remaining.`);
         }
 
         if (durationMins >= maxBreakMinutes) {
-          setBreakDuration(formatDuration(maxBreakMinutes) + ' (Max)');
+          setBreakDuration(`${maxBreakMinutes}m (Max)`);
           clearInterval(interval);
         } else {
           setBreakDuration(`${durationMins.toString().padStart(2, '0')}:${durationSecs.toString().padStart(2, '0')}`);
@@ -302,8 +258,8 @@ const EmployeeAttendanceDashboard = () => {
   
     return () => clearInterval(interval);
   }, [todayRecord, employee?.employment_type, breakAlert.acknowledged]);
-  
-  // Fetch Client in employee
+
+  // Fetch client attendance
   const fetchClientAttendance = async (employeeId) => {
     if (!employeeId) return;
   
@@ -322,7 +278,8 @@ const EmployeeAttendanceDashboard = () => {
       setClientLoading(false);
     }
   };
-  
+
+  // Break alert modal
   const BreakAlertModal = () => (
     <Dialog
       open={breakAlert.open}
@@ -386,96 +343,123 @@ const EmployeeAttendanceDashboard = () => {
     return () => clearInterval(interval);
   }, [todayRecord, breakDelayRemaining]);
 
+  // Fetch today's attendance
   const fetchTodayAttendance = async (employeeId) => {
-  setLoading(true);
-  setError(null);
-  try {
-     const now = getCurrentPHTDate();
-    const today = formatDateToYMD(now);
-    const yesterday = formatDateToYMD(new Date(now.getTime() - 24 * 60 * 60 * 1000));
-    
-    // Convert to same format for comparison
-    const todayFormatted = formatDateToYMD(now);
-    const yesterdayFormatted = formatDateToYMD(new Date(now.getTime() - 24 * 60 * 60 * 1000));
-    console.log('Today from system:', formatDateToYMD(getCurrentPHTDate()));
-    const todayResponse = await axios.get(`/attendance/logs`, {  
-      params: { 
-        employee_id: employeeId,
-        date: formatDateToYMD(getCurrentPHTDate())
-      }
-    });
-    
-    let existingRecord = todayResponse.data?.logs?.[0] || null;
-
-      if (!existingRecord) {
-      const yesterdayResponse = await axios.get(`/attendance/logs`, {  
+    setLoading(true);
+    setError(null);
+    try {
+      const now = getCurrentPHTDate();
+      const today = formatDateToYMD(now);
+      
+      const todayResponse = await axios.get(`/attendance/logs`, {  
         params: { 
           employee_id: employeeId,
-          date: formatDateToYMD(new Date(now.getTime() - 24 * 60 * 60 * 1000)),
-          time_out__isnull: true
+          date: today
         }
       });
       
-      const yesterdayRecords = yesterdayResponse.data?.results || [];
-      if (yesterdayRecords.length > 0) {
-        const mostRecentOpenRecord = yesterdayRecords[0];
-        existingRecord = mostRecentOpenRecord;
-      }
-    }
+      let existingRecord = todayResponse.data?.logs?.[0] || null;
 
-    if (!existingRecord) {
-      const openRecordsResponse = await axios.get(`/attendance/logs`, {  
-        params: { 
+      if (!existingRecord) {
+        const pendingResponse = await axios.get('/attendance/logs/pending-timeout/', {
+          params: { employee_id: employeeId }
+        });
+        
+        if (pendingResponse.data.has_pending) {
+          setPendingTimeOut(pendingResponse.data.log);
+          existingRecord = pendingResponse.data.log;
+        }
+      } else {
+        setPendingTimeOut(null);
+      }
+
+      if (!existingRecord) {
+        existingRecord = {
+          employee: employeeId,
+          date: today,
+          status: 'Active',
+          time_in: null,
+          start_break: null,
+          end_break: null,
+          time_out: null,
+          break_duration: 0,
+          work_hours: 0,
+        };
+      }
+      
+      setTodayRecord(existingRecord);
+      
+      // Load all records for history
+      const allRecordsResponse = await axios.get(`/attendance/logs`, {
+        params: {
           employee_id: employeeId,
-          time_out__isnull: true,
-          time_in__isnull: false,
           ordering: '-date'
         }
       });
       
-      const openRecords = openRecordsResponse.data?.results || [];
-      if (openRecords.length > 0) {
-        const mostRecentOpenRecord = openRecords[0];
-        const recordDate = formatDateToYMD(new Date(mostRecentOpenRecord.date));
-        if (recordDate === today || recordDate === yesterday) {
-          existingRecord = mostRecentOpenRecord;
-        }
-      }
+      setAttendanceRecords(allRecordsResponse.data?.results || []);
+      
+    } catch (error) {
+      setError('Failed to load attendance records');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle time actions (time in, break start/end, time out)
+  const handleTimeAction = async (actionType) => {
+    if (!employee || !employee.id) {
+      setError('Employee data not found');
+      return;
     }
 
-    if (!existingRecord) {
-      existingRecord = {
-        employee: employeeId,
-        date: today,
-        status: 'Active',
-        time_in: null,
-        start_break: null,
-        end_break: null,
-        time_out: null,
-        break_duration: 0,
-        work_hours: 0,
+    // Check for pending time-out when trying to time in
+    if (actionType === 'timeIn' && pendingTimeOut) {
+      setError(`You must time out from your previous session on ${formatDisplayDate(pendingTimeOut.date)} first`);
+      return;
+    }
+
+    setLoading(true);
+    setActionInProgress(actionType);
+    setError(null);
+
+    try {
+      const now = getCurrentPHTDate();
+      const timeString = formatTimeToHMS(now);
+      const date = formatDateToYMD(now);
+
+      let payload = {
+        employee: employee.id,
+        date,
+        [actionType === 'timeIn' ? 'time_in' : 
+         actionType === 'breakStart' ? 'start_break' :
+         actionType === 'breakEnd' ? 'end_break' : 'time_out']: timeString
       };
-    }
-    
-    setTodayRecord(existingRecord);
-    
-    // Load all records for history
-    const allRecordsResponse = await axios.get(`/attendance/logs`, {
-      params: {
-        employee_id: employeeId,
-        ordering: '-date'
-      }
-    });
-    
-    setAttendanceRecords(allRecordsResponse.data?.results || []);
-    
-  } catch (error) {
-    setError('Failed to load attendance records');
-  } finally {
-    setLoading(false);
-  }
-};
 
+      // If we have an existing record, include its ID
+      if (todayRecord && todayRecord.id) {
+        payload.id = todayRecord.id;
+      }
+
+      let response;
+      if (payload.id) {
+        response = await axios.patch(`/attendance/logs/${payload.id}/`, payload);
+      } else {
+        response = await axios.post('/attendance/logs/', payload);
+      }
+
+      setTodayRecord(response.data);
+      setSuccess(`Successfully recorded ${actionType}`);
+      await fetchTodayAttendance(employee.id);
+    } catch (error) {
+      setError(error.response?.data?.error || error.message || `Failed to ${actionType}`);
+    } finally {
+      setLoading(false);
+      setActionInProgress(null);
+    }
+  };
+
+  // Show confirmation dialog
   const showConfirmationDialog = (actionType) => {
     const now = getCurrentPHTDate();
     const timeString = formatTimeToHMS(now);
@@ -520,229 +504,7 @@ const EmployeeAttendanceDashboard = () => {
     await handleTimeAction(confirmDialog.action);
   };
 
-  const handleTimeAction = async (actionType) => {
-    if (!employee || !employee.id) {
-      setError('Employee data not found');
-      return;
-    }
-  
-    setLoading(true);
-    setActionInProgress(actionType);
-    setError(null);
-  
-    try {
-      const now = getCurrentPHTDate();
-      const timeString = formatTimeToHMS(now);
-      const date = formatDateToYMD(now);
-  
-      let recordToUpdate = todayRecord && todayRecord.date === date ? todayRecord : null;
-  
-      if (actionType === 'timeOut') {
-        if (!recordToUpdate) {
-          throw new Error('No attendance record found for today');
-        }
-        
-        if (recordToUpdate.start_break && !recordToUpdate.end_break) {
-          throw new Error('Must end break before timing out');
-        }
-  
-        const payload = {
-          ...recordToUpdate,
-          time_out: timeString,
-          status: 'Active',
-        };
-  
-        const timeInDate = new Date(`${recordToUpdate.date}T${recordToUpdate.time_in}`);
-        const timeOutDate = new Date(`${date}T${timeString}`);
-        const workMinutes = (timeOutDate - timeInDate) / (1000 * 60) - (recordToUpdate.break_duration || 0);
-        payload.work_hours = (workMinutes / 60).toFixed(2);
-        const scheduledEndStr = employee.time_out;
-        let scheduledEndHours = parseInt(scheduledEndStr.split(':')[0]);
-        const scheduledEndMinutes = parseInt(scheduledEndStr.split(':')[1]);
-        
-        if (scheduledEndStr.includes('AM') && scheduledEndHours === 12) {
-          scheduledEndHours = 0;
-        } else if (scheduledEndStr.includes('PM') && scheduledEndHours !== 12) {
-          scheduledEndHours += 12;
-        }
-
-        const scheduledEnd = new Date(`${recordToUpdate.date}T${scheduledEndHours.toString().padStart(2, '0')}:${scheduledEndMinutes.toString().padStart(2, '0')}:00`);
-  
-        if (timeOutDate.getHours() < 6 && scheduledEnd.getHours() >= 18) {
-          scheduledEnd.setDate(scheduledEnd.getDate() - 1);
-        }
-
-        else if (timeOutDate.getHours() >= 18 && scheduledEnd.getHours() < 6) {
-          scheduledEnd.setDate(scheduledEnd.getDate() + 1);
-        }
-  
-        const timeDiffMs = timeOutDate - scheduledEnd;
-        const diffMinutes = Math.floor(timeDiffMs / (1000 * 60));
-        const maxBreakMinutes = employee.employment_type === 'training' ? 15 : 60;
-        const actualBreakMinutes = recordToUpdate.break_duration || 0;
-        const overbreakMinutes = Math.max(0, actualBreakMinutes - maxBreakMinutes);
-  
-        let statusParts = [];
-        
-        if (diffMinutes < 0) {
-          const undertimeMinutes = Math.abs(diffMinutes);
-          statusParts.push(`Undertime (${formatMinutesToHours(undertimeMinutes)})`);
-          payload.undertime = undertimeMinutes;
-          payload.overtime = null;
-        } else if (diffMinutes > 0) {
-          const overtimeMinutes = diffMinutes;
-          statusParts.push(`Overtime (${formatMinutesToHours(overtimeMinutes)})`);
-          payload.overtime = overtimeMinutes;
-          payload.undertime = null;
-        } else {
-          statusParts.push('On Time');
-          payload.undertime = null;
-          payload.overtime = null;
-        }
-  
-        if (overbreakMinutes > 0) {
-          statusParts.push(`Overbreak (${formatMinutesToHours(overbreakMinutes)})`);
-          payload.overbreak = overbreakMinutes;
-        }
-  
-        payload.time_out_status = statusParts.join(' | ');
-        const responseUpdate = await axios.patch(`/attendance/logs/${recordToUpdate.id}/`, payload);
-        setTodayRecord(responseUpdate.data);
-        setSuccess('Successfully recorded time out');
-        await fetchTodayAttendance(employee.id);
-        return;
-      }
-  
-      const optimisticUpdate = recordToUpdate ? { ...recordToUpdate } : {
-        employee: employee.id,
-        date,
-        status,
-        break_duration: 0,
-        work_hours: 0
-      };
-  
-      switch (actionType) {
-        case 'timeIn':
-          optimisticUpdate.time_in = timeString;
-          
-          const scheduledTimeStr = employee.time_in;
-          let scheduledHours = parseInt(scheduledTimeStr.split(':')[0]);
-          const scheduledMinutes = parseInt(scheduledTimeStr.split(':')[1]);
-          
-          if (scheduledTimeStr.includes('AM') && scheduledHours === 12) {
-            scheduledHours = 0;
-          } else if (scheduledTimeStr.includes('PM') && scheduledHours !== 12) {
-            scheduledHours += 12;
-          }
-        
-          const scheduledStart = new Date(date);
-          scheduledStart.setHours(scheduledHours, scheduledMinutes, 0, 0);
-
-          const actualStart = new Date(date);
-          const [actualHours, actualMins, actualSecs] = timeString.split(':').map(Number);
-          actualStart.setHours(actualHours, actualMins, actualSecs, 0);
-
-          const timeDiffMinutes = Math.floor((actualStart - scheduledStart) / (1000 * 60));
-
-          const isSameDayComparison = 
-            (actualStart.getHours() >= 6 && scheduledStart.getHours() >= 6) || 
-            (actualStart.getHours() < 6 && scheduledStart.getHours() < 6);
-        
-          let finalDiffMinutes = timeDiffMinutes;
- 
-          if (!isSameDayComparison) {
-            if (actualStart.getHours() < 6 && scheduledStart.getHours() >= 18) {
-              finalDiffMinutes = timeDiffMinutes + (24 * 60); 
-            } else if (actualStart.getHours() >= 18 && scheduledStart.getHours() < 6) {
-              finalDiffMinutes = timeDiffMinutes - (24 * 60); 
-            }
-          }
-        
-          if (finalDiffMinutes < 0) {
-            optimisticUpdate.time_in_status = `Early (${formatMinutesToHours(Math.abs(finalDiffMinutes))})`;
-            optimisticUpdate.early_duration = Math.abs(finalDiffMinutes);
-            optimisticUpdate.late_duration = null;
-          } else if (finalDiffMinutes > 0) {
-            optimisticUpdate.time_in_status = `Late (${formatMinutesToHours(finalDiffMinutes)})`;
-            optimisticUpdate.late_duration = finalDiffMinutes;
-            optimisticUpdate.early_duration = null;
-          } else {
-            optimisticUpdate.time_in_status = 'On Time';
-            optimisticUpdate.late_duration = null;
-            optimisticUpdate.early_duration = null;
-          }
-
-          optimisticUpdate.start_break = null;
-          optimisticUpdate.end_break = null;
-          optimisticUpdate.time_out = null;
-          optimisticUpdate.time_out_status = null;
-          optimisticUpdate.work_hours = 0;
-          optimisticUpdate.break_duration = 0;
-          optimisticUpdate.status = 'Active';
-          optimisticUpdate.processed_status = 'Pending';
-          break;
-  
-        case 'breakStart':
-          if (!optimisticUpdate.time_in) throw new Error('Must time in before starting break');
-          optimisticUpdate.start_break = timeString;
-          optimisticUpdate.end_break = null;
-          optimisticUpdate.break_status = null;
-          optimisticUpdate.break_duration = 0;
-          break;
-  
-        case 'breakEnd':
-          if (!optimisticUpdate.start_break) throw new Error('Must start break before ending it');
-          optimisticUpdate.end_break = timeString;
-            
-          const breakStart = new Date(`${date}T${optimisticUpdate.start_break}`);
-          const breakEnd = new Date(`${date}T${timeString}`);
-          let breakMinutes = Math.floor((breakEnd - breakStart) / (1000 * 60));
-            
-            // Set break status based on employment type and duration
-          const maxBreakMinutes = employee.status === 'training' ? 15 : 60;
-            if (breakMinutes > maxBreakMinutes) {
-              optimisticUpdate.break_status = `Overbreak (${formatMinutesToHours(breakMinutes - maxBreakMinutes)})`;
-              optimisticUpdate.break_duration = breakMinutes; // Only count allowed minutes
-            } 
-            else {
-              optimisticUpdate.break_status = 'On Time';
-              optimisticUpdate.break_duration = breakMinutes;
-            }
-            break;
-  
-        default:
-          throw new Error('Invalid action type');
-      }
-  
-      const payload = {
-        ...optimisticUpdate,
-        late_duration: optimisticUpdate.late_duration || null,
-        early_duration: optimisticUpdate.early_duration || null,
-        break_duration: optimisticUpdate.break_duration || 0,
-        work_hours: optimisticUpdate.work_hours || 0,
-        break_status: optimisticUpdate.break_status || '',
-        time_out_status: optimisticUpdate.time_out_status || '',
-      };
-  
-      let response;
-      if (payload.id) {
-        response = await axios.patch(`attendance/logs/${payload.id}/`, payload);
-      } else {
-        response = await axios.post(`attendance/logs/`, payload);
-      }
-  
-      setTodayRecord(response.data);
-      setSuccess(`Successfully recorded ${actionType}`);
-      await fetchTodayAttendance(employee.id);
-    } catch (error) {
-      setError(error.response?.data?.error || error.message || `Failed to ${actionType}`);
-      await fetchTodayAttendance(employee.id);
-    } finally {
-      setLoading(false);
-      setActionInProgress(null);
-    }
-  };
-
+  // Get button state
   const getButtonState = (action) => {
     // Get current date in PHT
     const currentPHTDate = getCurrentPHTDate();
@@ -777,7 +539,6 @@ const EmployeeAttendanceDashboard = () => {
       }
       
       const now = getCurrentPHTDate();
-      const todayDateStr = formatDateToYMD(now);
       const [outHours, outMinutes] = employee.time_out.split(':').map(Number);
       let scheduledOutTime = new Date(`${todayDateStr}T${employee.time_out}`);
       
@@ -824,8 +585,9 @@ const EmployeeAttendanceDashboard = () => {
     if (action === 'timeIn') {
       return {
         status: todayRecord.time_in ? 'completed' : 'enabled',
-        disabled: todayRecord.time_in || loading,
-        tooltip: todayRecord.time_in ? 'Already timed in' : 'Time in now'
+        disabled: todayRecord.time_in || loading || pendingTimeOut,
+        tooltip: pendingTimeOut ? `You must time out from ${formatDisplayDate(pendingTimeOut.date)} first` :
+                (todayRecord.time_in ? 'Already timed in' : 'Time in now')
       };
     }
     
@@ -847,6 +609,7 @@ const EmployeeAttendanceDashboard = () => {
     return { status: 'disabled', disabled: true, tooltip: 'Action not available' };
   };
 
+  // Filter records based on search term
   useEffect(() => {
     if (searchTerm.trim() === '') {
       setFilteredRecords(attendanceRecords);
@@ -864,6 +627,71 @@ const EmployeeAttendanceDashboard = () => {
     }
   }, [searchTerm, attendanceRecords]);
 
+  // Pending time-out modal
+  const PendingTimeOutModal = () => (
+    <Dialog
+      open={!!pendingTimeOut}
+      onClose={() => setPendingTimeOut(null)}
+      aria-labelledby="pending-timeout-title"
+    >
+      <DialogTitle id="pending-timeout-title" sx={{ 
+        display: 'flex', 
+        alignItems: 'center',
+        backgroundColor: theme.palette.warning.light,
+        color: theme.palette.warning.contrastText
+      }}>
+        <WarningAmberIcon sx={{ mr: 1 }} />
+        Pending Time Out Required
+      </DialogTitle>
+      <DialogContent sx={{ pt: 3 }}>
+        <Typography variant="body1" gutterBottom>
+          You have an unfinished session from <strong>{formatDisplayDate(pendingTimeOut?.date)}</strong>.
+        </Typography>
+        <Typography variant="body1" gutterBottom>
+          You must time out from this session before you can time in for a new day.
+        </Typography>
+        
+        <Box sx={{ 
+          mt: 3,
+          p: 2,
+          border: `1px solid ${theme.palette.divider}`,
+          borderRadius: 1,
+          backgroundColor: theme.palette.background.paper
+        }}>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            Pending Session Details:
+          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="body2">Date:</Typography>
+            <Typography variant="body2" fontWeight="bold">
+              {formatDisplayDate(pendingTimeOut?.date)}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="body2">Time In:</Typography>
+            <Typography variant="body2" fontWeight="bold">
+              {formatTimeTo12Hour(pendingTimeOut?.time_in)}
+            </Typography>
+          </Box>
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button 
+          onClick={() => {
+            setTodayRecord(pendingTimeOut);
+            setTabValue(0);
+            setPendingTimeOut(null);
+          }}
+          color="warning"
+          variant="contained"
+        >
+          Time Out Now
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
+  // Confirmation dialog
   const renderConfirmationDialog = () => (
     <Dialog
       open={confirmDialog.open}
@@ -901,6 +729,7 @@ const EmployeeAttendanceDashboard = () => {
     </Dialog>
   );
 
+  // Render time display
   const renderTimeDisplay = () => {
     const estLabel = getESTTimezoneLabel(); 
     const phtLabel = getPHTTimezoneLabel(); 
@@ -926,7 +755,6 @@ const EmployeeAttendanceDashboard = () => {
                 </Typography>
               </Box>
             </Box>
-            
           </Paper>
         </Grid>
 
@@ -940,11 +768,6 @@ const EmployeeAttendanceDashboard = () => {
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              {/* <img 
-                src="/images/los_angeles.png" 
-                alt="Los Angeles" 
-                style={{ width: 50, height: 50, marginRight: 10 }} 
-              /> */}
               <Box>
                 <Typography variant="body1" sx={{ color: theme.palette.secondary.contrastText }}>
                   {currentTime.est.time12}
@@ -960,6 +783,7 @@ const EmployeeAttendanceDashboard = () => {
     );
   };
 
+  // Render employee info
   const renderEmployeeInfo = () => {
     if (!employee) return (
       <Typography sx={{ mt: 4, color: "error.main" }}>
@@ -974,29 +798,29 @@ const EmployeeAttendanceDashboard = () => {
         gap: 1,
         mb: 1
       }}>
-        {/* Left Column - Employee Basic Info */}
-      <Box sx={{
-        width: 300,
-        backgroundColor: theme.palette.grey[50],
-        p: 2,
-        borderRadius: 2,
-        borderLeft: `4px solid ${theme.palette.info.main}`,
-        boxShadow: theme.shadows[1]
-      }}>
-          <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          mb: 1,
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          pb: 1
+        {/* Employee Basic Info */}
+        <Box sx={{
+          width: 300,
+          backgroundColor: theme.palette.grey[50],
+          p: 2,
+          borderRadius: 2,
+          borderLeft: `4px solid ${theme.palette.info.main}`,
+          boxShadow: theme.shadows[1]
         }}>
-          <PersonIcon color="info" sx={{ mr: 1, fontSize: '1rem' }} />
-          <Typography variant="subtitle1" color = "primary" sx={{ fontWeight: 600 }}>
-            User Information
-          </Typography>
-        </Box>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            mb: 1,
+            borderBottom: `1px solid ${theme.palette.divider}`,
+            pb: 1
+          }}>
+            <PersonIcon color="info" sx={{ mr: 1, fontSize: '1rem' }} />
+            <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 600 }}>
+              User Information
+            </Typography>
+          </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <PersonIcon color="primary" sx={{ mr: 2 }} />
             <Typography variant="h6" sx={{color: 'black !important'}}>
               {employee.first_name} {employee.last_name}
@@ -1023,7 +847,7 @@ const EmployeeAttendanceDashboard = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <ScheduleIcon color="primary" sx={{ mr: 2 }} />
             <Typography variant="h6" sx={{color:'black !important'}}>
-             {formatTimeTo12Hour(employee.time_in)} - {formatTimeTo12Hour(employee.time_out)} / {employee.contract_hours} hours
+              {formatTimeTo12Hour(employee.time_in)} - {formatTimeTo12Hour(employee.time_out)} / {employee.contract_hours} hours
             </Typography>
           </Box>
           {breakDuration && (
@@ -1045,140 +869,140 @@ const EmployeeAttendanceDashboard = () => {
               </Typography>
             </Box>
           )}
-      </Box>
+        </Box>
         
-
-        {/* Middle - Client Information */}
-      <Box sx={{
-        width: 300,
-        backgroundColor: theme.palette.grey[50],
-        p: 2,
-        borderRadius: 2,
-        borderLeft: `4px solid ${theme.palette.info.main}`,
-        boxShadow: theme.shadows[1]
-      }}>
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          mb: 1,
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          pb: 1
+        {/* Client Information */}
+        <Box sx={{
+          width: 300,
+          backgroundColor: theme.palette.grey[50],
+          p: 2,
+          borderRadius: 2,
+          borderLeft: `4px solid ${theme.palette.info.main}`,
+          boxShadow: theme.shadows[1]
         }}>
-          <WorkIcon color="info" sx={{ mr: 1, fontSize: '1rem' }} />
-          <Typography variant="subtitle1" color = "primary" sx={{ fontWeight: 600 }}>
-            Assigned Clients
-          </Typography>
-        </Box>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            mb: 1,
+            borderBottom: `1px solid ${theme.palette.divider}`,
+            pb: 1
+          }}>
+            <WorkIcon color="info" sx={{ mr: 1, fontSize: '1rem' }} />
+            <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 600 }}>
+              Assigned Clients
+            </Typography>
+          </Box>
 
-        {clientLoading ? (
-          <CircularProgress size={20} />
-        ) : clientAttendanceData.length > 0 ? (
-          clientAttendanceData.map(client => (
-            <Box key={client.id} sx={{ mb: 1 }}>
-               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <PersonIcon color="primary" sx={{ mr: 2 }} />
-                <Typography variant="h6" sx={{color: 'black !important'}}>
-                  {client.name}
-                </Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2}}>
-                <TimerIcon color="primary" sx={{ mr: 2 }} />
-                <Typography variant="h6" sx={{color: 'black !important'}}>
-                  {formatTimeTo12Hour(client.start_time)} - {formatTimeTo12Hour(client.end_time)} ({client.schedule_type})
-                </Typography>
-              </Box>
-               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2}}>
-                <TimerIcon color="primary" sx={{ mr: 2 }} />
-                <Typography variant="h6" sx={{color: 'black !important'}}>
-                  {client.timezone}
-                </Typography>
-              </Box>
-            </Box>
-          ))
-        ) : (
-          <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
-            No clients assigned
-          </Typography>
-        )}
-      </Box>
-
-        {/* Right Column - Leave Credits */}
-      <Box sx={{
-        width: 300,
-        backgroundColor: theme.palette.grey[50],
-        p: 2,
-        borderRadius: 2,
-        borderLeft: `4px solid ${theme.palette.info.main}`,
-        boxShadow: theme.shadows[1]
-      }}>
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          mb: 1,
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          pb: 1
-        }}> 
-          <WorkIcon color="info" sx={{ mr: 1, fontSize: '1rem' }} />
-          <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 600 }}>
-            Leave Credits
-          </Typography>
-        </Box>
-
-        {leaveCredits.length > 0 ? (
-          leaveCredits.map(credit => {
-            const remainingDays = credit.total_days - credit.used_days;
-            const daysText = (count) => count === 1 ? 'day' : 'days';
-            
-            return (
-              <Box key={credit.id} sx={{ mb: 2 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 400 }}>
-                  {credit.leave_type.charAt(0).toUpperCase() + credit.leave_type.slice(1)} Leave
-                </Typography>
-                <Box sx={{ 
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  mt: 1
-                }}>
-                  <Typography variant="body2">Total:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 400 }}>
-                    {credit.total_days} {daysText(credit.total_days)}
+          {clientLoading ? (
+            <CircularProgress size={20} />
+          ) : clientAttendanceData.length > 0 ? (
+            clientAttendanceData.map(client => (
+              <Box key={client.id} sx={{ mb: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <PersonIcon color="primary" sx={{ mr: 2 }} />
+                  <Typography variant="h6" sx={{color: 'black !important'}}>
+                    {client.name}
                   </Typography>
                 </Box>
-                <Box sx={{ 
-                  display: 'flex',
-                  justifyContent: 'space-between'
-                }}>
-                  <Typography variant="body2">Used:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    {credit.used_days} {daysText(credit.used_days)}
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2}}>
+                  <TimerIcon color="primary" sx={{ mr: 2 }} />
+                  <Typography variant="h6" sx={{color: 'black !important'}}>
+                    {formatTimeTo12Hour(client.start_time)} - {formatTimeTo12Hour(client.end_time)} ({client.schedule_type})
                   </Typography>
                 </Box>
-                <Box sx={{ 
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  mt: 1
-                }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>Remaining:</Typography>
-                  <Typography variant="body2" sx={{ 
-                    fontWeight: 600,
-                    color: remainingDays === 0 ? theme.palette.error.main : theme.palette.success.main
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2}}>
+                  <TimerIcon color="primary" sx={{ mr: 2 }} />
+                  <Typography variant="h6" sx={{color: 'black !important'}}>
+                    {client.timezone}
+                  </Typography>
+                </Box>
+              </Box>
+            ))
+          ) : (
+            <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+              No clients assigned
+            </Typography>
+          )}
+        </Box>
+
+        {/* Leave Credits */}
+        <Box sx={{
+          width: 300,
+          backgroundColor: theme.palette.grey[50],
+          p: 2,
+          borderRadius: 2,
+          borderLeft: `4px solid ${theme.palette.info.main}`,
+          boxShadow: theme.shadows[1]
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            mb: 1,
+            borderBottom: `1px solid ${theme.palette.divider}`,
+            pb: 1
+          }}> 
+            <WorkIcon color="info" sx={{ mr: 1, fontSize: '1rem' }} />
+            <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 600 }}>
+              Leave Credits
+            </Typography>
+          </Box>
+
+          {leaveCredits.length > 0 ? (
+            leaveCredits.map(credit => {
+              const remainingDays = credit.total_days - credit.used_days;
+              const daysText = (count) => count === 1 ? 'day' : 'days';
+              
+              return (
+                <Box key={credit.id} sx={{ mb: 2 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 400 }}>
+                    {credit.leave_type.charAt(0).toUpperCase() + credit.leave_type.slice(1)} Leave
+                  </Typography>
+                  <Box sx={{ 
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    mt: 1
                   }}>
-                    {remainingDays} {daysText(remainingDays)}
-                  </Typography>
+                    <Typography variant="body2">Total:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 400 }}>
+                      {credit.total_days} {daysText(credit.total_days)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ 
+                    display: 'flex',
+                    justifyContent: 'space-between'
+                  }}>
+                    <Typography variant="body2">Used:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {credit.used_days} {daysText(credit.used_days)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ 
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    mt: 1
+                  }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>Remaining:</Typography>
+                    <Typography variant="body2" sx={{ 
+                      fontWeight: 600,
+                      color: remainingDays === 0 ? theme.palette.error.main : theme.palette.success.main
+                    }}>
+                      {remainingDays} {daysText(remainingDays)}
+                    </Typography>
+                  </Box>
                 </Box>
-              </Box>
-            );
-          })
-        ) : (
-          <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
-            No leave credits available
-          </Typography>
-        )}
-      </Box>
+              );
+            })
+          ) : (
+            <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+              No leave credits available
+            </Typography>
+          )}
+        </Box>
       </Box>
     );
   };
 
+  // Render time buttons
   const renderTimeButtons = () => {
     const buttons = [
       {
@@ -1304,6 +1128,7 @@ const EmployeeAttendanceDashboard = () => {
     );
   };
 
+  // Render attendance table
   const renderAttendanceTable = () => {
     if (loading && !todayRecord) {
       return <div className="loading">Loading attendance data...</div>;
@@ -1317,22 +1142,22 @@ const EmployeeAttendanceDashboard = () => {
       );
     }
   
-   const formatBreakDuration = (duration) => {
-    if (duration === null || duration === undefined || isNaN(duration)) return '0.00 min';
-    
-    const durationNum = typeof duration === 'string' ? parseFloat(duration) : duration;
-
-    if (durationNum < 1) {
-      return `${durationNum.toFixed(2)} min`;
-    } else if (durationNum >= 60) {
-      const hours = Math.floor(durationNum / 60);
-      const minutes = Math.round(durationNum % 60);
-      return `${hours}h ${minutes}m`;
-    } else {
-      return `${durationNum.toFixed(2)} mins`;
-    }
-  };
+    const formatBreakDuration = (duration) => {
+      if (duration === null || duration === undefined || isNaN(duration)) return '0.00 min';
+      
+      const durationNum = typeof duration === 'string' ? parseFloat(duration) : duration;
   
+      if (durationNum < 1) {
+        return `${durationNum.toFixed(2)} min`;
+      } else if (durationNum >= 60) {
+        const hours = Math.floor(durationNum / 60);
+        const minutes = Math.round(durationNum % 60);
+        return `${hours}h ${minutes}m`;
+      } else {
+        return `${durationNum.toFixed(2)} mins`;
+      }
+    };
+    
     return (
       <div className="container" style={{ 
         width: '100%', 
@@ -1345,7 +1170,6 @@ const EmployeeAttendanceDashboard = () => {
           borderCollapse: 'collapse',
           fontSize: '0.875rem'
         }}>
-       
           <thead>
             <tr style={{ backgroundColor: '#00B4D8', color: 'white', textAlign: 'left' }}>
               <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Date</th>
@@ -1365,7 +1189,6 @@ const EmployeeAttendanceDashboard = () => {
                 {formatDisplayDate(todayRecord.date)}
               </td>
               <td style={{ padding: '12px 16px', fontWeight: 600 }}>
-              
                 {formatTimeTo12Hour(todayRecord.time_in)}
               </td>
               
@@ -1406,14 +1229,12 @@ const EmployeeAttendanceDashboard = () => {
                 {formatTimeTo12Hour(todayRecord.end_break)}
               </td>
   
-             <td
-                style={{
-                  padding: '12px 16px',
-                  fontWeight: 600,
-                  color: todayRecord.break_duration >= 61 ? '#D32F2F' : 'inherit'
-                  , whiteSpace: 'nowrap'
-                }}
-              >
+              <td style={{
+                padding: '12px 16px',
+                fontWeight: 600,
+                color: todayRecord.break_duration >= 61 ? '#D32F2F' : 'inherit',
+                whiteSpace: 'nowrap'
+              }}>
                 {formatBreakDuration(todayRecord.break_duration)}
               </td>
               
@@ -1424,9 +1245,9 @@ const EmployeeAttendanceDashboard = () => {
               <td style={{ 
                 padding: '12px 16px',
                 fontWeight: 600,
-                color: todayRecord.work_hours < employee.contract_hours ? '#D32F2F' : '#2E7D32'
-                , whiteSpace: 'nowrap'
-            }}>
+                color: todayRecord.work_hours < employee.contract_hours ? '#D32F2F' : '#2E7D32',
+                whiteSpace: 'nowrap'
+              }}>
                 {todayRecord.work_hours ? `${todayRecord.work_hours} hrs` : '0 hr'}
               </td>
               
@@ -1441,7 +1262,8 @@ const EmployeeAttendanceDashboard = () => {
                     fontWeight: 600,
                     borderRadius: '12px',
                     backgroundColor: todayRecord.time_out_status.includes('Undertime') ? '#FFE082' : '#C8E6C9',
-                    color: todayRecord.time_out_status.includes('Undertime') ? '#5D4037' : '#1B5E20', whiteSpace: 'nowrap'
+                    color: todayRecord.time_out_status.includes('Undertime') ? '#5D4037' : '#1B5E20',
+                    whiteSpace: 'nowrap'
                   }}>
                     {todayRecord.time_out_status}
                   </span>
@@ -1454,6 +1276,7 @@ const EmployeeAttendanceDashboard = () => {
     );
   };
 
+  // Render history tracker
   const renderHistoryTracker = () => {
     const formatDurationDisplay = (minutes) => {
       if (!minutes || minutes === 0) return '';
@@ -1501,14 +1324,12 @@ const EmployeeAttendanceDashboard = () => {
   
         <Grid container spacing={2}>
           {filteredRecords.map((record) => {
-            // Format durations (returns empty string for 0 values)
             const lateDuration = formatDurationDisplay(record.late_duration);
             const earlyDuration = formatDurationDisplay(record.early_duration);
             const breakDuration = formatDurationDisplay(record.break_duration);
             const overtimeDuration = formatDurationDisplay(record.overtime);
             const undertimeDuration = formatDurationDisplay(record.undertime);
   
-            // Determine statuses
             const hasLateStatus = lateDuration && record.time_in_status?.includes('Late');
             const hasEarlyStatus = earlyDuration && record.time_in_status?.includes('Early');
             const hasUndertimeStatus = undertimeDuration && record.time_out_status?.includes('Undertime');
@@ -1523,7 +1344,6 @@ const EmployeeAttendanceDashboard = () => {
                   borderLeft: `4px solid ${theme.palette.primary.main}`,
                   backgroundColor: theme.palette.background.paper
                 }}>
-                  {/* Date and Status Header */}
                   <Box sx={{ 
                     display: 'flex', 
                     justifyContent: 'space-between',
@@ -1558,7 +1378,6 @@ const EmployeeAttendanceDashboard = () => {
                   </Box>
   
                   <Box sx={{ mt: 2 }}>
-                    {/* Time In */}
                     <Box sx={{ 
                       display: 'flex', 
                       alignItems: 'center',
@@ -1586,57 +1405,54 @@ const EmployeeAttendanceDashboard = () => {
                                 hasEarlyStatus ? theme.palette.success.main : 'inherit'
                         }}>
                           {record.time_in_status}
-                          
                         </Typography>
                       )}
                     </Box>
   
-                    {/* Break Section - Only show if there's break data */}
                     {(record.start_break || (record.end_break && record.break_duration > 0)) && (
-                    <Box sx={{ 
-                      borderRadius: 1,
-                      mb: 1
-                    }}>
-                      {record.start_break && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                          <FreeBreakfastIcon sx={{ 
-                            mr: 1, 
-                            fontSize: '1rem',
-                            color: theme.palette.info.main
-                          }} />
-                          <Typography variant="body2" sx={{ fontSize: '0.95rem' }}>
-                            <strong>Break Started:</strong> {formatTimeTo12Hour(record.start_break)}
-                          </Typography>
-                        </Box>
-                      )}
-                      
-                      {record.end_break && record.break_duration > 0 && (
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <LunchDiningIcon sx={{ 
-                            mr: 1, 
-                            fontSize: '1rem',
-                            color: record.break_status?.includes('Overbreak') ? 
-                              theme.palette.error.main : theme.palette.success.main
-                          }} />
-                          <Typography variant="body2" sx={{ fontSize: '0.95rem' }}>
-                            <strong>Break Ended:</strong> {formatTimeTo12Hour(record.end_break)}
-                          </Typography>
-                          {record.break_status && (
-                            <Typography variant="caption" sx={{ 
-                              ml: 1,
-                              fontSize: '0.85rem',
+                      <Box sx={{ 
+                        borderRadius: 1,
+                        mb: 1
+                      }}>
+                        {record.start_break && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                            <FreeBreakfastIcon sx={{ 
+                              mr: 1, 
+                              fontSize: '1rem',
+                              color: theme.palette.info.main
+                            }} />
+                            <Typography variant="body2" sx={{ fontSize: '0.95rem' }}>
+                              <strong>Break Started:</strong> {formatTimeTo12Hour(record.start_break)}
+                            </Typography>
+                          </Box>
+                        )}
+                        
+                        {record.end_break && record.break_duration > 0 && (
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <LunchDiningIcon sx={{ 
+                              mr: 1, 
+                              fontSize: '1rem',
                               color: record.break_status?.includes('Overbreak') ? 
                                 theme.palette.error.main : theme.palette.success.main
-                            }}>
-                              {record.break_status}
+                            }} />
+                            <Typography variant="body2" sx={{ fontSize: '0.95rem' }}>
+                              <strong>Break Ended:</strong> {formatTimeTo12Hour(record.end_break)}
                             </Typography>
-                          )}
-                        </Box>
-                      )}
-                    </Box>
-                  )}
+                            {record.break_status && (
+                              <Typography variant="caption" sx={{ 
+                                ml: 1,
+                                fontSize: '0.85rem',
+                                color: record.break_status?.includes('Overbreak') ? 
+                                  theme.palette.error.main : theme.palette.success.main
+                              }}>
+                                {record.break_status}
+                              </Typography>
+                            )}
+                          </Box>
+                        )}
+                      </Box>
+                    )}
   
-                    {/* Time Out */}
                     {record.time_out && (
                       <Box sx={{ 
                         display: 'flex', 
@@ -1657,17 +1473,16 @@ const EmployeeAttendanceDashboard = () => {
                         }}>
                           <strong>Time Out:</strong> {formatTimeTo12Hour(record.time_out)}
                         </Typography>
-                       {record.time_out_status && (
-                        <Typography variant="caption" sx={{ 
-                          ml: 1,
-                          fontSize: '0.85rem',
-                          color: hasUndertimeStatus ? theme.palette.error.main : 
-                                hasOvertimeStatus ? theme.palette.info.main : 'inherit'
-                        }}>
-                          {record.time_out_status.replace(/\(([^)]+)\)\s*\1/g, '$1')}
-                        </Typography>
-                      )}
-
+                        {record.time_out_status && (
+                          <Typography variant="caption" sx={{ 
+                            ml: 1,
+                            fontSize: '0.85rem',
+                            color: hasUndertimeStatus ? theme.palette.error.main : 
+                                  hasOvertimeStatus ? theme.palette.info.main : 'inherit'
+                          }}>
+                            {record.time_out_status.replace(/\(([^)]+)\)\s*\1/g, '$1')}
+                          </Typography>
+                        )}
                       </Box>
                     )}
                   </Box>
@@ -1687,7 +1502,7 @@ const EmployeeAttendanceDashboard = () => {
         {renderEmployeeInfo()}
         {employee && (
           <>
-           <Tabs
+            <Tabs
               value={tabValue}
               onChange={handleTabChange}
               variant="fullWidth"
@@ -1753,8 +1568,9 @@ const EmployeeAttendanceDashboard = () => {
         </Snackbar>
 
         {renderConfirmationDialog()}
+        <PendingTimeOutModal />
+        <BreakAlertModal />
       </Box>
-      <BreakAlertModal />
     </SideNavBar>
   );
 };

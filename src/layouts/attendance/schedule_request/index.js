@@ -41,7 +41,7 @@ import {
 import { MobileTimePicker } from '@mui/x-date-pickers/MobileTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { format, parse } from 'date-fns';
+import { format, parse, isValid } from 'date-fns';
 import SideNavBar from "../content_page/nav_bar";
 import '../content_page/css/admintable.css';
 
@@ -71,17 +71,28 @@ const ScheduleRequestTable = ({ data, loading, error, type }) => {
     rejected: { bg: '#FFEBEE', color: '#C62828', icon: <Cancel fontSize="small" /> }
   };
 
-  // Function to flatten schedule requests with their days
-  const flattenRequests = (requests) => {
-    return requests.flatMap(request => 
-      request.schedule_days.map(day => ({
+   const flattenRequests = (requests) => {
+    if (!requests || !Array.isArray(requests)) return [];
+    
+    return requests.flatMap(request => {
+      // Skip requests without schedule_days or with empty schedule_days
+      if (!request.schedule_days || request.schedule_days.length === 0) {
+        return [];
+      }
+      
+      // Ensure schedule_days is an array
+      const days = Array.isArray(request.schedule_days) ? 
+        request.schedule_days : 
+        [request.schedule_days];
+      
+      return days.map(day => ({
         ...request,
         ...day,
         request_id: request.id,
         request_created_at: request.created_at,
-        request_status: request.status
-      }))
-    );
+        request_status: request.status.toLowerCase()
+      }));
+    });
   };
 
   const flattenedData = data ? flattenRequests(data) : [];
@@ -116,24 +127,53 @@ const ScheduleRequestTable = ({ data, loading, error, type }) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric'
     });
   };
 
   const formatTime = (timeString) => {
     if (!timeString) return "";
-    const [hours, minutes] = timeString.split(':');
-    const hour = parseInt(hours, 10);
-    const period = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${period}`;
+    try {
+      // Handle both "HH:mm" format and time objects
+      const time = typeof timeString === 'string' ? 
+        parse(timeString, 'HH:mm', new Date()) : 
+        new Date(timeString);
+      
+      if (!isValid(time)) return timeString; // Fallback to raw string if parsing fails
+      
+      return format(time, 'h:mm a');
+    } catch (e) {
+      return timeString; // Fallback to raw string if any error occurs
+    }
+  };
+
+    const formatTimeAMPM = (timeValue) => {
+    if (!timeValue) return "";
+    try {
+      // Handle both "HH:mm" format and time objects
+      let timeObj;
+      if (typeof timeValue === 'string') {
+        const [hours, minutes] = timeValue.split(':');
+        timeObj = new Date();
+        timeObj.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0);
+      } else if (timeValue instanceof Date) {
+        timeObj = timeValue;
+      } else {
+        return timeValue; // Fallback for unexpected formats
+      }
+      
+      return format(timeObj, 'h:mm a');
+    } catch (e) {
+      console.error("Error formatting time:", e);
+      return timeValue; // Fallback to original value if formatting fails
+    }
   };
 
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleString('en-US', {
-      month: 'short',
+      month: 'long',
       day: 'numeric',
       year: 'numeric',
       hour: '2-digit',
@@ -151,63 +191,41 @@ const ScheduleRequestTable = ({ data, loading, error, type }) => {
       }}>
         <thead>
           <tr style={{ backgroundColor: '#00B4D8', color: 'white', textAlign: 'left' }}>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Employee</th>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Date</th>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Schedule</th>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Hours</th>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Break</th>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Reason</th>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Status</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Date Filed</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Schedule Day</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Schedule Time</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Break </th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Reason</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Processed By</th>
           </tr>
         </thead>
         <tbody>
           {flattenedData.map((request, index) => (
             <tr key={`${request.request_id}-${index}`} style={{ borderBottom: '1px solid #e0e0e0' }}>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Avatar sx={{ width: 32, height: 32, bgcolor: '#1976d2', fontSize: '0.75rem' }}>
-                    {getInitials(request.employee_name)}
-                  </Avatar>
-                  <Box>
-                    <Box fontWeight={500}>{request.employee_name || 'Unknown'}</Box>
-                    <Box fontSize="0.75rem" color="#666">{request.email || 'No email'}</Box>
-                  </Box>
+                <Box fontSize="0.75rem" color="#666">
+                  {formatDateTime(request.request_created_at)}
                 </Box>
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 {formatDate(request.date)}
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {formatTime(request.time_in)} - {formatTime(request.time_out)}
-              </td>
-              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {request.hours} hours
+                {formatTimeAMPM(request.time_in)} - {formatTimeAMPM(request.time_out)}
+                <div>
+                {request?.hours} hrs
+                </div>
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 {request.start_break && request.end_break ? (
-                  `${formatTime(request.start_break)} - ${formatTime(request.end_break)}`
+                  `${formatTimeAMPM(request.start_break)} - ${formatTimeAMPM(request.end_break)}`
                 ) : 'No break'}
               </td>
               <td style={{ padding: '12px 16px' }}>
                 {request.justification}
               </td>
-              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                <Chip
-                  label={request.request_status}
-                  size="small"
-                  sx={{
-                    backgroundColor: statusColors[request.request_status]?.bg || '#f5f5f5',
-                    color: statusColors[request.request_status]?.color || '#333',
-                    fontWeight: 500,
-                    fontSize: '0.75rem'
-                  }}
-                />
-              </td>
-              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                <Box fontSize="0.75rem" color="#666">
-                  {formatDateTime(request.request_created_at)}
-                </Box>
+              <td style={{ padding: '12px 16px' }}>
+                {request?.processed_by}
               </td>
             </tr>
           ))}
@@ -244,66 +262,86 @@ const CustomizeScheduleRequestForm = () => {
     Thursday: false,
     Friday: false
   });
+
   const handleDaySelection = (day) => {
     setSelectedDays(prev => ({
       ...prev,
       [day]: !prev[day]
     }));
   };
+
   useEffect(() => {
-  const storedEmployee = localStorage.getItem('employee');
-  if (storedEmployee) {
-    const emp = JSON.parse(storedEmployee);
-    setEmployee(emp);
-    
-    // Set default times from employee's schedule if available
-    setFormData(prev => ({
-      ...prev,
-      schedule_days: prev.schedule_days.map(day => ({
-        ...day,
-        time_in: emp.default_time_in || "08:00",
-        time_out: emp.default_time_out || "17:00"
-      }))
-    }));
-    
-    fetchScheduleRequests(emp.id);
-  }
+    const storedEmployee = localStorage.getItem('employee');
+    if (storedEmployee) {
+      const emp = JSON.parse(storedEmployee);
+      setEmployee(emp);
+      
+      setFormData(prev => ({
+        ...prev,
+        schedule_days: prev.schedule_days.map(day => ({
+          ...day,
+          time_in: emp.default_time_in || "08:00",
+          time_out: emp.default_time_out || "17:00"
+        }))
+      }));
+      
+      fetchScheduleRequests(emp.id);
+    }
   }, []);
 
-  const fetchScheduleRequests = async (employeeId) => {
-    try {
-      setLoading(true);
-      const res = await api.get(`/attendance/schedule-requests/employee/${employeeId}/`);
-      const data = Array.isArray(res.data) ? res.data : [];
-      const normalizedData = data.map(item => ({
-        ...item,
-        status: item.status.toLowerCase()
-      }));
-      setScheduleRequests(normalizedData);
-    } catch (error) {
-      console.error("Error fetching schedule requests:", error);
-      setScheduleRequests([]);
-    } finally {
-      setLoading(false);
-    }
+ const fetchScheduleRequests = async (employeeId) => {
+  try {
+    setLoading(true);
+    const res = await api.get(`/attendance/schedule-requests/?employee_id=${employeeId}&status=pending`);
+    console.log('API response:', res.data);
+    const data = Array.isArray(res.data) ? res.data : [];
+    const normalizedData = data.map(item => ({
+      ...item,
+      status: item.status
+    }));
+    setScheduleRequests(normalizedData);
+  } catch (error) {
+    console.error("Error fetching schedule requests:", error);
+    setScheduleRequests([]);
+  } finally {
+    setLoading(false);
+  }
   };
 
   const calculateHours = (time_in, time_out, has_lunch_break, is_day_off) => {
     if (is_day_off) return 0.00;
     if (!time_in || !time_out) return 0.00;
     
-    const [inHours, inMinutes] = time_in.split(':').map(Number);
-    const [outHours, outMinutes] = time_out.split(':').map(Number);
-    
-    let totalMinutes = (outHours * 60 + outMinutes) - (inHours * 60 + inMinutes);
-    
-    if (totalMinutes < 0) totalMinutes += 24 * 60;
-    
-    if (has_lunch_break) {
-      totalMinutes -= 60;
+    try {
+      // Parse times consistently
+      const parseTime = (time) => {
+        if (typeof time === 'string') {
+          const [hours, minutes] = time.split(':').map(Number);
+          return { hours, minutes };
+        }
+        // Handle if time is already an object
+        return {
+          hours: time?.hours || 0,
+          minutes: time?.minutes || 0
+        };
+      };
+
+      const inTime = parseTime(time_in);
+      const outTime = parseTime(time_out);
+      
+      let totalMinutes = (outTime.hours * 60 + outTime.minutes) - (inTime.hours * 60 + inTime.minutes);
+      
+      if (totalMinutes < 0) totalMinutes += 24 * 60;
+      
+      if (has_lunch_break) {
+        totalMinutes -= 60;
+      }
+      
+      return parseFloat((totalMinutes / 60).toFixed(2));
+    } catch (e) {
+      console.error("Error calculating hours:", e);
+      return 0.00;
     }
-    
-    return parseFloat((totalMinutes / 60).toFixed(2));
   };
 
   const handleDayChange = (index, field, value) => {
@@ -335,7 +373,6 @@ const CustomizeScheduleRequestForm = () => {
       return false;
     }
     
-    // Check that at least one day has hours
     const hasValidDays = formData.schedule_days.some(day => day.hours > 0);
     if (!hasValidDays) {
       setResponseMsg("Please specify working hours for at least one day");
@@ -345,7 +382,22 @@ const CustomizeScheduleRequestForm = () => {
     return true;
   };
 
-   const handleSubmit = async (e) => {
+  const formatTimeForBackend = (time) => {
+    if (!time) return null;
+    
+    if (typeof time === 'string' && /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time)) {
+      return time;
+    }
+
+    if (time instanceof Date) {
+      return format(time, 'HH:mm');
+    }
+    
+    // Default fallback
+    return "08:00";
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validateForm()) return;
@@ -353,7 +405,6 @@ const CustomizeScheduleRequestForm = () => {
     try {
       setLoading(true);
       
-      // Filter schedule_days to only include selected days
       const selectedScheduleDays = formData.schedule_days
         .filter((_, index) => {
           const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -361,8 +412,8 @@ const CustomizeScheduleRequestForm = () => {
         })
         .map(day => ({
           date: day.date,
-          time_in: day.time_in,
-          time_out: day.time_out,
+          time_in: formatTimeForBackend(day.time_in),
+          time_out: formatTimeForBackend(day.time_out),
           start_break: day.has_lunch_break ? "12:00" : null,
           end_break: day.has_lunch_break ? "13:00" : null,
           hours: day.hours,
@@ -392,7 +443,24 @@ const CustomizeScheduleRequestForm = () => {
 
     } catch (error) {
       console.error("Submission error:", error);
-      setResponseMsg(error.response?.data?.message || "Error submitting request");
+      let errorMessage = "Error submitting request";
+      
+      if (error.response) {
+        if (error.response.data) {
+          // Handle nested error details from Django
+          if (error.response.data.error) {
+            errorMessage = JSON.stringify(error.response.data.error, null, 2);
+          } else if (error.response.data.detail) {
+            errorMessage = error.response.data.detail;
+          } else {
+            errorMessage = JSON.stringify(error.response.data, null, 2);
+          }
+        } else {
+          errorMessage = `Server error: ${error.response.status}`;
+        }
+      }
+      
+      setResponseMsg(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -564,7 +632,7 @@ const CustomizeScheduleRequestForm = () => {
                   Requested Schedule
                 </Typography>
                 
-                 <table style={{
+                <table style={{
                   width: '100%',
                   borderCollapse: 'collapse',
                   fontSize: '0.875rem'
@@ -575,7 +643,7 @@ const CustomizeScheduleRequestForm = () => {
                       <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Day</th>
                       <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Start Time</th>
                       <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>End Time</th>
-                      <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Hours</th>
+                      <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Work Hours</th>
                       <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Break</th>
                       <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Day Off</th>
                     </tr>
@@ -604,7 +672,10 @@ const CustomizeScheduleRequestForm = () => {
                           <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                             <MobileTimePicker
                               value={parse(dayData.time_in, 'HH:mm', new Date())}
-                              onChange={(newValue) => handleDayChange(index, 'time_in', format(newValue, 'HH:mm'))}
+                              onChange={(newValue) => {
+                                const formattedTime = format(newValue, 'HH:mm');
+                                handleDayChange(index, 'time_in', formattedTime);
+                              }}
                               renderInput={(params) => (
                                 <TextField {...params} size="small" sx={{ width: '120px' }} />
                               )}
@@ -614,7 +685,10 @@ const CustomizeScheduleRequestForm = () => {
                           <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                             <MobileTimePicker
                               value={parse(dayData.time_out, 'HH:mm', new Date())}
-                              onChange={(newValue) => handleDayChange(index, 'time_out', format(newValue, 'HH:mm'))}
+                              onChange={(newValue) => {
+                                const formattedTime = format(newValue, 'HH:mm');
+                                handleDayChange(index, 'time_out', formattedTime);
+                              }}
                               renderInput={(params) => (
                                 <TextField {...params} size="small" sx={{ width: '120px' }} />
                               )}
