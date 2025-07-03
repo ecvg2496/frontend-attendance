@@ -2,7 +2,6 @@
   "name": "material-dashboard-2-react",
   "version": "2.2.0",
   "private": true,
-  "homepage": "./",
   "author": "Creative Tim",
   "license": "See license in https://www.creative-tim.com/license",
   "description": "React version of Material Dashboard 2 by Creative Tim",
@@ -82,6 +81,7 @@
   "scripts": {
     "start": "GENERATE_SOURCEMAP=false PORT=3100 react-scripts start",
     "build": "GENERATE_SOURCEMAP=false react-scripts build",
+    "postbuild": "cp public/_redirects build/ && cp static.json build/ && echo 'Routing files copied to build'",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "install:clean": "rm -rf node_modules/ && rm -rf package-lock.json && npm install && npm start",
