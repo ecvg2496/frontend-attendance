@@ -1,8 +1,0 @@
-{
-  "routes": {
-    "/*": {
-      "origin": "/index.html",
-      "status": 200
-    }
-  }
-}

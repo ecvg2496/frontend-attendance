@@ -233,7 +233,7 @@ const ScheduleRequestTable = ({
                   }}
                 />
               </td>
-              <td style={{ padding: '12px 16px' }}>
+              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 <Box>
                   {request?.processed_by || ''}
                 </Box>
@@ -788,7 +788,6 @@ const RequestDetailsModal = ({
   );
 };
 
-// FilterModal component (same as before)
 const FilterModal = ({ 
   open, 
   onClose, 
