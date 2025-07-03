@@ -361,19 +361,6 @@ const EmployeeAttendanceDashboard = () => {
       let existingRecord = todayResponse.data?.logs?.[0] || null;
 
       if (!existingRecord) {
-        const pendingResponse = await axios.get('/attendance/logs/pending-timeout/', {
-          params: { employee_id: employeeId }
-        });
-        
-        if (pendingResponse.data.has_pending) {
-          setPendingTimeOut(pendingResponse.data.log);
-          existingRecord = pendingResponse.data.log;
-        }
-      } else {
-        setPendingTimeOut(null);
-      }
-
-      if (!existingRecord) {
         existingRecord = {
           employee: employeeId,
           date: today,
@@ -384,6 +371,9 @@ const EmployeeAttendanceDashboard = () => {
           time_out: null,
           break_duration: 0,
           work_hours: 0,
+          time_in_status: null,
+          time_out_status: null,
+          break_status: null
         };
       }
       
@@ -410,12 +400,6 @@ const EmployeeAttendanceDashboard = () => {
   const handleTimeAction = async (actionType) => {
     if (!employee || !employee.id) {
       setError('Employee data not found');
-      return;
-    }
-
-    // Check for pending time-out when trying to time in
-    if (actionType === 'timeIn' && pendingTimeOut) {
-      setError(`You must time out from your previous session on ${formatDisplayDate(pendingTimeOut.date)} first`);
       return;
     }
 
@@ -582,7 +566,7 @@ const EmployeeAttendanceDashboard = () => {
       }
     }
     
-    if (action === 'timeIn') {
+      if (action === 'timeIn') {
       return {
         status: todayRecord.time_in ? 'completed' : 'enabled',
         disabled: todayRecord.time_in || loading || pendingTimeOut,
@@ -626,70 +610,6 @@ const EmployeeAttendanceDashboard = () => {
       setFilteredRecords(filtered);
     }
   }, [searchTerm, attendanceRecords]);
-
-  // Pending time-out modal
-  const PendingTimeOutModal = () => (
-    <Dialog
-      open={!!pendingTimeOut}
-      onClose={() => setPendingTimeOut(null)}
-      aria-labelledby="pending-timeout-title"
-    >
-      <DialogTitle id="pending-timeout-title" sx={{ 
-        display: 'flex', 
-        alignItems: 'center',
-        backgroundColor: theme.palette.warning.light,
-        color: theme.palette.warning.contrastText
-      }}>
-        <WarningAmberIcon sx={{ mr: 1 }} />
-        Pending Time Out Required
-      </DialogTitle>
-      <DialogContent sx={{ pt: 3 }}>
-        <Typography variant="body1" gutterBottom>
-          You have an unfinished session from <strong>{formatDisplayDate(pendingTimeOut?.date)}</strong>.
-        </Typography>
-        <Typography variant="body1" gutterBottom>
-          You must time out from this session before you can time in for a new day.
-        </Typography>
-        
-        <Box sx={{ 
-          mt: 3,
-          p: 2,
-          border: `1px solid ${theme.palette.divider}`,
-          borderRadius: 1,
-          backgroundColor: theme.palette.background.paper
-        }}>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            Pending Session Details:
-          </Typography>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="body2">Date:</Typography>
-            <Typography variant="body2" fontWeight="bold">
-              {formatDisplayDate(pendingTimeOut?.date)}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="body2">Time In:</Typography>
-            <Typography variant="body2" fontWeight="bold">
-              {formatTimeTo12Hour(pendingTimeOut?.time_in)}
-            </Typography>
-          </Box>
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button 
-          onClick={() => {
-            setTodayRecord(pendingTimeOut);
-            setTabValue(0);
-            setPendingTimeOut(null);
-          }}
-          color="warning"
-          variant="contained"
-        >
-          Time Out Now
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
 
   // Confirmation dialog
   const renderConfirmationDialog = () => (
@@ -1568,7 +1488,6 @@ const EmployeeAttendanceDashboard = () => {
         </Snackbar>
 
         {renderConfirmationDialog()}
-        <PendingTimeOutModal />
         <BreakAlertModal />
       </Box>
     </SideNavBar>

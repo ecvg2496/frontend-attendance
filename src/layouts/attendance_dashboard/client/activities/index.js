@@ -38,7 +38,7 @@ import {
   CheckCircle as CheckCircleIcon,
   CheckCircle as PresentIcon,
   Schedule as ScheduleIcon,
-  Schedule as LateIcon,        // Using Schedule icon for Late status
+  Schedule as LateIcon,    
   Cancel as CancelIcon,
   Cancel as AbsentIcon,
   Visibility as VisibilityIcon,
@@ -56,7 +56,7 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import axios from 'axios';
+import axios from 'api/axios';
 import SideNavBar from "../../content_page/sidebar";
 import { useNavigate } from "react-router-dom";
 
