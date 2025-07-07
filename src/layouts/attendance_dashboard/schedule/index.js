@@ -1134,139 +1134,142 @@ const CustomizeScheduleRequestForm = () => {
     setCurrentTab(newValue);
   };
 
-  return (
-    <GlobalSideNav>
-      <Card sx={{
-        minHeight: 'calc(103vh - 64px)',
-        width: '100%',
-        mt: -10,
-        p: 3
-      }}>
-        <Box sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          p: 2,
-          borderRadius: 1
+ return (
+      <GlobalSideNav>
+        <Card sx={{
+          minHeight: 'calc(104vh - 64px)',
+          width: '100%',
+          maxWidth: '100%',
+          margin: '0 auto',
+          p: 3,
+          boxSizing: 'border-box',
+          mt: -10
         }}>
-          <Typography variant="h3" color="primary">
-            {currentTab === 0 ? 'Custom Schedule Requests' : 'Employee Schedules'}
-          </Typography>
-        </Box>
+          <Box sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            p: 2,
+            borderRadius: 1
+          }}>
+            <Typography variant="h3" color="primary">
+              {currentTab === 0 ? 'Custom Schedule Requests' : 'Employee Schedules'}
+            </Typography>
+          </Box>
 
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={currentTab} onChange={handleTabChange} aria-label="schedule tabs">
-            <Tab label="Schedule Request" />
-            <Tab label="Employee Schedule" />
-          </Tabs>
-        </Box>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <Tabs value={currentTab} onChange={handleTabChange} aria-label="schedule tabs">
+              <Tab label="Schedule Request" />
+              <Tab label="Employee Schedule" />
+            </Tabs>
+          </Box>
 
-        {currentTab === 0 ? (
-          <>
-            <Box sx={{ p: 2, borderRadius: 1 }}>
-              <Box display="flex" alignItems="center" gap={2} mb={2}>
-                <TextField
-                  placeholder="Search requests..."
-                  variant="outlined"
-                  size="small"
-                  fullWidth
-                  InputProps={{
-                    startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />
-                  }}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  sx={{ maxWidth: 500 }}
-                />
-                
-                <Button
-                  variant="outlined"
-                  startIcon={<FilterList />}
-                  onClick={() => setFilterModalOpen(true)}
-                  sx={{ whiteSpace: 'nowrap' }}
-                >
-                  Filters
-                </Button>
+          {currentTab === 0 ? (
+            <>
+              <Box sx={{ p: 2, borderRadius: 1 }}>
+                <Box display="flex" alignItems="center" gap={2} mb={2}>
+                  <TextField
+                    placeholder="Search requests..."
+                    variant="outlined"
+                    size="small"
+                    fullWidth
+                    InputProps={{
+                      startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />
+                    }}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    sx={{ maxWidth: 500 }}
+                  />
+                  
+                  <Button
+                    variant="outlined"
+                    startIcon={<FilterList />}
+                    onClick={() => setFilterModalOpen(true)}
+                    sx={{ whiteSpace: 'nowrap' }}
+                  >
+                    Filters
+                  </Button>
+                </Box>
               </Box>
-            </Box>
 
-            <ScheduleRequestTable
-              data={filteredRequests}
-              loading={loading}
-              error={error}
-              onStatusUpdate={refreshData}
-              onViewDetails={handleViewDetails}
-            />
-
-            <RequestDetailsModal
-              open={modalOpen}
-              onClose={handleCloseModal}
-              request={selectedRequest}
-              onStatusUpdate={handleStatusUpdate}
-              loading={actionLoading}
-            />
-
-            <FilterModal
-              open={filterModalOpen}
-              onClose={() => setFilterModalOpen(false)}
-              statusFilters={statusFilters}
-              onStatusFilterChange={handleStatusFilterChange}
-              alphabetFilter={alphabetFilter}
-              onAlphabetFilterChange={handleAlphabetFilterChange}
-            />
-          </>
-        ) : (
-          <>
-            <Box sx={{ p: 2, borderRadius: 1 }}>
-              <Box display="flex" alignItems="center" gap={2} mb={2}>
-                <TextField
-                  placeholder="Search employees..."
-                  variant="outlined"
-                  size="small"
-                  fullWidth
-                  InputProps={{
-                    startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />
-                  }}
-                  value={employeeSearchTerm}
-                  onChange={(e) => setEmployeeSearchTerm(e.target.value)}
-                  sx={{ maxWidth: 500 }}
-                />
-                <Button
-                  variant="outlined"
-                  startIcon={<FilterList />}
-                  onClick={() => setFilterModalOpen(true)}
-                  sx={{ whiteSpace: 'nowrap' }}
-                >
-                  Filters
-                </Button>
+              <ScheduleRequestTable
+                data={filteredRequests}
+                loading={loading}
+                error={error}
+                onStatusUpdate={refreshData}
+                onViewDetails={handleViewDetails}
+              />
+            </>
+          ) : (
+            <>
+              <Box sx={{ p: 2, borderRadius: 1 }}>
+                <Box display="flex" alignItems="center" gap={2} mb={2}>
+                  <TextField
+                    placeholder="Search employees..."
+                    variant="outlined"
+                    size="small"
+                    fullWidth
+                    InputProps={{
+                      startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />
+                    }}
+                    value={employeeSearchTerm}
+                    onChange={(e) => setEmployeeSearchTerm(e.target.value)}
+                    sx={{ maxWidth: 500 }}
+                  />
+                  <Button
+                    variant="outlined"
+                    startIcon={<FilterList />}
+                    onClick={() => setFilterModalOpen(true)}
+                    sx={{ whiteSpace: 'nowrap' }}
+                  >
+                    Filters
+                  </Button>
+                </Box>
               </Box>
-              
-            </Box>
 
-            <EmployeeScheduleTable
-              data={filteredEmployees}
-              loading={employeeLoading}
-              error={employeeError}
-            />
-          </>
-        )}
+              <EmployeeScheduleTable
+                data={filteredEmployees}
+                loading={employeeLoading}
+                error={employeeError}
+              />
+            </>
+          )}
 
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={handleCloseSnackbar}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        >
-          <Alert 
-            onClose={handleCloseSnackbar} 
-            severity={snackbar.severity} 
-            sx={{ width: '100%' }}
+          {/* Modals - placed outside the tab conditional rendering */}
+          <RequestDetailsModal
+            open={modalOpen}
+            onClose={handleCloseModal}
+            request={selectedRequest}
+            onStatusUpdate={handleStatusUpdate}
+            loading={actionLoading}
+          />
+
+          <FilterModal
+            open={filterModalOpen}
+            onClose={() => setFilterModalOpen(false)}
+            statusFilters={statusFilters}
+            onStatusFilterChange={handleStatusFilterChange}
+            alphabetFilter={alphabetFilter}
+            onAlphabetFilterChange={handleAlphabetFilterChange}
+          />
+
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={6000}
+            onClose={handleCloseSnackbar}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Card>
-    </GlobalSideNav>
-  );
+            <Alert 
+              onClose={handleCloseSnackbar} 
+              severity={snackbar.severity} 
+              sx={{ width: '100%' }}
+            >
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+        </Card>
+      </GlobalSideNav>
+    );
 };
 
 export default CustomizeScheduleRequestForm;

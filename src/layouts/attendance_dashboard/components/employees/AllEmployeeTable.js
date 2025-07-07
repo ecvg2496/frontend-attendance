@@ -140,7 +140,7 @@ const AllEmployeeTable = ({ employees, loading, error, onEditClick, onEmployeeTy
             <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Name</th>
             <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Position</th>
             <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Status</th>
-            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Type</th>
+            <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Job Type</th>
             <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Employment Date</th>
             <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Work Set-up</th>
             <th scope="col" style={{ padding: '10px 14px', whiteSpace: 'nowrap', textAlign: 'left' }}>Schedule & Hours</th>

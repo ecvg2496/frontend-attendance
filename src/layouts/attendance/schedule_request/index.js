@@ -225,30 +225,38 @@ const ApprovedRequestsTable = ({ data, loading, error }) => {
       }}>
         <thead>
           <tr style={{ backgroundColor: '#00B4D8', color: 'white', textAlign: 'left' }}>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Date Filed</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Schedule Day</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Approved Time</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Work Hours</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Approved By</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Remarks</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Last Update</th>
           </tr>
         </thead>
         <tbody>
           {flattenedData.map((request) => (
             <tr key={`${request.request_id}-${request.date}`} style={{ borderBottom: '1px solid #e0e0e0' }}>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {formatDate(request.date)} ({formatTimeAMPM(request.time_in)} - {formatTimeAMPM(request.time_out)})
+                {formatDate(request.request_created_at)}
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {formatDateTime(request.processed_at)}
+                {formatDate(request.date)}: ({formatTimeAMPM(request.time_in)} - {formatTimeAMPM(request.time_out)})
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {request.hours} hours
+                {formatDate(request.processed_at)}
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {request.processed_by?.name || 'System'}
+                {request?.hours || ""} hours
+              </td>
+              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                {request?.processed_by || 'System'}
               </td>
               <td style={{ padding: '12px 16px' }}>
-                {request.admin_remarks || '-'}
+                {request?.admin_remarks || '-'}
+              </td>
+              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                {formatDate(request?.updated_at) || '-'}
               </td>
             </tr>
           ))}
@@ -295,10 +303,11 @@ const RejectedRequestsTable = ({ data, loading, error }) => {
       }}>
         <thead>
           <tr style={{ backgroundColor: '#00B4D8', color: 'white', textAlign: 'left' }}>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Request Date</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Requested Date</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Rejected Schedule</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Rejected By</th>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Rejection Reason</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Remarks</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Last Update</th>
           </tr>
         </thead>
         <tbody>
@@ -311,7 +320,7 @@ const RejectedRequestsTable = ({ data, loading, error }) => {
                 {formatDate(request.date)}: {formatTimeAMPM(request.time_in)} - {formatTimeAMPM(request.time_out)}
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {request.processed_by?.name || 'System'}
+                {request?.processed_by || 'System'}
               </td>
               <td style={{ padding: '12px 16px' }}>
                 {request.admin_remarks || 'No reason provided'}
@@ -533,8 +542,13 @@ const CustomizeScheduleRequestForm = () => {
   return (
     <SideNavBar>
       <Card sx={{
-        minHeight: 'calc(103vh - 64px)',
+         minHeight: 'calc(104vh - 64px)',
         width: '100%',
+        maxWidth: '100%',
+        margin: '0 auto',
+        p: 3,
+        overflowX: 'hidden',
+        boxSizing: 'border-box',
         mt: -10
       }}>
         <Box sx={{

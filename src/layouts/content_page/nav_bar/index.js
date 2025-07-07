@@ -43,7 +43,7 @@ function NavBar({color, position}) {
     }
 
     const handleNavigation = (path) => {
-        navigate(path); // Use navigate instead of href
+        navigate(path); 
     }
 
     return (

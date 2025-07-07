@@ -71,14 +71,14 @@ const employeeFormConfig = [
         type: "date",
         inputFormat: "MMMM dd, yyyy",
     },
-    {
-        key: 'user_photo',
-        type: 'file',
-        label: 'Employee Photo',
-        accept: 'image/*',
-        helperText: 'Upload a photo (JPEG, PNG, GIF) max 2MB',
-        fullWidth: true
-    },
+    // {
+    //     key: 'user_photo',
+    //     type: 'file',
+    //     label: 'Employee Photo',
+    //     accept: 'image/*',
+    //     helperText: 'Upload a photo (JPEG, PNG, GIF) max 2MB',
+    //     fullWidth: true
+    // },
     {
         name: "employment_type",
         label: "Employment Type",

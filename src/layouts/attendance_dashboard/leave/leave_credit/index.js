@@ -839,7 +839,7 @@ const LeaveCreditTable = ({
                   {renderEditableCreditCell(employee.id, 'birthday')}
                 </td>
                 
-                <td style={{ padding: '12px 16px' }}>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                   <StatusBadge status={employee?.status || 'Unknown'} />
                 </td>
                 
