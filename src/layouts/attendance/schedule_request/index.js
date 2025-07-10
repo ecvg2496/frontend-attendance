@@ -166,13 +166,18 @@ const PendingRequestsTable = ({ data, loading, error }) => {
           {flattenedData.map((request) => (
             <tr key={`${request.request_id}-${request.date}`} style={{ borderBottom: '1px solid #e0e0e0' }}>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {formatDateTime(request.request_created_at)}
+                {formatDate(request.request_created_at)}
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 {formatDate(request.date)}
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 {formatTimeAMPM(request.time_in)} - {formatTimeAMPM(request.time_out)}
+                {request.start_break && (
+                  <Typography variant="caption" display="block" color="text.secondary">
+                    Break: {formatTimeAMPM(request.start_break)} - {formatTimeAMPM(request.end_break)}
+                  </Typography>
+                )}
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 {request.hours} hours
@@ -231,7 +236,7 @@ const ApprovedRequestsTable = ({ data, loading, error }) => {
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Work Hours</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Approved By</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Remarks</th>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Last Update</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Date Modified</th>
           </tr>
         </thead>
         <tbody>
@@ -242,6 +247,11 @@ const ApprovedRequestsTable = ({ data, loading, error }) => {
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 {formatDate(request.date)}: ({formatTimeAMPM(request.time_in)} - {formatTimeAMPM(request.time_out)})
+                {request.start_break && (
+                  <Typography variant="caption" display="block" color="text.secondary">
+                    Break: {formatTimeAMPM(request.start_break)} - {formatTimeAMPM(request.end_break)}
+                  </Typography>
+                )}
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 {formatDate(request.processed_at)}
@@ -303,27 +313,35 @@ const RejectedRequestsTable = ({ data, loading, error }) => {
       }}>
         <thead>
           <tr style={{ backgroundColor: '#00B4D8', color: 'white', textAlign: 'left' }}>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Requested Date</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Date Filed</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Rejected Schedule</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Rejected By</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Remarks</th>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Last Update</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Date Modified</th>
           </tr>
         </thead>
         <tbody>
           {flattenedData.map((request) => (
             <tr key={`${request.request_id}-${request.date}`} style={{ borderBottom: '1px solid #e0e0e0' }}>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {formatDateTime(request.request_created_at)}
+                {formatDate(request.request_created_at)}
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 {formatDate(request.date)}: {formatTimeAMPM(request.time_in)} - {formatTimeAMPM(request.time_out)}
+                {request.start_break && (
+                  <Typography variant="caption" display="block" color="text.secondary">
+                    Break: {formatTimeAMPM(request.start_break)} - {formatTimeAMPM(request.end_break)}
+                  </Typography>
+                )}
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 {request?.processed_by || 'System'}
               </td>
               <td style={{ padding: '12px 16px' }}>
                 {request.admin_remarks || 'No reason provided'}
+              </td>
+              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                {formatDate(request?.updated_at) || '-'}
               </td>
             </tr>
           ))}
@@ -343,8 +361,8 @@ const CustomizeScheduleRequestForm = () => {
       date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       time_in: "08:00",
       time_out: "17:00",
-      start_break: "12:00",
-      end_break: "13:00",
+      break_start: "12:00",
+      break_end: "13:00",
       has_lunch_break: true,
       is_day_off: false,
       hours: 8.00
@@ -380,7 +398,10 @@ const CustomizeScheduleRequestForm = () => {
         schedule_days: prev.schedule_days.map(day => ({
           ...day,
           time_in: emp.default_time_in || "08:00",
-          time_out: emp.default_time_out || "17:00"
+          time_out: emp.default_time_out || "17:00",
+          break_start: "12:00",
+          break_end: "13:00",
+          has_lunch_break: false
         }))
       }));
       
@@ -406,49 +427,75 @@ const CustomizeScheduleRequestForm = () => {
     }
   };
 
-  const calculateHours = (time_in, time_out, has_lunch_break, is_day_off) => {
-    if (is_day_off) return 0.00;
-    if (!time_in || !time_out) return 0.00;
+  const calculateHours = (time_in, time_out, break_start, break_end, has_lunch_break, is_day_off) => {
+  if (is_day_off) return 0.00;
+  if (!time_in || !time_out) return 0.00;
+  
+  try {
+    const [inHours, inMinutes] = time_in.split(':').map(Number);
+    const [outHours, outMinutes] = time_out.split(':').map(Number);
     
-    try {
-      const [inHours, inMinutes] = time_in.split(':').map(Number);
-      const [outHours, outMinutes] = time_out.split(':').map(Number);
+    let totalMinutes = (outHours * 60 + outMinutes) - (inHours * 60 + inMinutes);
+    
+    // Handle graveyard shifts (time_out is next day)
+    if (totalMinutes < 0) totalMinutes += 24 * 60;
+    
+    // Only subtract break time if break is checked and times are valid
+    if (has_lunch_break && break_start && break_end) {
+      const [breakStartH, breakStartM] = break_start.split(':').map(Number);
+      const [breakEndH, breakEndM] = break_end.split(':').map(Number);
       
-      let totalMinutes = (outHours * 60 + outMinutes) - (inHours * 60 + inMinutes);
+      // Ensure break end is always 1 hour after break start
+      const calculatedBreakEndH = (breakStartH + 1) % 24;
+      const calculatedBreakEnd = `${String(calculatedBreakEndH).padStart(2, '0')}:${String(breakStartM).padStart(2, '0')}`;
       
-      if (totalMinutes < 0) totalMinutes += 24 * 60;
-      
-      if (has_lunch_break) {
-        totalMinutes -= 60;
+      if (break_end !== calculatedBreakEnd) {
+        // If break end doesn't match our calculation, use the calculated value
+        break_end = calculatedBreakEnd;
       }
       
-      return parseFloat((totalMinutes / 60).toFixed(2));
-    } catch (e) {
-      console.error("Error calculating hours:", e);
-      return 0.00;
+      const breakMinutes = 60; // Always exactly 1 hour
+      totalMinutes -= breakMinutes;
     }
+    
+    return parseFloat((totalMinutes / 60).toFixed(2));
+  } catch (e) {
+    console.error("Error calculating hours:", e);
+    return 0.00;
+  }
   };
 
   const handleDayChange = (index, field, value) => {
-    const updatedDays = [...formData.schedule_days];
-    updatedDays[index] = {
-      ...updatedDays[index],
-      [field]: value
-    };
+  const updatedDays = [...formData.schedule_days];
+  updatedDays[index] = {
+    ...updatedDays[index],
+    [field]: value
+  };
 
-    if (['time_in', 'time_out', 'has_lunch_break', 'is_day_off'].includes(field)) {
-      updatedDays[index].hours = calculateHours(
-        updatedDays[index].time_in,
-        updatedDays[index].time_out,
-        updatedDays[index].has_lunch_break,
-        updatedDays[index].is_day_off
-      );
-    }
+  // Automatically set break_end to 1 hour after break_start when break_start changes
+  if (field === 'break_start' && updatedDays[index].has_lunch_break) {
+    const [hours, minutes] = value.split(':').map(Number);
+    let newHours = hours + 1;
+    if (newHours >= 24) newHours -= 24; // Handle midnight wrap-around
+    updatedDays[index].break_end = `${String(newHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
 
-    setFormData({
-      ...formData,
-      schedule_days: updatedDays
-    });
+  // Recalculate hours when relevant fields change
+  if (['time_in', 'time_out', 'break_start', 'break_end', 'has_lunch_break', 'is_day_off'].includes(field)) {
+    updatedDays[index].hours = calculateHours(
+      updatedDays[index].time_in,
+      updatedDays[index].time_out,
+      updatedDays[index].break_start,
+      updatedDays[index].break_end,
+      updatedDays[index].has_lunch_break,
+      updatedDays[index].is_day_off
+    );
+  }
+
+  setFormData({
+    ...formData,
+    schedule_days: updatedDays
+  });
   };
 
   const validateForm = () => {
@@ -478,56 +525,57 @@ const CustomizeScheduleRequestForm = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!validateForm()) return;
+  if (!validateForm()) return;
 
-    try {
-      setLoading(true);
-      
-      const selectedScheduleDays = formData.schedule_days
-        .filter((_, index) => {
-          const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-          return selectedDays[days[index]];
-        })
-        .map(day => ({
-          date: day.date,
-          time_in: formatTimeForBackend(day.time_in),
-          time_out: formatTimeForBackend(day.time_out),
-          start_break: day.has_lunch_break ? "12:00" : null,
-          end_break: day.has_lunch_break ? "13:00" : null,
-          hours: day.hours,
-          work_type: "full_time"
-        }));
+  try {
+    setLoading(true);
+    
+    const selectedScheduleDays = formData.schedule_days
+      .filter((_, index) => {
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        return selectedDays[days[index]];
+      })
+      .map(day => ({
+        date: day.date,
+        time_in: formatTimeForBackend(day.time_in),
+        time_out: formatTimeForBackend(day.time_out),
+        start_break: day.has_lunch_break ? formatTimeForBackend(day.break_start) : null,
+        end_break: day.has_lunch_break ? formatTimeForBackend(day.break_end) : null,
+        hours: day.hours,
+        work_type: "full_time",
+        is_graveyard: day.time_out <= day.time_in
+      }));
 
-      if (selectedScheduleDays.length === 0) {
-        setResponseMsg("Please select at least one day");
-        return;
-      }
-
-      const payload = {
-        employee: employee.id,
-        justification: formData.justification,
-        schedule_days: selectedScheduleDays
-      };
-
-      const response = await api.post("attendance/schedule-requests/", payload);
-      console.log("Submission successful:", response.data);
-
-      setResponseMsg("Schedule request submitted successfully!");
-      setTimeout(() => {
-        setShowModal(false);
-        setResponseMsg("");
-        fetchScheduleRequests(employee.id);
-      }, 2000);
-
-    } catch (error) {
-      console.error("Submission error:", error);
-      setResponseMsg(error.response?.data?.message || "Error submitting request");
-    } finally {
-      setLoading(false);
+    if (selectedScheduleDays.length === 0) {
+      setResponseMsg("Please select at least one day");
+      return;
     }
-  };
+
+    const payload = {
+      employee: employee.id,
+      justification: formData.justification,
+      schedule_days: selectedScheduleDays
+    };
+
+    const response = await api.post("attendance/schedule-requests/", payload);
+    console.log("Submission successful:", response.data);
+
+    setResponseMsg("Schedule request submitted successfully!");
+    setTimeout(() => {
+      setShowModal(false);
+      setResponseMsg("");
+      fetchScheduleRequests(employee.id);
+    }, 2000);
+
+  } catch (error) {
+    console.error("Submission error:", error);
+    setResponseMsg(error.response?.data?.message || "Error submitting request");
+  } finally {
+    setLoading(false);
+  }
+};
   
   const pendingRequests = scheduleRequests.filter(item => item.status === "pending");
   const approvedRequests = scheduleRequests.filter(item => item.status === "approved");
@@ -542,7 +590,7 @@ const CustomizeScheduleRequestForm = () => {
   return (
     <SideNavBar>
       <Card sx={{
-         minHeight: 'calc(104vh - 64px)',
+        minHeight: 'calc(104vh - 64px)',
         width: '100%',
         maxWidth: '100%',
         margin: '0 auto',
@@ -654,7 +702,7 @@ const CustomizeScheduleRequestForm = () => {
           >
             <Paper sx={{
               width: '90%',
-              maxWidth: '800px',
+              maxWidth: '1200px',
               maxHeight: '90vh',
               overflow: 'auto',
               p: 4,
@@ -689,7 +737,7 @@ const CustomizeScheduleRequestForm = () => {
                 gap: 1
               }}>
                 <Schedule fontSize="large" />
-                Schedule Request Form
+                Daily Schedule Request Form
               </Typography>
 
               <Box sx={{ mb: 3 }}>
@@ -710,6 +758,8 @@ const CustomizeScheduleRequestForm = () => {
                       <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>End Time</th>
                       <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Work Hours</th>
                       <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Break</th>
+                      <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Break Start</th>
+                      <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Break End</th>
                       <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Day Off</th>
                     </tr>
                   </thead>
@@ -719,7 +769,9 @@ const CustomizeScheduleRequestForm = () => {
                         date: new Date().toISOString().split('T')[0],
                         time_in: "08:00",
                         time_out: "17:00",
-                        has_lunch_break: true,
+                        break_start: "12:00",
+                        break_end: "13:00",
+                        has_lunch_break: false,
                         is_day_off: false,
                         hours: 8.00
                       };
@@ -768,19 +820,64 @@ const CustomizeScheduleRequestForm = () => {
                           <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                             <Checkbox
                               checked={dayData.has_lunch_break}
-                              onChange={(e) => handleDayChange(index, 'has_lunch_break', e.target.checked)}
+                              onChange={(e) => {
+                                handleDayChange(index, 'has_lunch_break', e.target.checked);
+                              }}
                               color="primary"
                               disabled={!selectedDays[day] || dayData.is_day_off}
                             />
                           </td>
-                          <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                            <Checkbox
-                              checked={dayData.is_day_off}
-                              onChange={(e) => handleDayChange(index, 'is_day_off', e.target.checked)}
-                              color="primary"
-                              disabled={!selectedDays[day]}
+                       <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                          {dayData.has_lunch_break && (
+                            <MobileTimePicker
+                              value={parse(dayData.break_start, 'HH:mm', new Date())}
+                              onChange={(newValue) => {
+                                const formattedTime = format(newValue, 'HH:mm');
+                                handleDayChange(index, 'break_start', formattedTime);
+                              }}
+                              renderInput={(params) => (
+                                <TextField 
+                                  {...params} 
+                                  size="small" 
+                                  sx={{ width: '120px' }} 
+                                  disabled={!selectedDays[day] || dayData.is_day_off}
+                                />
+                              )}
                             />
+                          )}
+                        </td>
+                         <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                            {dayData.has_lunch_break && (
+                              <MobileTimePicker
+                                value={parse(dayData.break_end, 'HH:mm', new Date())}
+                                onChange={() => {}} 
+                                disabled={true} 
+                                renderInput={(params) => (
+                                  <TextField 
+                                    {...params} 
+                                    size="small" 
+                                    sx={{ width: '120px' }} 
+                                    readOnly={true} 
+                                  />
+                                )}
+                              />
+                            )}
                           </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          <Checkbox
+                            checked={dayData.is_day_off}
+                            onChange={(e) => {
+                              const isDayOff = e.target.checked;
+                              handleDayChange(index, 'is_day_off', isDayOff);
+                              // If marking as day off, uncheck break
+                              if (isDayOff) {
+                                handleDayChange(index, 'has_lunch_break', false);
+                              }
+                            }}
+                            color="primary"
+                            disabled={!selectedDays[day]}
+                          />
+                        </td>
                         </tr>
                       );
                     })}
@@ -788,12 +885,17 @@ const CustomizeScheduleRequestForm = () => {
                 </table>
               </Box>
               
-              <Box sx={{ mb: 2, p: 2, borderRadius: 1 }}>
-                <Typography variant="subtitle2">
-                  <strong>Total Working Hours:</strong> {formData.schedule_days
-                    .filter((_, index) => index < 5) 
-                    .reduce((total, day) => total + (day?.hours || 0), 0)
-                    .toFixed(2)} hours
+              <Box sx={{ mb: 3, borderRadius: 1 }}>
+                <Typography variant="subtitle2"  color="primary">
+                  <strong>Total Working Hours:</strong> {
+                    formData.schedule_days
+                      .filter((_, index) => {
+                        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+                        return selectedDays[days[index]];
+                      })
+                      .reduce((total, day) => total + (day?.hours || 0), 0)
+                      .toFixed(2)
+                  } hours
                 </Typography>
               </Box>
 

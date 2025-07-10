@@ -57,7 +57,7 @@ function NavBar({color, position}) {
                     onClick={() => handleNavigation('/')} // Make logo clickable
                     sx={{ cursor: 'pointer' }}
                 />
-                <MDBox sx={{display: { xs: 'none', md: 'flex' } }}>
+                {/* <MDBox sx={{display: { xs: 'none', md: 'flex' } }}>
                 {pages.map((page) => (
                     <MDButton
                     variant="text"
@@ -75,7 +75,7 @@ function NavBar({color, position}) {
                     {page}
                     </MDButton>
                 ))}
-                </MDBox>
+                </MDBox> */}
                 { isAuth ? 
                 <MDBox display="flex" sx={{ flexGrow: 1, flexDirection: 'row-reverse' }}>
                 <MDButton 

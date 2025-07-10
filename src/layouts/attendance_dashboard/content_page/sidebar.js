@@ -51,8 +51,8 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import axios from 'axios';
 import UserProfile from '../admin_profile';
 
-const drawerWidthExpanded = 250;
-const drawerWidthCollapsed = 90;
+const drawerWidthExpanded = 265;
+const drawerWidthCollapsed = 100;
 
 // Custom colored icons
 const ColoredAccessTimeIcon = styled(AccessTimeIcon)(({ theme }) => ({
@@ -222,7 +222,7 @@ const GlobalSideNav = ({ children }) => {
     { icon: <ColoredPeopleIcon />, text: 'Browse Users', route: '/attendance/admin/dashboard/browse' },
     { icon: <ColoredPeopleIcon />, text: 'Assign Users', route: '/attendance/admin/assign-users' },
     { icon: <ColoredTimeToLeaveIcon />, text: 'Leave', route: '/attendance/admin/leave-credit'},
-    { icon: <ColoredHistoryIcon />, text: 'Activities History', route: '/attendance/admin/activities-history' },
+    // { icon: <ColoredHistoryIcon />, text: 'Activities History', route: '/attendance/admin/activities-history' },
     { icon: <ColoredSyncIcon />, text: 'Schedule Request', route: '/attendance/admin/schedule' },
     { icon: <ColoredEventAvailableIcon />, text: 'Manage PTO', route: '/attendance/admin/pto' },
   ];

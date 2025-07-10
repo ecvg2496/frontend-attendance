@@ -36,44 +36,13 @@ Coded by www.creative-tim.com
 */
 
 // Material Dashboard 2 React layouts
-import Dashboard from "layouts/dashboard";
-import Tables from "layouts/tables";
-import Billing from "layouts/billing";
-import RTL from "layouts/rtl";
-import Notifications from "layouts/notifications";
-import Profile from "layouts/profile";
 import SignIn from "layouts/authentication/sign-in";
-import SignUp from "layouts/authentication/sign-up";
-import ResetPassword from "layouts/authentication/reset-password/cover";
 import ChangePassword from "layouts/authentication/change-password";
 
 // @mui icons
 import Icon from "@mui/material/Icon";
 
 //Content Page
-import Employee from "layouts/dashboard/employee";
-import Positions from "layouts/dashboard/positions";
-import Platforms from "layouts/dashboard/platforms";
-import Tags from "layouts/dashboard/tags";
-import Questions from "layouts/dashboard/questions";
-import MainPage from "layouts/content_page/main";
-import Careers from "layouts/content_page/careers";
-import Response from "layouts/content_page/careers/response";
-import PersonalInformation from "layouts/content_page/careers/personal-information";
-import PersonalForm from "layouts/content_page/careers/personal-information/personal";
-import WorkExperienceForm from "layouts/content_page/careers/personal-information/work-experience";
-import ExperienceForm from "layouts/content_page/careers/personal-information/work-experience/experience";
-import PersonalDetailsForm from "layouts/content_page/careers/personal-information/personal-details";
-import CareerQuestionsForm from "layouts/content_page/careers/career-questions";
-import ReferenceInformation from "layouts/content_page/careers/reference-information";
-import ReferenceForm from "layouts/content_page/careers/reference-information/reference";
-import CareerSubmitted from "layouts/content_page/careers/submit";
-import Educational from "layouts/content_page/careers/personal-information/educational";
-import EducationalAttainmentForm from "layouts/content_page/careers/personal-information/educational/education";
-import Dependents from "layouts/content_page/careers/personal-information/dependents";
-import DependentsForm from "layouts/content_page/careers/personal-information/dependents/dependents";
-import Report from "layouts/dashboard/report";
-import Designation from "layouts/dashboard/designation";
 import GenerateExel from "layouts/dashboard/employee/generate-exel";
 import AttendanceAdminProfile from "layouts/attendance_dashboard/admin_profile";
 import AttendanceAdminDashboard from "layouts/attendance_dashboard/index";
@@ -98,124 +67,7 @@ import AttendanceUserMakeUpHours from "layouts/attendance/make_up_request";
 import AttendanceUserScheduleRequest from "layouts/attendance/schedule_request";
 import AttendanceUserTimesheet from "layouts/attendance/timesheet";
 const routes = [
-  {
-    type: "hidden",
-    key: "dashboard",
-    route: "/",
-    component: <MainPage />,
-  },
-  {
-    type: "collapse",
-    name: "Dashboard",
-    key: "dashboard",
-    icon: <Icon fontSize="small">dashboard</Icon>,
-    route: "/dashboard",
-    component: <Dashboard />,
-  },
-  {
-    type: "collapse",
-    name: "Report",
-    key: "report",
-    icon: <Icon fontSize="small">assessment</Icon>,
-    route: "/report",
-    component: <Report />,
-  },
-  {
-    type: "collapse",
-    name: "Candidate",
-    key: "candidate",
-    icon: <Icon fontSize="small">person</Icon>,
-    route: "/candidate",
-    component: <Employee />,
-  },
-  {
-    type: "collapse",
-    name: "Hired",
-    key: "hired",
-    icon: <Icon fontSize="small">accessibility</Icon>,
-    route: "/hired",
-    component: <Designation />,
-  },
-  {
-    type: "collapse",
-    name: "Platform",
-    key: "platform",
-    icon: <Icon fontSize="small">language</Icon>,
-    route: "/platform",
-    component: <Platforms />,
-  },
-  {
-    type: "collapse",
-    name: "Tags",
-    key: "tags",
-    icon: <Icon fontSize="small">style</Icon>,
-    route: "/tags",
-    component: <Tags />,
-  },
-  {
-    type: "collapse", 
-    name: "Positions",
-    key: "positions",
-    icon: <Icon fontSize="small">apps</Icon>,
-    route: "/positions",
-    component: <Positions />,
-  },
-  {
-    type: "collapse",
-    name: "Questions",
-    key: "questions",
-    icon: <Icon fontSize="small">quiz</Icon>,
-    route: "/questions",
-    component: <Questions />,
-  },
-  // {
-  //   type: "collapse",
-  //   name: "Careers",
-  //   key: "careers",
-  //   icon: <Icon fontSize="small">table_view</Icon>,
-  //   collapse: [
-  //   ]
-  // },
-  // {
-  //   type: "collapse",
-  //   name: "Tables",
-  //   key: "tables",
-  //   icon: <Icon fontSize="small">table_view</Icon>,
-  //   route: "/tables",
-  //   component: <Tables />,
-  // },
-  // {
-  //   type: "collapse",
-  //   name: "Billing",
-  //   key: "billing",
-  //   icon: <Icon fontSize="small">receipt_long</Icon>,
-  //   route: "/billing",
-  //   component: <Billing />,
-  // },
-  // {
-  //   type: "collapse",
-  //   name: "RTL",
-  //   key: "rtl",
-  //   icon: <Icon fontSize="small">format_textdirection_r_to_l</Icon>,
-  //   route: "/rtl",
-  //   component: <RTL />,
-  // },
-  // {
-  //   type: "collapse",
-  //   name: "Notifications",
-  //   key: "notifications",
-  //   icon: <Icon fontSize="small">notifications</Icon>,
-  //   route: "/notifications",
-  //   component: <Notifications />,
-  // },
-  {
-    type: "hidden",
-    name: "Profile",
-    key: "profile",
-    icon: <Icon fontSize="small">person</Icon>,
-    route: "/profile",
-    component: <Profile />,
-  },
+
   {
     type: "hidden",
     name: "Sign In",
@@ -223,22 +75,6 @@ const routes = [
     icon: <Icon fontSize="small">login</Icon>,
     route: "/authentication/sign-in",
     component: <SignIn />,
-  },
-  {
-    type: "hidden",
-    name: "Sign Up",
-    key: "sign-up",
-    icon: <Icon fontSize="small">assignment</Icon>,
-    route: "/authentication/sign-up",
-    component: <SignUp />,
-  },
-  {
-    type: "hidden", //hidden
-    name: "Reset Password",
-    key: "reset-password",
-    icon: <Icon fontSize="small">assignment</Icon>,
-    route: "/authentication/reset-password",
-    component: <ResetPassword />,
   },
   {
     type: "hidden", //hidden
@@ -250,103 +86,11 @@ const routes = [
   },
   {
     type: "hidden", //hidden
-    key: "careers",
-    route: "/careers",
-    component: <Careers />,
-  },
-  {
-    type: "hidden", //hidden
-    key: "response",
-    route: "/careers/response",
-    component: <Response />,
-  },
-  {
-    type: "hidden", //hidden
-    key: "personal",
-    route: "/careers/personalinfo",
-    component: <PersonalInformation />,
-  },
-  {
-    type: "hidden", //hidden
-    key: "personalform",
-    route: "/careers/personalinfo/personalform",
-    component: <PersonalForm />,
-  },
-  {
-    type: "hidden", //hidden
-    key: "workexperienceform",
-    route: "/careers/personalinfo/workexperienceform",
-    component: <WorkExperienceForm />,
-  },
-  {
-    type: "hidden", //hidden
-    key: "experienceform",
-    route: "/careers/personalinfo/experienceform",
-    component: <ExperienceForm />,
-  },
-  {
-    type: "hidden", //hidden
-    key: "personaldetailsform",
-    route: "/careers/personalinfo/detailsform",
-    component: <PersonalDetailsForm />,
-  },
-  {
-    type: "hidden", //hidden
-    key: "educational",
-    route: "/careers/personalinfo/educational",
-    component: <Educational />,
-  },
-  {
-    type: "hidden", //hidden
-    key: "dependents",
-    route: "/careers/personalinfo/dependents",
-    component: <Dependents />,
-  },
-  {
-    type: "hidden", //hidden
-    key: "dependentsform",
-    route: "/careers/personalinfo/dependentsForm",
-    component: <DependentsForm />,
-  },
-  {
-    type: "hidden", //hidden
-    key: "educationalform",
-    route: "/careers/personalinfo/educational/form",
-    component: <EducationalAttainmentForm />,
-  },
-  {
-    type: "hidden", //hidden
-    key: "careerquestions",
-    route: "/careers/questions",
-    component: <CareerQuestionsForm />,
-  },
-  {
-    type: "hidden", //hidden
-    key: "referrenceform",
-    route: "/careers/reference/referenceform",
-    component: <ReferenceForm />,
-  },
-  {
-    type: "hidden", //hidden
-    key: "submitted",
-    route: "/careers/submitted",
-    component: <CareerSubmitted />,
-  },
-  {
-    type: "hidden", //hidden
     key: "generate",
     route: "/candidate/export",
     component: <GenerateExel />,
   },
-  // {
-  //   type: "collapse",
-  //   name: "Main Page",
-  //   key: "main-page",
-  //   icon: <Icon fontSize="small">home</Icon>,
-  //   route: "/",
-  //   component: <MainPage />,
-  // },
-  
+
   //For ATTENDANCE ROUTES
   {
     type: "hidden",

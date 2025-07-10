@@ -27,11 +27,6 @@ import {
   DialogActions,
   Tabs,
   Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Tooltip
 } from '@mui/material';
 import {
@@ -59,6 +54,7 @@ import '../content_page/css/admintable.css';
 import LaunchIcon from '@mui/icons-material/Launch';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
+import ScheduleIcon from '@mui/icons-material/Schedule';
 
 // Helper Functions (same as before)
 const formatDisplayDate = (dateString) => {
@@ -71,6 +67,17 @@ const formatDisplayDate = (dateString) => {
     });
   } catch (e) {
     return 'Invalid date';
+  }
+};
+const formatWeekday = (dateString) => {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-PH', {
+      weekday: 'long',        
+      timeZone: 'Asia/Manila'  
+    });
+  } catch (e) {
+    return 'Invalid day';
   }
 };
 
@@ -235,7 +242,7 @@ const ScheduleRequestTable = ({
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 <Box>
-                  {request?.processed_by || ''}
+                  {request.processed_by || ''}
                 </Box>
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
@@ -255,7 +262,9 @@ const ScheduleRequestTable = ({
 const EmployeeScheduleTable = ({ 
   data, 
   loading, 
-  error
+  error,
+  setSnackbar,
+  refreshData
 }) => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -271,30 +280,96 @@ const EmployeeScheduleTable = ({
   const [selectAllChecked, setSelectAllChecked] = useState(false);
 
   const handleEditClick = (employee) => {
-    setSelectedEmployee(employee);
-    // If employee has existing schedule, populate the form
-    if (employee.schedule) {
-      const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-      const newScheduleData = { ...scheduleData };
-      
-      days.forEach(day => {
-        if (employee.schedule[day]) {
-          newScheduleData[day] = {
-            enabled: true,
-            timeIn: employee.schedule[day].time_in || '08:00',
-            timeOut: employee.schedule[day].time_out || '17:00',
-            breakStart: employee.schedule[day].break_start || '12:00',
-            breakEnd: employee.schedule[day].break_end || '13:00'
-          };
-        }
-      });
-      
-      newScheduleData.permanent = employee.schedule.permanent || false;
-      setScheduleData(newScheduleData);
-    }
-    setEditModalOpen(true);
+  setSelectedEmployee(employee);
+  
+  // Convert time format from "10:00 PM" to "22:00" (24-hour format)
+  const convertTo24Hour = (timeStr) => {
+    if (!timeStr) return '08:00';
+    const [time, period] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':');
+    hours = parseInt(hours);
+    if (period === 'PM' && hours < 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
+    return `${hours.toString().padStart(2, '0')}:${minutes}`;
   };
 
+  // Get default times from employee (fallback to 8AM-5PM if not available)
+  const defaultTimeIn = convertTo24Hour(formatDisplayTime(employee.time_in || '08:00 AM'));
+  const defaultTimeOut = convertTo24Hour(formatDisplayTime(employee.time_out || '05:00 PM'));
+  const defaultBreakStart = '12:00';
+  const defaultBreakEnd = '13:00';
+
+  // Initialize schedule data with employee defaults
+  const initialScheduleData = {
+    monday: { 
+      enabled: false, 
+      timeIn: defaultTimeIn, 
+      timeOut: defaultTimeOut, 
+      breakStart: defaultBreakStart, 
+      breakEnd: defaultBreakEnd,
+      hasBreak: false 
+    },
+    tuesday: { 
+      enabled: false, 
+      timeIn: defaultTimeIn, 
+      timeOut: defaultTimeOut, 
+      breakStart: defaultBreakStart, 
+      breakEnd: defaultBreakEnd,
+      hasBreak: false 
+    },
+    wednesday: { 
+      enabled: false, 
+      timeIn: defaultTimeIn, 
+      timeOut: defaultTimeOut, 
+      breakStart: defaultBreakStart, 
+      breakEnd: defaultBreakEnd,
+      hasBreak: false 
+    },
+    thursday: { 
+      enabled: false, 
+      timeIn: defaultTimeIn, 
+      timeOut: defaultTimeOut, 
+      breakStart: defaultBreakStart, 
+      breakEnd: defaultBreakEnd,
+      hasBreak: false 
+    },
+    friday: { 
+      enabled: false, 
+      timeIn: defaultTimeIn, 
+      timeOut: defaultTimeOut, 
+      breakStart: defaultBreakStart, 
+      breakEnd: defaultBreakEnd,
+      hasBreak: false 
+    },
+    permanent: false
+  };
+
+  // Check if employee has weekly schedules
+  if (employee.weekly_schedules && employee.weekly_schedules.length > 0) {
+    const weeklySchedule = employee.weekly_schedules[0];
+    
+    // Set permanent flag based on schedule type
+    initialScheduleData.permanent = weeklySchedule.schedule_type === 'regular';
+
+    // Process each day in the weekly schedule
+    weeklySchedule.days.forEach(day => {
+      if (initialScheduleData[day.day]) {
+        initialScheduleData[day.day] = {
+          enabled: !day.use_default,
+          timeIn: day.time_in ? day.time_in.substring(0, 5) : defaultTimeIn,
+          timeOut: day.time_out ? day.time_out.substring(0, 5) : defaultTimeOut,
+          breakStart: day.has_break ? (day.break_start ? day.break_start.substring(0, 5) : defaultBreakStart) : defaultBreakStart,
+          breakEnd: day.has_break ? (day.break_end ? day.break_end.substring(0, 5) : defaultBreakEnd) : defaultBreakEnd,
+          hasBreak: day.has_break
+        };
+      }
+    });
+  }
+
+  setScheduleData(initialScheduleData);
+  setEditModalOpen(true);
+};
+  
   const handleCloseEditModal = () => {
     setEditModalOpen(false);
     setSelectedEmployee(null);
@@ -308,16 +383,64 @@ const EmployeeScheduleTable = ({
       permanent: false
     });
   };
+  const addMinutes = (date, minutes) => {
+  return new Date(date.getTime() + minutes * 60000);
+  };
 
+  const validateBreakTime = (start, end, employmentType) => {
+    const startTime = parse(start, 'HH:mm', new Date());
+    const endTime = parse(end, 'HH:mm', new Date());
+    const diffInMinutes = (endTime - startTime) / (1000 * 60);
+    
+    if (employmentType === 'Probationary') {
+      return diffInMinutes <= 15;
+    }
+    return diffInMinutes <= 60;
+  };
   const handleScheduleChange = (day, field, value) => {
-    setScheduleData(prev => ({
+  setScheduleData(prev => {
+    const newData = {
       ...prev,
       [day]: {
         ...prev[day],
         [field]: value
       }
-    }));
+    };
+
+    // When unchecking break, clear break times
+    if (field === 'hasBreak' && value === false) {
+      newData[day].breakStart = '';
+      newData[day].breakEnd = '';
+    }
+
+    // Auto-adjust break end time if needed
+    if ((field === 'breakStart' || field === 'breakEnd') && newData[day].hasBreak) {
+      if (newData[day].breakStart && newData[day].breakEnd) {
+        const isValid = validateBreakTime(
+          newData[day].breakStart, 
+          newData[day].breakEnd, 
+          selectedEmployee?.employment_type
+        );
+        
+        if (!isValid) {
+          const maxMinutes = selectedEmployee?.employment_type === 'Probationary' ? 15 : 60;
+          const breakStart = parse(newData[day].breakStart, 'HH:mm', new Date());
+          const breakEnd = addMinutes(breakStart, maxMinutes);
+          newData[day].breakEnd = format(breakEnd, 'HH:mm');
+          
+          setSnackbar({
+            open: true,
+            message: `Break time adjusted to ${maxMinutes} minutes for ${selectedEmployee?.employment_type} employee`,
+            severity: 'info'
+          });
+        }
+      }
+    }
+    
+    return newData;
+  });
   };
+  
 const handleSelectAllToggle = (checked) => {
   setSelectAllChecked(checked);
 
@@ -336,65 +459,73 @@ const handleSelectAllToggle = (checked) => {
       }
     }));
   };
-  const calculateTotalHours = () => {
-  return ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
-    .filter(day => scheduleData[day].enabled)
-    .reduce((total, day) => total + (scheduleData[day].hours || 0), 0)
-    .toFixed(2);
-};
-  const handleSubmit = async () => {
-    if (!selectedEmployee) return;
-    
-    try {
-      setIsSubmitting(true);
-      
-      // Prepare the schedule data to send to the API
-      const scheduleToSubmit = {
-        monday: scheduleData.monday.enabled ? {
-          time_in: scheduleData.monday.timeIn,
-          time_out: scheduleData.monday.timeOut,
-          break_start: scheduleData.monday.breakStart,
-          break_end: scheduleData.monday.breakEnd
-        } : null,
-        tuesday: scheduleData.tuesday.enabled ? {
-          time_in: scheduleData.tuesday.timeIn,
-          time_out: scheduleData.tuesday.timeOut,
-          break_start: scheduleData.tuesday.breakStart,
-          break_end: scheduleData.tuesday.breakEnd
-        } : null,
-        wednesday: scheduleData.wednesday.enabled ? {
-          time_in: scheduleData.wednesday.timeIn,
-          time_out: scheduleData.wednesday.timeOut,
-          break_start: scheduleData.wednesday.breakStart,
-          break_end: scheduleData.wednesday.breakEnd
-        } : null,
-        thursday: scheduleData.thursday.enabled ? {
-          time_in: scheduleData.thursday.timeIn,
-          time_out: scheduleData.thursday.timeOut,
-          break_start: scheduleData.thursday.breakStart,
-          break_end: scheduleData.thursday.breakEnd
-        } : null,
-        friday: scheduleData.friday.enabled ? {
-          time_in: scheduleData.friday.timeIn,
-          time_out: scheduleData.friday.timeOut,
-          break_start: scheduleData.friday.breakStart,
-          break_end: scheduleData.friday.breakEnd
-        } : null,
-        permanent: scheduleData.permanent
-      };
 
-      // Call API to update employee schedule
-      await axiosPrivate.put(`attendance/employees/${selectedEmployee.id}/schedule/`, scheduleToSubmit);
-      
-      // Close modal and refresh data
-      handleCloseEditModal();
-      // You might want to add a success snackbar here
-    } catch (error) {
-      console.error("Error updating schedule:", error);
-      // You might want to add an error snackbar here
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleSubmit = async () => {
+  if (!selectedEmployee) return;
+  
+  try {
+    setIsSubmitting(true);
+
+    const scheduleToSubmit = {
+      monday: scheduleData.monday.enabled ? {
+        time_in: scheduleData.monday.timeIn,
+        time_out: scheduleData.monday.timeOut,
+        break_start: scheduleData.monday.hasBreak ? scheduleData.monday.breakStart : null,
+        break_end: scheduleData.monday.hasBreak ? scheduleData.monday.breakEnd : null,
+        has_break: scheduleData.monday.hasBreak ? 1 : 0
+      } : null,
+      tuesday: scheduleData.tuesday.enabled ? {
+        time_in: scheduleData.tuesday.timeIn,
+        time_out: scheduleData.tuesday.timeOut,
+        break_start: scheduleData.tuesday.hasBreak ? scheduleData.tuesday.breakStart : null,
+        break_end: scheduleData.tuesday.hasBreak ? scheduleData.tuesday.breakEnd : null,
+        has_break: scheduleData.tuesday.hasBreak ? 1 : 0
+      } : null,
+      wednesday: scheduleData.wednesday.enabled ? {
+        time_in: scheduleData.wednesday.timeIn,
+        time_out: scheduleData.wednesday.timeOut,
+        break_start: scheduleData.wednesday.hasBreak ? scheduleData.wednesday.breakStart : null,
+        break_end: scheduleData.wednesday.hasBreak ? scheduleData.wednesday.breakEnd : null,
+        has_break: scheduleData.wednesday.hasBreak ? 1 : 0
+      } : null,
+      thursday: scheduleData.thursday.enabled ? {
+        time_in: scheduleData.thursday.timeIn,
+        time_out: scheduleData.thursday.timeOut,
+        break_start: scheduleData.thursday.hasBreak ? scheduleData.thursday.breakStart : null,
+        break_end: scheduleData.thursday.hasBreak ? scheduleData.thursday.breakEnd : null,
+        has_break: scheduleData.thursday.hasBreak ? 1 : 0
+      } : null,
+      friday: scheduleData.friday.enabled ? {
+        time_in: scheduleData.friday.timeIn,
+        time_out: scheduleData.friday.timeOut,
+        break_start: scheduleData.friday.hasBreak ? scheduleData.friday.breakStart : null,
+        break_end: scheduleData.friday.hasBreak ? scheduleData.friday.breakEnd : null,
+        has_break: scheduleData.friday.hasBreak ? 1 : 0
+      } : null,
+      permanent: scheduleData.permanent
+    };
+
+    // Call API to update employee schedule
+    await axiosPrivate.put(`attendance/employees/${selectedEmployee.id}/schedule/`, scheduleToSubmit);
+    
+    // Close modal and show success message
+    handleCloseEditModal();
+    setSnackbar({
+      open: true,
+      message: "Schedule updated successfully",
+      severity: "success"
+    });
+    refreshData();
+  } catch (error) {
+    console.error("Error updating schedule:", error);
+    setSnackbar({
+      open: true,
+      message: "Failed to update schedule",
+      severity: "error"
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
   };
 
   if (loading) {
@@ -456,20 +587,6 @@ const handleSelectAllToggle = (checked) => {
                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                   {employee.department || 'N/A'}
                 </td>
-                {/* <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                  {employee.department ? (
-                    <Box>
-                      <Typography variant="body2">
-                        {employee?.time_in} - {employee.schedule.time_out}
-                      </Typography>
-                      {employee.schedule.break_start && employee.schedule.break_end && (
-                        <Typography variant="caption" color="text.secondary">
-                          Break: {employee.schedule.break_start} - {employee.schedule.break_end}
-                        </Typography>
-                      )}
-                    </Box>
-                  ) : 'No schedule set'}
-                </td> */}
                  <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                   {formatDisplayTime(employee?.time_in) || 'N/A'} - {formatDisplayTime(employee?.time_out)}
                 </td>
@@ -505,7 +622,7 @@ const handleSelectAllToggle = (checked) => {
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          width: 800,
+          width: 1000,
           bgcolor: 'background.paper',
           boxShadow: 24,
           p: 4,
@@ -513,7 +630,7 @@ const handleSelectAllToggle = (checked) => {
           maxHeight: '80vh',
           overflowY: 'auto'
         }}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h4" color="primary" component="h2">
               Edit Schedule of {selectedEmployee?.first_name} {selectedEmployee?.last_name}
             </Typography>
@@ -521,8 +638,40 @@ const handleSelectAllToggle = (checked) => {
               <Close />
             </IconButton>
           </Box>
+
+          {/* Display current schedule */}
+          {selectedEmployee?.time_in && selectedEmployee?.time_out && (
+            <Box mb={2} borderRadius={1}>
+              <Typography variant="subtitle2" color="black" gutterBottom>
+                Current Schedule: {formatDisplayTime(selectedEmployee.time_in)} - {formatDisplayTime(selectedEmployee.time_out)} ({(selectedEmployee?.contract_hours)} hours)
+              </Typography>
+              <Typography variant="subtitle2" color="black" gutterBottom>
+                Work Type: {(selectedEmployee.type)}
+              </Typography>
+              <Typography variant="subtitle2" color="black" gutterBottom>
+                Employment Type: {(selectedEmployee.employment_type)}
+              </Typography>
+    
+            </Box>
+          )}
+
           <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <Box sx={{ mb: 3 }}>
+            <Box sx={{ mb: 2 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={scheduleData.permanent}
+                    onChange={(e) => setScheduleData(prev => ({
+                      ...prev,
+                      permanent: e.target.checked
+                    }))}
+                    color="primary"
+                  />
+                }
+                label="Set as Permanent Schedule"
+                sx={{ mb: 2, color: '#000000 !important' }}
+              />
+
               <table style={{
                 width: '100%',
                 borderCollapse: 'collapse',
@@ -597,21 +746,28 @@ const handleSelectAllToggle = (checked) => {
                 </tbody>
               </table>
 
-              {/* Total Hours Display */}
-              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                <Typography variant="subtitle1" color="primary">
-                  Total Work Hours:{" "}
-                  {
-                    ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
-                      .filter(day => scheduleData[day].enabled)
-                      .reduce((acc, day) => acc + (scheduleData[day].hours || 0), 0)
-                      .toFixed(2)
-                  } hours
-                </Typography>
-              </Box>
             </Box>
           </LocalizationProvider>
 
+          <Box display="flex" justifyContent="flex-end" gap={2} mt={3}>
+            <Button 
+              variant="outlined" 
+              onClick={handleCloseEditModal}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="contained" 
+              color="primary"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              startIcon={isSubmitting ? <CircularProgress size={20} /> : null}
+              sx={{color:'white !important'}}
+            >
+              {isSubmitting ? 'Saving...' : 'Save Schedule'}
+            </Button>
+          </Box>
         </Box>
       </Modal>
     </>
@@ -663,7 +819,7 @@ const RequestDetailsModal = ({
         overflowY: 'auto'
       }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
-          <Typography variant="h4" color="primary" component="h2">
+          <Typography variant="h3" color="primary" component="h2">
             Schedule Request Details
           </Typography>
           <IconButton onClick={onClose}>
@@ -689,7 +845,8 @@ const RequestDetailsModal = ({
               color: request?.status === 'approved' ? 'green' : 
                     request?.status === 'rejected' ? 'red' : 
                     request?.status === 'pending' ? 'orange' : 
-                    'inherit'
+                    'inherit',
+              fontWeight: 'bold'
             }}>
               {request?.status 
                 ? request.status.charAt(0).toUpperCase() + request.status.slice(1) 
@@ -699,7 +856,7 @@ const RequestDetailsModal = ({
         </Box>
         <Typography>Date Filed: {formatDateTime(request.created_at)}</Typography>
         <Typography>Reason:&nbsp;{request.justification || 'No reason provided'}</Typography>
-        <Typography mb={2}>Date Modified: {formatDateTime(request.updated_at)}</Typography>
+        <Typography>Date Modified: {formatDateTime(request.updated_at)}</Typography>
 
         {request.processed_by && (
           <Typography mb={2}>
@@ -708,12 +865,16 @@ const RequestDetailsModal = ({
         )}
 
         <Box mb={3}>
-          <Typography variant="subtitle1" fontWeight="bold" color="primary" mb={2}>Schedule Days</Typography>
+          <Typography variant="h3" fontWeight="bold" color="primary" mb={2}>Schedule Days</Typography>
           {request.schedule_days.map((day, index) => (
             <Paper key={index} sx={{ p: 2, mb: 2, borderRadius: 1 }}>
-              <Typography fontWeight="medium" mb={1}>
+              <Typography fontWeight="medium" color="primary" mb={1}>
                 {formatDisplayDate(day.date)}
               </Typography>
+              <Box display="flex" justifyContent="space-between" mb={1}>
+                <Typography variant="body2">Weekday:</Typography>
+                <Typography>{formatWeekday(day.date)}</Typography>
+              </Box>
               <Box display="flex" justifyContent="space-between" mb={1}>
                 <Typography variant="body2">Time In:</Typography>
                 <Typography>{formatDisplayTime(day.time_in)}</Typography>
@@ -740,7 +901,7 @@ const RequestDetailsModal = ({
 
         <Box mt={3}>
           <Typography variant="subtitle2" gutterBottom>
-            Admin Remarks
+            Admin Remarks:
           </Typography>
           <TextField
             fullWidth
@@ -977,17 +1138,94 @@ const CustomizeScheduleRequestForm = () => {
     }
   };
 
-  const fetchEmployees = async () => {
-    try {
-      setEmployeeLoading(true);
-      const response = await axiosPrivate.get('attendance/employees/');
-      setAllEmployees(response.data);
-      setEmployeeLoading(false);
-    } catch (err) {
-      setEmployeeError(err.message);
-      setEmployeeLoading(false);
-    }
-  };
+  const fetchEmployees = useCallback(async () => {
+  try {
+    setEmployeeLoading(true);
+    setEmployeeError(null);
+
+    // 1. Fetch all employees with their basic info
+    const [employeesResponse, schedulesResponse] = await Promise.all([
+      axiosPrivate.get('attendance/employees/'),
+      axiosPrivate.get('attendance/weekly-schedules/', { 
+        params: { 
+          is_active: true, 
+          limit: 1 
+        } 
+      })
+    ]);
+
+        // Handle potential API errors
+        if (!employeesResponse?.data || !Array.isArray(employeesResponse.data)) {
+          throw new Error('Invalid employees data format');
+        }
+
+        if (!schedulesResponse?.data || !Array.isArray(schedulesResponse.data)) {
+          throw new Error('Invalid schedules data format');
+        }
+
+        // Process employees data
+        const employees = employeesResponse.data.map(emp => ({
+          ...emp,
+          // Ensure all required fields exist
+          first_name: emp.first_name || '',
+          last_name: emp.last_name || '',
+          email: emp.email || '',
+          position: emp.position || 'N/A',
+          department: emp.department || 'N/A',
+          time_in: emp.time_in || '08:00:00',
+          time_out: emp.time_out || '17:00:00',
+          contract_hours: emp.contract_hours || 8,
+          type: emp.type || 'Regular',
+          employment_type: emp.employment_type || 'Regular'
+        }));
+
+        // Create schedule map with validation
+        const scheduleMap = schedulesResponse.data.reduce((map, schedule) => {
+          if (schedule.employee_id) {
+            map[schedule.employee_id] = {
+              ...schedule,
+              days: Array.isArray(schedule.days) ? schedule.days : [],
+              schedule_type: schedule.schedule_type || 'regular'
+            };
+          }
+          return map;
+        }, {});
+
+        // Combine data with proper fallbacks
+        const employeesWithSchedules = employees.map(employee => {
+          const weeklySchedule = scheduleMap[employee.id];
+          
+          return {
+            ...employee,
+            weekly_schedules: weeklySchedule ? [weeklySchedule] : [],
+            // Add processed_by if available from schedule
+            processed_by: weeklySchedule?.processed_by || ''
+          };
+        });
+
+        setAllEmployees(employeesWithSchedules);
+        
+      } catch (err) {
+        console.error("Error fetching employees:", err);
+        setEmployeeError({
+          message: err.response?.data?.message || 
+                  err.message || 
+                  "Failed to load employee data",
+          details: err.response?.data?.details
+        });
+        
+        setSnackbar({
+          open: true,
+          message: "Failed to load employee schedules. Please try again.",
+          severity: "error"
+        });
+        
+        // Set empty array as fallback
+        setAllEmployees([]);
+      } finally {
+        setEmployeeLoading(false);
+      }
+    }, []);
 
   const filteredRequests = useMemo(() => {
     return scheduleRequests
@@ -1026,12 +1264,14 @@ const CustomizeScheduleRequestForm = () => {
       .filter(employee => {
         if (employeeSearchTerm) {
           const searchLower = employeeSearchTerm.toLowerCase();
-          const matchesName = employee.name?.toLowerCase().includes(searchLower);
+          const matchesFirstName = employee.first_name?.toLowerCase().includes(searchLower);
+          const matchesLastName = employee.last_name?.toLowerCase().includes(searchLower);
+          const matchesFullName = `${employee.first_name || ''} ${employee.last_name || ''}`.toLowerCase().includes(searchLower);
           const matchesEmail = employee.email?.toLowerCase().includes(searchLower);
           const matchesPosition = employee.position?.toLowerCase().includes(searchLower);
           const matchesDepartment = employee.department?.toLowerCase().includes(searchLower);
           
-          if (!matchesName && !matchesEmail && !matchesPosition && !matchesDepartment) {
+          if (!matchesFirstName && !matchesLastName && !matchesFullName && !matchesEmail && !matchesPosition && !matchesDepartment) {
             return false;
           }
         }
@@ -1153,11 +1393,11 @@ const CustomizeScheduleRequestForm = () => {
             borderRadius: 1
           }}>
             <Typography variant="h3" color="primary">
-              {currentTab === 0 ? 'Custom Schedule Requests' : 'Employee Schedules'}
+              {currentTab === 0 ? 'Schedule Request' : 'Employee Schedule'}
             </Typography>
           </Box>
 
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Box>
             <Tabs value={currentTab} onChange={handleTabChange} aria-label="schedule tabs">
               <Tab label="Schedule Request" />
               <Tab label="Employee Schedule" />
@@ -1231,6 +1471,8 @@ const CustomizeScheduleRequestForm = () => {
                 data={filteredEmployees}
                 loading={employeeLoading}
                 error={employeeError}
+                setSnackbar={setSnackbar}
+                refreshData={fetchEmployees}
               />
             </>
           )}

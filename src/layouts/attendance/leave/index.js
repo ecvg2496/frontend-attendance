@@ -1065,22 +1065,22 @@ const LeaveFormModal = () => {
         </Fab>
 
         <Modal
-  open={showModal}
-  onClose={() => {
-    setShowModal(false);
-    setResponseMsg("");
-    setFile(null);
-    setIsHalfDay(false);
-    setHalfDayType('first_half');
-    setFormErrors({
-      file: false,
-      leave_type: false,
-      start_date: false,
-      end_date: false,
-      reason: false,
-      date: false,
-      hours: false
-    });
+        open={showModal}
+        onClose={() => {
+        setShowModal(false);
+        setResponseMsg("");
+        setFile(null);
+        setIsHalfDay(false);
+        setHalfDayType('first_half');
+        setFormErrors({
+          file: false,
+          leave_type: false,
+          start_date: false,
+          end_date: false,
+          reason: false,
+          date: false,
+          hours: false
+       });
   }}
   sx={{
     display: 'flex',

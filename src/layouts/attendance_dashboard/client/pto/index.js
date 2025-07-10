@@ -159,7 +159,7 @@ const EmployeeTable = ({
                       {birthdayLeave && <span>{birthdayLeave.total_days || 0}</span>}
                     </Box>
                   ) : (
-                    <Box color="error.main" fontSize="0.9rem">N/A</Box>
+                    <Box color="error.main" fontSize="0.9rem">0</Box>
                   )}
                 </td>
                 <td style={{ padding: '12px 16px', color: 'green' }}>
@@ -197,8 +197,10 @@ const EmployeeTable = ({
                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                   <StatusBadge status={employee?.status || 'Unknown'} />
                 </td>
-                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                   {formatDisplayDate(latestProcessedDate)}
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                  {latestProcessedDate && new Date(latestProcessedDate).getFullYear() >= 2018
+                    ? formatDisplayDate(latestProcessedDate)
+                    : "No date"}
                 </td>
               </tr>
             );
@@ -328,10 +330,10 @@ export default function BrowseUserPTO() {
           onExited: () => { modalRef.current = false; }
         }}
       >
-  <DialogTitle body2="h1" color="primary">
-    Filter Employees by Status
-  </DialogTitle>     
-   <DialogContent>
+      <DialogTitle body2="h1" color="primary">
+        Filter Employees by Status
+      </DialogTitle>     
+      <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
             {Object.keys(localFilters).map(status => (
               <FormControlLabel

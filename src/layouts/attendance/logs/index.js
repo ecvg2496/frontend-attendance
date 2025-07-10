@@ -1,19 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { 
-  Avatar,
   Box, 
   Typography, 
-  Paper, 
   Tab, 
   Tabs, 
   Card, 
   CardContent,
-  IconButton,
   Chip,
   CircularProgress,
   Alert,
-  Tooltip,
   Dialog, 
   DialogTitle, 
   DialogContent, 
@@ -21,8 +17,7 @@ import {
   Button, 
   Pagination,
   useTheme,
-  useMediaQuery,
-  TableContainer
+  useMediaQuery
 } from '@mui/material';
 import { 
   Today as TodayIcon,
@@ -31,13 +26,7 @@ import {
   CheckCircle as PresentIcon,
   Schedule as LateIcon,
   Cancel as AbsentIcon,
-  Visibility as VisibilityIcon,
-  Download as DownloadIcon,
   Event as DateIcon,
-  AccessTime as ClockIcon,
-  Timer as OvertimeIcon,
-  HourglassEmpty as UndertimeIcon,
-  WorkOff as LeaveIcon,
   Error as ErrorIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -111,7 +100,7 @@ const formatTimeProfessional = (timeString) => {
   }
 };
 
-//Convert date type 
+// Convert date type 
 const formatDisplayDate = (dateString) => {
   if (!dateString) return '--';
   
@@ -125,10 +114,6 @@ const formatDisplayDate = (dateString) => {
 
 // Main Table Component with Joined Data
 const DailyAttendanceTable = ({ employeeData, logsData, loading, error, onViewClick }) => {
-  const theme = useTheme();
-  const isXLargeScreen = useMediaQuery(theme.breakpoints.up('xl'));
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
-
   if (loading) return (
     <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
       <CircularProgress size={20} />
@@ -148,89 +133,85 @@ const DailyAttendanceTable = ({ employeeData, logsData, loading, error, onViewCl
   );
 
   return (
-      <table style={{ 
-          width: '100%',
-          minWidth: '1200px',
-          borderCollapse: 'collapse',
-          fontSize: '0.875rem'
-        }}>
+    <Box sx={{ width: '100%', overflowX: 'auto' }}>
+     <table style={{ 
+        width: '100%',
+        minWidth: '1200px',
+        borderCollapse: 'collapse',
+        fontSize: '0.875rem'
+      }}>
         <thead>
-          <tr style={{backgroundColor: '#00B4D8', color: 'white', textAlign: 'left'}}>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Date</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Status</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Time In</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Time-in Status</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Start Break</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>End Break</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Break Status</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Time Out</th>
-            <th style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem'}}>Time Out Status</th>
+          <tr style={{ backgroundColor: '#00B4D8', color: 'white', textAlign: 'left' }}>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>Date</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>Status</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>Time In</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>Time-in Status</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>Start Break</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>End Break</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>Break Status</th> {/* Optional rendering is done in tbody */}
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>Time Out</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>Time Out Status</th>
           </tr>
         </thead>
         <tbody>
           {logsData.map((log) => {
-            const breakStatus = log.start_break ? 'Taken' : 'Missed';
-            
+            const hasBreak = log.start_break && log.end_break;
+            const breakStatus = hasBreak ? 'Taken' : 'Missed';
+            const status = log.time_in ? 'Present' : (log.status || 'Absent');
+            const timeStatus = log.time_out;
             return (
               <tr key={log.id}>
-                <td style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '18px'}}>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '18px' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <DateIcon fontSize="medium" color="action" />
                     {log.date ? formatDisplayDate(log.date) : "--"}
                   </Box>
                 </td>
-                    
-                <td style={{ ...{padding: '12px 16px', whiteSpace: 'nowrap'}}}>
-                  <StatusBadge status={log.status || 'Absent'} />
+
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                  <StatusBadge status={status} />
                 </td>
 
-                <td style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '18px'}}>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '18px' }}>
                   {log.time_in ? formatTimeProfessional(log.time_in) : '--:--'}
                 </td>
-                <td style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>
+
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <StatusBadge status={log?.time_in_status || ''} />
                   </Box>
                 </td>
 
-                <td style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '18px'}}>
-                  {log?.time_in ? (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
-                      <span>{formatTimeProfessional(log.start_break)}</span>
-                    </Box>
-                  ) : ''}
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '18px' }}>
+                  {log.start_break ? formatTimeProfessional(log.start_break) : ''}
                 </td>
-                  <td style={{padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '18px'}}>
-                  {log.start_break ? (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
-                      <span>{formatTimeProfessional(log.end_break)}</span>
-                    </Box>
-                  ) : ''}
+
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '18px' }}>
+                  {log.end_break ? formatTimeProfessional(log.end_break) : ''}
                 </td>
-                <td style={{padding: '12px 16px', whiteSpace: 'nowrap'}}>
-                  {log?.end_break ? (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
-                      <span><StatusBadge status={log?.break_status || ''} /></span>
-                    </Box>
-                  ) : ''}
-                </td>
-             
-             <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                <span style={{ fontSize: '18px', display: 'inline-block' }}>
-                  {formatTimeProfessional(log?.time_out)}
-                </span>
-              </td>
-              {log?.time_out && (
+
+                {/* ✅ Conditionally render Break Status cell */}
                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                  <StatusBadge status={log?.time_out_status || ''} />
+                  {hasBreak && (
+                    <StatusBadge status={log?.break_status || breakStatus} />
+                  )}
                 </td>
-              )}
-                              
+
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '18px' }}>
+                  {log.time_out ? formatTimeProfessional(log.time_out) : ''}
+                </td>
+
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                  {timeStatus && (
+                    <StatusBadge status={log?.time_out_status || ''} />
+                  )}
+                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+    </Box>
   );
 };
 
@@ -262,7 +243,6 @@ const AttendanceUserLogs = () => {
     const newDateRange = {...dateRange, [type]: newValue};
     setDateRange(newDateRange);
     
-    // Validate date range
     if (newDateRange.startDate && newDateRange.endDate && newDateRange.endDate < newDateRange.startDate) {
       setDateError(true);
       setShowErrorModal(true);
@@ -278,17 +258,23 @@ const AttendanceUserLogs = () => {
     
     return data.filter(log => {
       const logDate = new Date(log.date);
+      const startDate = dateRange.startDate ? new Date(dateRange.startDate) : null;
+      const endDate = dateRange.endDate ? new Date(dateRange.endDate) : null;
       
-      if (dateRange.startDate && !dateRange.endDate) {
-        return logDate >= dateRange.startDate;
+      if (startDate && !endDate) {
+        startDate.setHours(0, 0, 0, 0);
+        return logDate >= startDate;
       }
       
-      if (!dateRange.startDate && dateRange.endDate) {
-        return logDate <= dateRange.endDate;
+      if (!startDate && endDate) {
+        endDate.setHours(23, 59, 59, 999);
+        return logDate <= endDate;
       }
       
-      if (dateRange.startDate && dateRange.endDate) {
-        return logDate >= dateRange.startDate && logDate <= dateRange.endDate;
+      if (startDate && endDate) {
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+        return logDate >= startDate && logDate <= endDate;
       }
       
       return true;
@@ -296,6 +282,81 @@ const AttendanceUserLogs = () => {
   };
 
   const filteredData = filterByDateRange(logsData);
+
+  // Calculate time difference in hours
+  const calculateTimeDifference = (time1, time2) => {
+    if (!time1 || !time2) return 0;
+    
+    const [hours1, minutes1] = time1.split(':').map(Number);
+    const [hours2, minutes2] = time2.split(':').map(Number);
+    
+    const totalMinutes1 = hours1 * 60 + minutes1;
+    const totalMinutes2 = hours2 * 60 + minutes2;
+    
+    return (totalMinutes1 - totalMinutes2) / 60;
+  };
+
+  const calculateStats = (data) => {
+    let totalLateHours = 0;
+    let totalUndertimeHours = 0;
+    let totalOvertimeHours = 0;
+    let totalMakeupHours = 0;
+    
+    const lateCount = data.filter(log => {
+      if (log.time_in_status === 'Late' && log.time_in && employeeData?.time_in) {
+        const lateHours = calculateTimeDifference(log.time_in, employeeData.time_in);
+        if (lateHours > 0) {
+          totalLateHours += lateHours;
+          return true;
+        }
+      }
+      return false;
+    }).length;
+
+    const undertimeCount = data.filter(log => {
+      if (log.time_out_status === 'Undertime' && log.undertime_hours) {
+        totalUndertimeHours += parseFloat(log.undertime_hours);
+        return true;
+      }
+      return false;
+    }).length;
+
+    const overtimeCount = data.filter(log => {
+      if (log.overtime) {
+        totalOvertimeHours += parseFloat(log.overtime) / 60;
+        return true;
+      }
+      return false;
+    }).length;
+
+    const presentCount = data.filter(log => log.status === 'Present').length;
+    const leaveCount = data.filter(log => log.status === 'Leave').length;
+    const floatingCount = data.filter(log => log.status === 'Floating').length;
+    const absentCount = data.length - presentCount - leaveCount - floatingCount;
+
+    data.forEach(log => {
+      if (log.make_up_hours) {
+        totalMakeupHours += parseFloat(log.make_up_hours);
+      }
+    });
+
+    return {
+      totalLogs: data.length,
+      present: presentCount,
+      late: lateCount,
+      totalLateHours: totalLateHours.toFixed(2),
+      absent: absentCount,
+      leave: leaveCount,
+      floating: floatingCount,
+      undertime: undertimeCount,
+      totalUndertimeHours: totalUndertimeHours.toFixed(2),
+      overtime: overtimeCount,
+      totalOvertimeHours: totalOvertimeHours.toFixed(2),
+      totalMakeupHours: totalMakeupHours.toFixed(2),
+    };
+  };
+
+  const stats = calculateStats(filteredData);
 
   // Paginate the data for Attendance Logs tab
   const paginatedData = filteredData.slice(
@@ -316,42 +377,47 @@ const AttendanceUserLogs = () => {
   }, [dateRange]);
 
   useEffect(() => {
-  const fetchEmployeeData = async () => {
-    try {
-      setLoading(true);
-      const storedEmployee = localStorage.getItem('employee');
-      
-      if (!storedEmployee) {
-        throw new Error('No employee data found');
+    const fetchEmployeeData = async () => {
+      try {
+        setLoading(true);
+        const storedEmployee = localStorage.getItem('employee');
+        
+        if (!storedEmployee) {
+          throw new Error('No employee data found');
+        }
+        
+        const emp = JSON.parse(storedEmployee);
+        
+        if (!emp?.id) {
+          throw new Error('Invalid employee data');
+        }
+        
+        setEmployeeData(emp);
+        
+        const logsRes = await axios.get(`attendance/logs/?employee_id=${emp.id}`);
+        
+        if (!logsRes.data?.logs) {
+          throw new Error('Invalid logs data format');
+        }
+        
+        const updatedLogs = logsRes.data.logs.map(log => ({
+          ...log,
+          status: log.time_in ? 'Present' : (log.status || 'Absent')
+        }));
+        
+        setLogsData(updatedLogs); 
+        setError(null);
+      } catch (err) {
+        console.error('Fetch error:', err);
+        setError(err.message || 'Failed to fetch data');
+        setLogsData([]);
+      } finally {
+        setLoading(false);
       }
-      
-      const emp = JSON.parse(storedEmployee);
-      
-      if (!emp?.id) {
-        throw new Error('Invalid employee data');
-      }
-      
-      setEmployeeData(emp);
-      
-      const logsRes = await axios.get(`attendance/logs/?employee_id=${emp.id}`);
-      
-      if (!logsRes.data?.logs) {
-        throw new Error('Invalid logs data format');
-      }
-      
-      setLogsData(logsRes.data.logs); 
-      setError(null);
-    } catch (err) {
-      console.error('Fetch error:', err);
-      setError(err.message || 'Failed to fetch data');
-      setLogsData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  fetchEmployeeData();
-}, []);
+    fetchEmployeeData();
+  }, []);
 
   const handleViewClick = (data) => {
     setSelectedLog(data);
@@ -360,57 +426,6 @@ const AttendanceUserLogs = () => {
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
-  };
-
-  const formatMinutesToHours = (minutes) => {
-    if (!minutes && minutes !== 0) return '--';
-    const mins = parseFloat(minutes);
-    const hours = Math.floor(mins / 60);
-    const remainingMins = mins % 60;
-    return `${hours}h ${remainingMins}m`;
-  };
-  
-  const calculateStats = (data) => {
-    const lateCount = data.filter(log => log.time_in_status === 'Late').length;
-    const undertimeCount = data.filter(log => log.time_out_status === 'Undertime').length;
-    const overtimeCount = data.filter(log => log.overtime && log.overtime > 0).length;
-    const presentCount = data.filter(log => log.status === 'Present').length;
-    const leaveCount = data.filter(log => log.status === 'Leave').length;
-    const floatingCount = data.filter(log => log.status === 'Floating').length;
-    const absentCount = data.length - presentCount - leaveCount - floatingCount;
-    
-    const totalUndertime = data.reduce((total, log) => {
-      if (log.time_out_status === 'Undertime' && log.undertime_hours) {
-        return total + parseFloat(log.undertime_hours);
-      }
-      return total;
-    }, 0);
-    
-    const totalOvertimeMinutes = data.reduce((total, log) => {
-      const mins = parseFloat(log.overtime) || 0;
-      return total + mins;
-    }, 0);
-
-    const totalMakeupHours = data.reduce((total, log) => {
-      if (log.make_up_hours) {
-        return total + parseFloat(log.make_up_hours);
-      }
-      return total;
-    }, 0);
-
-    return {
-      totalLogs: data.length,
-      present: presentCount,
-      late: lateCount,
-      absent: absentCount,
-      leave: leaveCount,
-      floating: floatingCount,
-      undertime: undertimeCount,
-      totalUndertimeHours: totalUndertime.toFixed(2),
-      overtime: overtimeCount,
-      totalOvertimeHours: (totalOvertimeMinutes / 60).toFixed(2),
-      totalMakeupHours: totalMakeupHours.toFixed(2),
-    };
   };
 
   const clearDateRange = () => {
@@ -428,82 +443,79 @@ const AttendanceUserLogs = () => {
     );
   }
 
-  const stats = calculateStats(filteredData);
-
-return (
-  <SideNavBar>
-    <Box sx={{ p: 2 }}>
-      <Card sx={{ mb: 2, mt: -12, overflow: 'auto' }}>
-         <Tabs 
-          value={tabValue} 
-          onChange={handleTabChange}
-          variant="fullWidth"
-          sx={{ 
-            '& .MuiTabs-indicator': { height: 3 },
-            '& .MuiTab-root': { minHeight: 48, fontSize: '0.8rem', color: 'black !important' },
-            width: '100%'
-            
-          }}
-         >
-         <Tab
-            label={
-              <Typography sx={{ fontSize: '1.5rem', fontWeight: 500 }}>
-                Attendance Logs
-              </Typography>
-            }
-            icon={<TodayIcon fontSize="medium" />}
-            iconPosition="start"
-          />
-          <Tab
-            label={
-              <Typography sx={{ fontSize: '1.5rem', fontWeight: 500, color: 'black !important' }}>
-                Overview
-              </Typography>
-            }
-            icon={<DateRangeIcon fontSize="medium" />}
-            iconPosition="start"
-          />
-        </Tabs>
-        <CardContent sx={{ p: 2 }}>
-          {tabValue === 0 && (
-            <Box>
-              <Typography variant="h3" color="primary" sx={{ mb: 1 }}>
-                {employeeData.first_name}'s Logs
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                <Chip 
-                  label={`${stats.totalLogs} Records`}
-                  color="info" 
-                  variant="outlined" 
-                  icon={<PersonIcon fontSize="small" />} 
-                  size="small"
-                  sx={{ fontSize: '1.2rem' }}
-                />
-                <Chip 
-                  label={`${stats.present} Present`}
-                  color="success" 
-                  variant="outlined" 
-                  icon={<PresentIcon fontSize="small" />} 
-                  size="small"
-                  sx={{ fontSize: '1.2rem' }}
-                />
-                <Chip 
-                  label={`${stats.late} Late`}
-                  color="warning" 
-                  variant="outlined" 
-                  icon={<LateIcon fontSize="small" />} 
-                  size="small"
-                  sx={{ fontSize: '1.2rem' }}
-                />
-                <Chip 
-                  label={`${stats.absent} Absent`}
-                  color="error" 
-                  variant="outlined" 
-                  icon={<AbsentIcon fontSize="small" />} 
-                  size="small"
-                  sx={{ fontSize: '1.2rem' }}
-                />
-              </Box>
+  return (
+    <SideNavBar>
+      <Box sx={{ p: 2 }}>
+        <Card sx={{ mb: 2, mt: -12, overflow: 'auto' }}>
+          <Tabs 
+            value={tabValue} 
+            onChange={handleTabChange}
+            variant="fullWidth"
+            sx={{ 
+              '& .MuiTabs-indicator': { height: 3 },
+              '& .MuiTab-root': { minHeight: 48, fontSize: '0.8rem', color: 'black !important' },
+              width: '100%'
+            }}
+          >
+            <Tab
+              label={
+                <Typography sx={{ fontSize: '1.5rem', fontWeight: 500 }}>
+                  Attendance Logs
+                </Typography>
+              }
+              icon={<TodayIcon fontSize="medium" />}
+              iconPosition="start"
+            />
+            <Tab
+              label={
+                <Typography sx={{ fontSize: '1.5rem', fontWeight: 500, color: 'black !important' }}>
+                  Overview
+                </Typography>
+              }
+              icon={<DateRangeIcon fontSize="medium" />}
+              iconPosition="start"
+            />
+          </Tabs>
+          <CardContent sx={{ p: 2 }}>
+            {tabValue === 0 && (
+              <Box>
+                <Typography variant="h3" color="primary" sx={{ mb: 1 }}>
+                  {employeeData.first_name}'s Logs
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                  <Chip 
+                    label={`${stats.totalLogs} Records`}
+                    color="info" 
+                    variant="outlined" 
+                    icon={<PersonIcon fontSize="small" />} 
+                    size="small"
+                    sx={{ fontSize: '1.2rem' }}
+                  />
+                  <Chip 
+                    label={`${stats.present} Present`}
+                    color="success" 
+                    variant="outlined" 
+                    icon={<PresentIcon fontSize="small" />} 
+                    size="small"
+                    sx={{ fontSize: '1.2rem' }}
+                  />
+                  <Chip 
+                    label={`${stats.late} Late`}
+                    color="warning" 
+                    variant="outlined" 
+                    icon={<LateIcon fontSize="small" />} 
+                    size="small"
+                    sx={{ fontSize: '1.2rem' }}
+                  />
+                  <Chip 
+                    label={`${stats.absent} Absent`}
+                    color="error" 
+                    variant="outlined" 
+                    icon={<AbsentIcon fontSize="small" />} 
+                    size="small"
+                    sx={{ fontSize: '1.2rem' }}
+                  />
+                </Box>
 
                 <DailyAttendanceTable 
                   employeeData={employeeData}
@@ -513,160 +525,163 @@ return (
                   onViewClick={handleViewClick}
                 />
 
-              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                <Pagination
-                  count={Math.ceil(filteredData.length / itemsPerPage)}
-                  page={currentPage}
-                  onChange={(event, page) => setCurrentPage(page)}
-                  color="primary"
-                  size="small"
-                  sx={{ '& .MuiPaginationItem-root': { fontSize: '0.7rem' } }}
-                />
-              </Box>
-            </Box>
-          )}
-          {tabValue === 1 && (
-            <Box>
-              <Typography variant="h3" color="primary" sx={{ mb: 2}}>
-                Attendance Overview for {employeeData.first_name} {employeeData.last_name}
-              </Typography>
-              
-              <LocalizationProvider dateAdapter={AdapterDateFns}>
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 2 }}>
-                  <DatePicker
-                    label="Start Date"
-                    value={dateRange.startDate}
-                    onChange={(newValue) => handleDateChange('startDate', newValue)}
-                    shouldDisableDate={disableFutureDates}
-                    slotProps={{
-                      textField: {
-                        size: 'small',
-                        variant: 'outlined',
-                        sx: { width: '150px' },
-                        error: dateError
-                      }
-                    }}
-                  />
-                  <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>to</Typography>
-                  <DatePicker
-                    label="End Date"
-                    value={dateRange.endDate}
-                    onChange={(newValue) => handleDateChange('endDate', newValue)}
-                    shouldDisableDate={disableFutureDates}
-                    slotProps={{
-                      textField: {
-                        size: 'small',
-                        variant: 'outlined',
-                        sx: { width: '150px' },
-                        error: dateError
-                      }
-                    }}
-                  />
-                  <Button
-                    variant="outlined"
-                    onClick={clearDateRange}
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                  <Pagination
+                    count={Math.ceil(filteredData.length / itemsPerPage)}
+                    page={currentPage}
+                    onChange={(event, page) => setCurrentPage(page)}
+                    color="primary"
                     size="small"
-                    sx={{ fontSize: '0.7rem' }}
-                  >
-                    Clear
-                  </Button>
-                </Box>
-              </LocalizationProvider>
-              
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
-                <Card sx={{ p: 2 }}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Attendance Overview</Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Records:</Typography>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{stats.totalLogs}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Present:</Typography>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#4CAF50' }}>
-                        {stats.present} ({Math.round((stats.present / stats.totalLogs) * 100)}%)
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Leaves:</Typography>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                        {stats.leave} ({Math.round((stats.leave / stats.totalLogs) * 100)}%)
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Floating Holidays:</Typography>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                        {stats.floating} ({Math.round((stats.floating / stats.totalLogs) * 100)}%)
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Absent:</Typography>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#F44336' }}>
-                        {stats.absent} ({Math.round((stats.absent / stats.totalLogs) * 100)}%)
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Card>
-                
-                <Card sx={{ p: 2 }}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Time Compliance</Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Late Arrivals:</Typography>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                        {stats.late}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Undertime Days:</Typography>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                        {stats.undertime}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Undertime:</Typography>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-                        {stats.totalUndertimeHours} hours
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Make Up Hours:</Typography>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-                        {stats.totalMakeupHours} hours
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Card>
-                
-                <Card sx={{ p: 2 }}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Overtime</Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Overtime Days:</Typography>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#4CAF50' }}>
-                        {stats.overtime}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Overtime:</Typography>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-                        {stats.totalOvertimeHours} hours
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Card>
-              </Box>
-              
-              <Card sx={{ p: 2, mt: 2, overflow: 'auto' }}>
-                <Box sx={{ width: '100%', overflowX: 'auto' }}>
-                  <DailyAttendanceTable 
-                    employeeData={employeeData}
-                    logsData={paginatedOverviewData}
-                    loading={loading}
-                    error={error}
-                    onViewClick={handleViewClick}
+                    sx={{ '& .MuiPaginationItem-root': { fontSize: '0.7rem' } }}
                   />
                 </Box>
+              </Box>
+            )}
+            {tabValue === 1 && (
+              <Box>
+                <Typography variant="h3" color="primary" sx={{ mb: 2 }}>
+                  Attendance Overview for {employeeData.first_name} {employeeData.last_name}
+                </Typography>
+                
+                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 2 }}>
+                    <DatePicker
+                      label="Start Date"
+                      value={dateRange.startDate}
+                      onChange={(newValue) => handleDateChange('startDate', newValue)}
+                      shouldDisableDate={disableFutureDates}
+                      slotProps={{
+                        textField: {
+                          size: 'small',
+                          variant: 'outlined',
+                          sx: { width: '150px' },
+                          error: dateError
+                        }
+                      }}
+                    />
+                    <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>to</Typography>
+                    <DatePicker
+                      label="End Date"
+                      value={dateRange.endDate}
+                      onChange={(newValue) => handleDateChange('endDate', newValue)}
+                      shouldDisableDate={disableFutureDates}
+                      slotProps={{
+                        textField: {
+                          size: 'small',
+                          variant: 'outlined',
+                          sx: { width: '150px' },
+                          error: dateError
+                        }
+                      }}
+                    />
+                    <Button
+                      variant="outlined"
+                      onClick={clearDateRange}
+                      size="small"
+                      sx={{ fontSize: '0.7rem' }}
+                    >
+                      Clear
+                    </Button>
+                  </Box>
+                </LocalizationProvider>
+                
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2, mb: 2 }}>
+                  <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Attendance Overview</Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Records:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{stats.totalLogs}</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Present:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#4CAF50' }}>
+                          {stats.present} ({Math.round((stats.present / stats.totalLogs) * 100)}%)
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Leaves:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
+                          {stats.leave} ({Math.round((stats.leave / stats.totalLogs) * 100)}%)
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Floating Holidays:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
+                          {stats.floating} ({Math.round((stats.floating / stats.totalLogs) * 100)}%)
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Absent:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#F44336' }}>
+                          {stats.absent} ({Math.round((stats.absent / stats.totalLogs) * 100)}%)
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                  
+                  <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Time Compliance</Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Late Arrivals:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
+                          {stats.late}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Late Hours:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
+                          {stats.totalLateHours} hours
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Undertime Days:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
+                          {stats.undertime}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Undertime:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
+                          {stats.totalUndertimeHours} hours
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Make Up Hours:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
+                          {stats.totalMakeupHours} hours
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                  
+                  <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Overtime</Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Overtime Days:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#4CAF50' }}>
+                          {stats.overtime}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Overtime:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
+                          {stats.totalOvertimeHours} hours
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+                
+                <DailyAttendanceTable 
+                  employeeData={employeeData}
+                  logsData={paginatedOverviewData}
+                  loading={loading}
+                  error={error}
+                  onViewClick={handleViewClick}
+                />
                 <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                   <Pagination
                     count={Math.ceil(filteredData.length / itemsPerPage)}
@@ -677,96 +692,96 @@ return (
                     sx={{ '& .MuiPaginationItem-root': { fontSize: '0.7rem' } }}
                   />
                 </Box>
-              </Card>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
+              </Box>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Log Details Modal */}
-      <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontSize: '0.9rem' }}>
-          {selectedLog?.employee.first_name}'s Log Details
-        </DialogTitle>
-        <DialogContent dividers sx={{ p: 1 }}>
-          {selectedLog && (
-            <Box sx={{ p: 1 }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                <Box>
-                  <Typography variant="subtitle1" fontWeight="bold" sx={{ fontSize: '0.8rem' }}>Employee Information</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Email: {selectedLog.employee.email}</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Department: {selectedLog.employee.department}</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Team: {selectedLog.employee.team}</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Status: <StatusBadge status={selectedLog.employee.status} /></Typography>
-                </Box>
+        {/* Log Details Modal */}
+        <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="md" fullWidth>
+          <DialogTitle sx={{ fontSize: '0.9rem' }}>
+            {selectedLog?.employee.first_name}'s Log Details
+          </DialogTitle>
+          <DialogContent dividers sx={{ p: 1 }}>
+            {selectedLog && (
+              <Box sx={{ p: 1 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight="bold" sx={{ fontSize: '0.8rem' }}>Employee Information</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Email: {selectedLog.employee.email}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Department: {selectedLog.employee.department}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Team: {selectedLog.employee.team}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Status: <StatusBadge status={selectedLog.employee.status} /></Typography>
+                  </Box>
 
-                <Box>
-                  <Typography variant="subtitle1" fontWeight="bold" sx={{ fontSize: '0.8rem' }}>Job Details</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Type: {selectedLog.employee.type}</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Work Arrangement: {selectedLog.employee.work_arrangement}</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Contract Hours: {selectedLog.employee.contract_hours}h</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>
-                    Schedule: {formatTimeProfessional(selectedLog.employee.time_in)} - {formatTimeProfessional(selectedLog.employee.time_out)}
-                  </Typography>
-                </Box>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight="bold" sx={{ fontSize: '0.8rem' }}>Job Details</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Type: {selectedLog.employee.type}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Work Arrangement: {selectedLog.employee.work_arrangement}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Contract Hours: {selectedLog.employee.contract_hours}h</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>
+                      Schedule: {formatTimeProfessional(selectedLog.employee.time_in)} - {formatTimeProfessional(selectedLog.employee.time_out)}
+                    </Typography>
+                  </Box>
 
-                <Box sx={{ gridColumn: '1 / -1', mt: 1 }}>
-                  <Typography variant="subtitle1" fontWeight="bold" sx={{ fontSize: '0.8rem' }}>Attendance Record</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Date: {formatDisplayDate(selectedLog.log.date)}</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Time In: {formatTimeProfessional(selectedLog.log.time_in)}</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Time Out: {formatTimeProfessional(selectedLog.log.time_out)}</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>
-                    Break: {selectedLog.log.start_break ? 
-                      `${formatTimeProfessional(selectedLog.log.start_break)} - ${formatTimeProfessional(selectedLog.log.end_break)}` : 
-                      'No break recorded'}
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Work Hours: {selectedLog.log.work_hours || '0'} hours</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Overtime: {selectedLog.log.overtime || '0'} hours</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Undertime: {selectedLog.log.undertime_hours || '0'} hours</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Make Up Hours: {selectedLog.log.make_up_hours || '0'} hours</Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Status: <StatusBadge status={selectedLog.log.status} /></Typography>
-                  <Typography sx={{ fontSize: '0.75rem' }}>Break Status: <StatusBadge status={selectedLog.log.start_break ? 'Taken' : 'Missed'} /></Typography>
+                  <Box sx={{ gridColumn: '1 / -1', mt: 1 }}>
+                    <Typography variant="subtitle1" fontWeight="bold" sx={{ fontSize: '0.8rem' }}>Attendance Record</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Date: {formatDisplayDate(selectedLog.log.date)}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Time In: {formatTimeProfessional(selectedLog.log.time_in)}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Time Out: {formatTimeProfessional(selectedLog.log.time_out)}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>
+                      Break: {selectedLog.log.start_break ? 
+                        `${formatTimeProfessional(selectedLog.log.start_break)} - ${formatTimeProfessional(selectedLog.log.end_break)}` : 
+                        'No break recorded'}
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Work Hours: {selectedLog.log.work_hours || '0'} hours</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Overtime: {selectedLog.log.overtime || '0'} hours</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Undertime: {selectedLog.log.undertime_hours || '0'} hours</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Make Up Hours: {selectedLog.log.make_up_hours || '0'} hours</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Status: <StatusBadge status={selectedLog.log.status} /></Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Break Status: <StatusBadge status={selectedLog.log.start_break ? 'Taken' : 'Missed'} /></Typography>
+                  </Box>
                 </Box>
               </Box>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 1 }}>
-          <Button 
-            onClick={() => setOpenModal(false)} 
-            color="primary"
-            size="small"
-            sx={{ fontSize: '0.7rem' }}
-          >
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ p: 1 }}>
+            <Button 
+              onClick={() => setOpenModal(false)} 
+              color="primary"
+              size="small"
+              sx={{ fontSize: '0.7rem' }}
+            >
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
 
-      {/* Error Modal for Invalid Date Range */}
-      <Dialog open={showErrorModal} onClose={() => setShowErrorModal(false)}>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: '0.9rem' }}>
-          <ErrorIcon color="error" fontSize="small" />
-          Invalid Date Range
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-            End date cannot be earlier than start date. Please correct the dates.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setShowErrorModal(false)} 
-            color="primary"
-            size="small"
-            sx={{ fontSize: '0.7rem' }}
-          >
-            OK
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>  
-  </SideNavBar>
+        {/* Error Modal for Invalid Date Range */}
+        <Dialog open={showErrorModal} onClose={() => setShowErrorModal(false)}>
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: '0.9rem' }}>
+            <ErrorIcon color="error" fontSize="small" />
+            Invalid Date Range
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+              End date cannot be earlier than start date. Please correct the dates.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button 
+              onClick={() => setShowErrorModal(false)} 
+              color="primary"
+              variant="contained"
+              size="small"
+              sx={{ fontSize: '0.7rem', color: 'white !important' }}
+            >
+              OK
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>  
+    </SideNavBar>
   );
 };
 

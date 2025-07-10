@@ -148,15 +148,15 @@ const SideNavBar = ({ children }) => {
       route: '/attendance/user/timesheet' 
     },
     {
-  icon: <TuneIcon style={{ color: '#00B4D8' }} fontSize="large" />, // Using your primary color for consistency
-  text: 'Schedule Request',
-  route: '/attendance/user/schedule-request' // Updated route
-},
-    {
-      icon: <EventAvailableIcon style={{ color: '#4caf50' }} fontSize="large" />,
-      text: 'Make Up Request',
-      route: '/attendance/user/make-up'
+      icon: <TuneIcon style={{ color: '#00B4D8' }} fontSize="large" />, // Using your primary color for consistency
+      text: 'Schedule Request',
+      route: '/attendance/user/schedule-request' // Updated route
     },
+    // {
+    //   icon: <EventAvailableIcon style={{ color: '#4caf50' }} fontSize="large" />,
+    //   text: 'Make Up Request',
+    //   route: '/attendance/user/make-up'
+    // },
     { 
       icon: <ColoredTimeToLeaveIcon fontSize="large" />, 
       text: 'Leave', 
@@ -298,7 +298,7 @@ const SideNavBar = ({ children }) => {
         <Box sx={{ p: 3, textAlign: 'center' }}>
           <Typography variant="body2" sx={{
             color: theme.palette.text.secondary,
-            fontSize: '0.9rem',
+            fontSize: '1.125rem',
           }}>
             © 2025 Eighty20 Virtual, Inc
           </Typography>

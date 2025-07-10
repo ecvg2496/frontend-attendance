@@ -623,14 +623,14 @@ const LeaveCreditTable = ({
         ? `${currentEmployee.first_name} ${currentEmployee.last_name}` 
         : 'System Admin';
       
-      await axiosPrivate.post('attendance/leave-credits/initialize/', {
+      await axiosPrivate.post('attendance/initialize-leave-credits/', {
         employee_ids: selectedEmployees,
         year,
         created_by: createdBy
       });
       
       await refreshData();
-      setSelectedEmployees([]);
+      onSelectEmployee([]);
       
       setSnackbar({
         open: true,
@@ -720,9 +720,9 @@ const LeaveCreditTable = ({
           <Button 
             variant="contained" 
             color="primary" 
-            size="small"
+            size="medium"
             onClick={() => setEditMode(true)}
-            sx={{color: 'white !important'}}
+            sx={{color: 'white !important', fontSize: '0.8rem'}}
           >
             Edit Credits
           </Button>
@@ -1277,7 +1277,7 @@ const LeaveCreditTable = ({
           <tbody>
             {sortedClients.length === 0 ? (
               <tr>
-                <td colSpan={11} style={{ padding: '20px', textAlign: 'center' }}>
+                <td colSpan={11} style={{ padding: '20px', width: '100%', textAlign: 'center' }}>
                   <Alert severity="info">No leave applications match your filters</Alert>
                 </td>
               </tr>
@@ -1552,13 +1552,15 @@ useEffect(() => {
       const storedEmployee = localStorage.getItem('employee');
       const currentEmployee = storedEmployee ? JSON.parse(storedEmployee) : null;
       const createdBy = currentEmployee 
-        ? `${currentEmployee.first_name} ${currentEmployee.last_name}` 
+        ? `${currentEmployee.first_name} ${currentEmployee.last_name}`
         : 'System Admin';
-      await axiosPrivate.post('attendance/initialize-leave-credits/', {
+      
+      // Don't send processed_at from frontend - let backend handle it
+      const response = await axiosPrivate.post('attendance/initialize-leave-credits/', {
         employee_ids: selectedEmployees,
         year,
-        created_by: createdBy,
-        processed_at: new Date().toISOString()
+        created_by: createdBy
+        // removed processed_at from here
       });
       
       await fetchData();
@@ -1566,7 +1568,7 @@ useEffect(() => {
       
       setSnackbar({
         open: true,
-        message: `Successfully initialized leave credits for ${selectedEmployees.length} employees`,
+        message: `Successfully initialized leave credits at ${new Date(response.data.processed_at).toLocaleString()}`,
         severity: 'success'
       });
       

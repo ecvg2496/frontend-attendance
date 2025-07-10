@@ -700,11 +700,7 @@ function AttendanceDashboard() {
                   <Tab label="Floating" />
                 </Tabs>
   
-                <Box sx={{ 
-                  width: '100%',
-                  overflow: 'hidden',
-                  position: 'relative'
-                }}>
+                <Box>
                   {selectedTab === 0 && (
                     <TabPanel>
                       <Typography variant="h4" color="primary" gutterBottom sx={{ fontWeight: 600 }}>
@@ -712,19 +708,7 @@ function AttendanceDashboard() {
                       </Typography>
                       <Box sx={{
                         width: '100%',
-                        overflowX: 'auto',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        '& .container': {
-                          minWidth: '100%',
-                          margin: 0,
-                          padding: 0
-                        },
-                        '& .responsive-table': {
-                          minWidth: '100%', 
-                          width: '100%'
-                        }
+                        overflowX: 'auto'
                       }}>
                       <AllEmployeeTable 
                         employees={filteredEmployees}
