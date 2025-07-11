@@ -546,6 +546,7 @@ function AttendanceDashboard() {
         daily_rate: Number(formData.daily_rate),
         processed_by: processedBy, 
         processed_at: processedAt, 
+        date_regular: processedAt,
       };
   
       Object.entries(fieldsToAppend).forEach(([key, value]) => {

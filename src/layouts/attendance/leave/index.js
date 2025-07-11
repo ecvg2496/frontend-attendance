@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import api from "api/axios";
+import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
+import { DesktopDatePicker } from '@mui/x-date-pickers/DesktopDatePicker';
 import {
   Card,
   Typography,
@@ -50,7 +52,8 @@ import {
 } from '@mui/icons-material';
 import SideNavBar from "../content_page/nav_bar";
 import '../content_page/css/admintable.css';
-
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 const StatusBadge = ({ status, count }) => {
   const statusConfig = {
     pending: { color: 'warning', icon: <PendingActions fontSize="small" /> },
@@ -769,24 +772,34 @@ const LeaveFormModal = () => {
         </Grid>
 
         <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            label="Start Date"
-            type="date"
-            name="start_date"
-            value={formData.start_date || ''}
-            onChange={(e) => handleDateChange('start_date', e.target.value)}
-            required
-            variant="outlined"
-            error={formErrors.start_date}
-            helperText={formErrors.start_date ? "Start date is required" : ""}
-            InputLabelProps={{ shrink: true }}
-            InputProps={{
-              startAdornment: <EventAvailable color={formErrors.start_date ? "error" : "action"} sx={{ mr: 1 }} />
-            }}
-          />
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <DesktopDatePicker
+              label="Start Date"
+              value={formData.start_date || null}
+              onChange={(newValue) => handleDateChange('start_date', newValue)}
+              inputFormat="yyyy-MM-dd"
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  fullWidth
+                  required
+                  variant="outlined"
+                  error={formErrors.start_date}
+                  helperText={formErrors.start_date ? "Start date is required" : ""}
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <EventAvailable color={formErrors.start_date ? "error" : "action"} />
+                      </InputAdornment>
+                    )
+                  }}
+                />
+              )}
+            />
+          </LocalizationProvider>
         </Grid>
-
+        
         <Grid item xs={12} sm={6}>
           <TextField
             fullWidth

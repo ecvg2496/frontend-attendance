@@ -547,7 +547,6 @@ const handleSelectAllToggle = (checked) => {
       </Box>
     );
   }
-
   return (
     <>
       <Box width="100%" overflow="auto" position="relative" sx={{ mt: 2, mb: 4 }}>
@@ -559,17 +558,28 @@ const handleSelectAllToggle = (checked) => {
         }}>
           <thead>
             <tr style={{ backgroundColor: '#00B4D8', color: 'white', textAlign: 'left' }}>
+              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Actions</th>
               <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Employee</th>
               <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Position</th>
               <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Department</th>
               <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Current Schedule</th>
               <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Processed By</th>
-              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {data.map((employee, index) => (
               <tr key={index} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                  <Tooltip title="Edit Schedule">
+                    <IconButton 
+                      color="primary"
+                      size="small"
+                      onClick={() => handleEditClick(employee)}
+                    >
+                    <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </td>
                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                   <Box display="flex" alignItems="center" gap={1}>
                     <Avatar sx={{ width: 32, height: 32, bgcolor: '#1976d2', fontSize: '0.75rem' }}>
@@ -593,23 +603,11 @@ const handleSelectAllToggle = (checked) => {
                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                   {employee?.processed_by || ""}
                 </td>
-                              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                  <Tooltip title="Edit Schedule">
-                    <IconButton 
-                      color="primary"
-                      size="small"
-                      onClick={() => handleEditClick(employee)}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </Box>
-
       {/* Edit Schedule Modal */}
       <Modal
         open={editModalOpen}
@@ -748,7 +746,6 @@ const handleSelectAllToggle = (checked) => {
 
             </Box>
           </LocalizationProvider>
-
           <Box display="flex" justifyContent="flex-end" gap={2} mt={3}>
             <Button 
               variant="outlined" 
@@ -948,7 +945,6 @@ const RequestDetailsModal = ({
     </Modal>
   );
 };
-
 const FilterModal = ({ 
   open, 
   onClose, 
@@ -1019,7 +1015,6 @@ const FilterModal = ({
             />
           </FormGroup>
         </Box>
-
         <Box>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             {alphabet.map(value => (

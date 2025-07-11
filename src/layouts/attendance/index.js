@@ -136,6 +136,8 @@ const EmployeeAttendanceDashboard = () => {
   const [breakDelayProgress, setBreakDelayProgress] = useState(0);
   const [clientAttendanceData, setClientAttendanceData] = useState([]);
   const [clientLoading, setClientLoading] = useState(false);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleAttendanceData, setScheduleAttendanceData] = useState([]);
   const [leaveCredits, setLeaveCredits] = useState([]);
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
@@ -183,6 +185,7 @@ const EmployeeAttendanceDashboard = () => {
       setEmployee(emp);
       fetchTodayAttendance(emp.id);
       fetchClientAttendance(emp.id);
+      fetchAssignedSchedule(emp.id);
     }
   }, []);
 
@@ -191,25 +194,6 @@ const EmployeeAttendanceDashboard = () => {
       fetchLeaveCredits(employee.id);
     }
   }, [employee]);
-
-  // Check for pending time-outs
-  const checkPendingTimeOut = async () => {
-    if (!employee?.id) return;
-    
-    try {
-      const response = await axios.get('/attendance/logs/pending-timeout/', {
-        params: { employee_id: employee.id }
-      });
-      
-      if (response.data.has_pending) {
-        setPendingTimeOut(response.data.log);
-      } else {
-        setPendingTimeOut(null);
-      }
-    } catch (error) {
-      console.error('Error checking pending time-out:', error);
-    }
-  };
 
   // Fetch leave credits
   const fetchLeaveCredits = async (employeeId) => {
@@ -279,6 +263,26 @@ const EmployeeAttendanceDashboard = () => {
     }
   };
 
+  //Fetch assigned schedules
+  const fetchAssignedSchedule = async (employeeId) => {
+    if (!employeeId) return;
+  
+    setScheduleLoading(true);
+    try {
+      const scheduleResponse = await axios.get(
+        `/attendance/schedule/employee/${employeeId}/`
+      );
+      const assignedClients = scheduleResponse.data;
+      localStorage.setItem("scheduleTime", JSON.stringify(assignedClients));
+      setScheduleAttendanceData(assignedClients);
+    } catch (error) {
+      console.error("Error fetching schedules:", error);
+      setError("Failed to load schedule of employee");
+    } finally {
+      setScheduleLoading(false);
+    }
+  };
+
   // Break alert modal
   const BreakAlertModal = () => (
     <Dialog
@@ -345,103 +349,140 @@ const EmployeeAttendanceDashboard = () => {
 
   // Fetch today's attendance
   const fetchTodayAttendance = async (employeeId) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const now = getCurrentPHTDate();
-      const today = formatDateToYMD(now);
-      
+  setLoading(true);
+  setError(null);
+  try {
+    const now = getCurrentPHTDate();
+    const today = formatDateToYMD(now);
+    const yesterday = formatDateToYMD(new Date(now.setDate(now.getDate() - 1)));
+    
+    // First check if there's an open record from yesterday (no time out)
+    const yesterdayResponse = await axios.get(`/attendance/logs`, {  
+      params: { 
+        employee_id: employeeId,
+        date: yesterday
+      }
+    });
+    
+    let existingRecord = yesterdayResponse.data?.logs?.[0];
+    
+    // If no open record from yesterday, check today's records
+    if (!existingRecord || existingRecord.time_out) {
       const todayResponse = await axios.get(`/attendance/logs`, {  
         params: { 
           employee_id: employeeId,
           date: today
         }
       });
-      
-      let existingRecord = todayResponse.data?.logs?.[0] || null;
+      existingRecord = todayResponse.data?.logs?.[0];
+    }
 
-      if (!existingRecord) {
-        existingRecord = {
-          employee: employeeId,
-          date: today,
-          status: 'Active',
-          time_in: null,
-          start_break: null,
-          end_break: null,
-          time_out: null,
-          break_duration: 0,
-          work_hours: 0,
-          time_in_status: null,
-          time_out_status: null,
-          break_status: null
-        };
+    // If still no record, create a new one based on current time
+    if (!existingRecord) {
+      existingRecord = {
+        employee: employeeId,
+        date: now.getHours() < 5 ? yesterday : today, // Use yesterday's date if it's early morning (before 5am)
+        status: 'Present',
+        time_in: null,
+        start_break: null,
+        end_break: null,
+        time_out: null,
+        break_duration: 0,
+        work_hours: 0,
+        time_in_status: null,
+        time_out_status: null,
+        break_status: null
+      };
+    }
+    
+    setTodayRecord(existingRecord);
+    
+    // Load all records for history
+    const allRecordsResponse = await axios.get(`/attendance/logs`, {
+      params: {
+        employee_id: employeeId,
+        ordering: '-date,-time_in'
       }
-      
-      setTodayRecord(existingRecord);
-      
-      // Load all records for history
-      const allRecordsResponse = await axios.get(`/attendance/logs`, {
-        params: {
-          employee_id: employeeId,
-          ordering: '-date'
+    });
+    
+    setAttendanceRecords(allRecordsResponse.data?.results || []);
+    
+  } catch (error) {
+    setError('Failed to load attendance records');
+  } finally {
+    setLoading(false);
+  }
+  };
+  // Handle time actions (time in, break start/end, time out)
+  const handleTimeAction = async (actionType) => {
+  if (!employee || !employee.id) {
+    setError('Employee data not found');
+    return;
+  }
+
+  setLoading(true);
+  setActionInProgress(actionType);
+  setError(null);
+
+  try {
+    const now = getCurrentPHTDate();
+    const timeString = formatTimeToHMS(now);
+    const today = formatDateToYMD(now);
+    const weekday = now.getDay();
+
+    // For Saturday, we need to check both Friday and Saturday logs
+    const datesToCheck = weekday === 6 ? 
+      [today, formatDateToYMD(new Date(now.setDate(now.getDate() - 1)))] : 
+      [today];
+
+    let existingRecord = null;
+    let recordDate = today;
+    
+    // Check for existing logs in all relevant dates
+    for (const date of datesToCheck) {
+      const response = await axios.get(`/attendance/logs`, {  
+        params: { 
+          employee_id: employee.id,
+          date: date
         }
       });
       
-      setAttendanceRecords(allRecordsResponse.data?.results || []);
-      
-    } catch (error) {
-      setError('Failed to load attendance records');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle time actions (time in, break start/end, time out)
-  const handleTimeAction = async (actionType) => {
-    if (!employee || !employee.id) {
-      setError('Employee data not found');
-      return;
-    }
-
-    setLoading(true);
-    setActionInProgress(actionType);
-    setError(null);
-
-    try {
-      const now = getCurrentPHTDate();
-      const timeString = formatTimeToHMS(now);
-      const date = formatDateToYMD(now);
-
-      let payload = {
-        employee: employee.id,
-        date,
-        [actionType === 'timeIn' ? 'time_in' : 
-         actionType === 'breakStart' ? 'start_break' :
-         actionType === 'breakEnd' ? 'end_break' : 'time_out']: timeString
-      };
-
-      // If we have an existing record, include its ID
-      if (todayRecord && todayRecord.id) {
-        payload.id = todayRecord.id;
+      if (response.data?.logs?.[0]) {
+        existingRecord = response.data.logs[0];
+        recordDate = date;
+        break;
       }
-
-      let response;
-      if (payload.id) {
-        response = await axios.patch(`/attendance/logs/${payload.id}/`, payload);
-      } else {
-        response = await axios.post('/attendance/logs/', payload);
-      }
-
-      setTodayRecord(response.data);
-      setSuccess(`Successfully recorded ${actionType}`);
-      await fetchTodayAttendance(employee.id);
-    } catch (error) {
-      setError(error.response?.data?.error || error.message || `Failed to ${actionType}`);
-    } finally {
-      setLoading(false);
-      setActionInProgress(null);
     }
-  };
+
+    let payload = {
+      employee: employee.id,
+      date: recordDate,
+      [actionType === 'timeIn' ? 'time_in' : 
+       actionType === 'breakStart' ? 'start_break' :
+       actionType === 'breakEnd' ? 'end_break' : 'time_out']: timeString
+    };
+
+    if (existingRecord) {
+      payload.id = existingRecord.id;
+    }
+
+    let response;
+    if (payload.id) {
+      response = await axios.patch(`/attendance/logs/${payload.id}/`, payload);
+    } else {
+      response = await axios.post('/attendance/logs/', payload);
+    }
+
+    setTodayRecord(response.data);
+    setSuccess(`Successfully recorded ${actionType}`);
+    await fetchTodayAttendance(employee.id);
+  } catch (error) {
+    setError(error.response?.data?.error || error.message || `Failed to ${actionType}`);
+  } finally {
+    setLoading(false);
+    setActionInProgress(null);
+  }
+};
 
   // Show confirmation dialog
   const showConfirmationDialog = (actionType) => {
@@ -490,107 +531,121 @@ const EmployeeAttendanceDashboard = () => {
 
   // Get button state
   const getButtonState = (action) => {
-    // Get current date in PHT
-    const currentPHTDate = getCurrentPHTDate();
-    const todayDateStr = formatDateToYMD(currentPHTDate);
-    const isWeekend = currentPHTDate.getDay() === 0 || currentPHTDate.getDay() === 6; 
-    const isMondayMorning = currentPHTDate.getDay() === 1 && currentPHTDate.getHours() < 12;
-    const shouldDisableAll = isWeekend && (!todayRecord || !todayRecord.time_in) && !isMondayMorning;
+  // Get current date in PHT
+  const currentPHTDate = getCurrentPHTDate();
+  const todayDateStr = formatDateToYMD(currentPHTDate);
+  const isWeekend = currentPHTDate.getDay() === 0 || currentPHTDate.getDay() === 6; 
+  const isMondayMorning = currentPHTDate.getDay() === 1 && currentPHTDate.getHours() < 12;
+  const shouldDisableAll = isWeekend && (!todayRecord || !todayRecord.time_in) && !isMondayMorning;
 
-    if (shouldDisableAll) {
-      return { 
-        status: 'disabled', 
-        disabled: true, 
-        tooltip: 'Actions are disabled on weekends when there is no time-in record. Buttons will enable Monday morning.' 
-      };
-    }
-  
-    const isTodayRecord = todayRecord && todayRecord.date === todayDateStr;
-  
-    if (!isTodayRecord) {
-      return action === 'timeIn' ? 
-        { status: 'enabled', disabled: false, tooltip: 'Time in now' } : 
-        { status: 'disabled', disabled: true, tooltip: 'Only available for today\'s record' };
-    }
-  
-    if (todayRecord.time_out) {
-      return { status: 'disabled', disabled: true, tooltip: 'Already timed out for today' };
-    }
-  
-    if (action === 'breakStart' || action === 'breakEnd') {
-      if (!todayRecord.time_in) {
-        return { status: 'disabled', disabled: true, tooltip: 'Must time in first' };
-      }
-      
-      const now = getCurrentPHTDate();
-      const [outHours, outMinutes] = employee.time_out.split(':').map(Number);
-      let scheduledOutTime = new Date(`${todayDateStr}T${employee.time_out}`);
-      
-      if (outHours < 12) {
-        scheduledOutTime.setDate(scheduledOutTime.getDate() + 1);
-      }
-      
-      const timeDiffHours = (scheduledOutTime - now) / (1000 * 60 * 60);
-      const isWithinOneHourOfScheduledOut = timeDiffHours <= 1 && timeDiffHours > 0;
-      
-      if (isWithinOneHourOfScheduledOut && !todayRecord.start_break && action === 'breakStart') {
-        return {
-          status: 'disabled',
-          disabled: true,
-          tooltip: `Cannot start break when less than 1 hour remaining (scheduled out at ${formatTimeTo12Hour(employee.time_out)})`
-        };
-      }
-      
-      if (action === 'breakStart') {
-        const timeIn = new Date(`${todayRecord.date}T${todayRecord.time_in}`);
-        const elapsedMs = now - timeIn;
-        const oneHourMs = 60 * 60 * 1000;
-        const breakStartDisabled = elapsedMs < oneHourMs;
-        
-        return {
-          status: todayRecord.start_break ? 'completed' : 'enabled',
-          disabled: todayRecord.start_break || loading || breakStartDisabled,
-          tooltip: breakStartDisabled ? 
-            `Break available in ${formatTimeFromSeconds(breakDelayRemaining)}` : 
-            (todayRecord.start_break ? 'Break already started' : 'Start your break')
-        };
-      }
-      
-      if (action === 'breakEnd') {
-        return {
-          status: todayRecord.end_break ? 'completed' : 'enabled',
-          disabled: !todayRecord.start_break || todayRecord.end_break || loading,
-          tooltip: !todayRecord.start_break ? 'Must start break first' : 
-                  (todayRecord.end_break ? 'Break already ended' : 'End your break')
-        };
-      }
-    }
+  // if (shouldDisableAll) {
+  //   return { 
+  //     status: 'disabled', 
+  //     disabled: true, 
+  //     tooltip: 'Actions are disabled on weekends when there is no time-in record. Buttons will enable Monday morning.' 
+  //   };
+  // }
+
+  const isTodayRecord = todayRecord && todayRecord.date === todayDateStr;
+
+  if (!isTodayRecord) {
+    return action === 'timeIn' ? 
+      { status: 'enabled', disabled: false, tooltip: 'Time in now' } : 
+      { status: 'disabled', disabled: true, tooltip: 'Only available for today\'s record' };
+  }
+
+  // Calculate time since time-in (if exists)
+  let timeSinceTimeIn = 0;
+  let timeInDate = null;
+  if (todayRecord.time_in) {
+    timeInDate = new Date(`${todayRecord.date}T${todayRecord.time_in}`);
+    const now = getCurrentPHTDate();
+    timeSinceTimeIn = (now - timeInDate) / (1000 * 60); // in minutes
+  }
+
+  // Time In button logic
+  if (action === 'timeIn') {
+    const disabled = (todayRecord.time_in && !todayRecord.time_out) || loading;
+    return {
+      status: todayRecord.time_in ? 'completed' : 'enabled',
+      disabled: disabled,
+      tooltip: disabled ? 'Already timed in' : 'Time in now'
+    };
+  }
+
+  // Break Start button logic
+  if (action === 'breakStart') {
+    const canStartBreak = todayRecord.time_in && 
+                        !todayRecord.time_out && 
+                        (!todayRecord.start_break || 
+                        (todayRecord.start_break && todayRecord.end_break));
     
-      if (action === 'timeIn') {
-      return {
-        status: todayRecord.time_in ? 'completed' : 'enabled',
-        disabled: todayRecord.time_in || loading || pendingTimeOut,
-        tooltip: pendingTimeOut ? `You must time out from ${formatDisplayDate(pendingTimeOut.date)} first` :
-                (todayRecord.time_in ? 'Already timed in' : 'Time in now')
-      };
-    }
+    const oneHourPassed = timeSinceTimeIn >= 60;
+    const disabled = !canStartBreak || !oneHourPassed || loading;
     
-    if (action === 'timeOut') {
-      const disabled = !todayRecord.time_in || 
-                     (todayRecord.start_break && !todayRecord.end_break) || 
-                     todayRecord.time_out || 
-                     loading;
-      
-      return {
-        status: todayRecord.time_out ? 'completed' : 'enabled',
-        disabled: disabled,
-        tooltip: !todayRecord.time_in ? 'Must time in first' :
-                (todayRecord.start_break && !todayRecord.end_break) ? 'Must end break first' :
-                todayRecord.time_out ? 'Already timed out' : 'Time out now'
-      };
+    let tooltip = '';
+    if (!todayRecord.time_in) {
+      tooltip = 'Must time in first';
+    } else if (!oneHourPassed) {
+      const remainingMins = 60 - Math.floor(timeSinceTimeIn);
+      tooltip = `Break available in ${remainingMins} minute${remainingMins !== 1 ? 's' : ''}`;
+    } else if (todayRecord.start_break && !todayRecord.end_break) {
+      tooltip = 'Break already started';
+    } else {
+      tooltip = 'Start your break';
     }
-  
-    return { status: 'disabled', disabled: true, tooltip: 'Action not available' };
+
+    return {
+      status: todayRecord.start_break && !todayRecord.end_break ? 'completed' : 'enabled',
+      disabled: disabled,
+      tooltip: tooltip
+    };
+  }
+
+  // Break End button logic
+  if (action === 'breakEnd') {
+    const canEndBreak = todayRecord.time_in && 
+                       !todayRecord.time_out && 
+                       todayRecord.start_break && 
+                       !todayRecord.end_break;
+    
+    return {
+      status: todayRecord.end_break ? 'completed' : 'enabled',
+      disabled: !canEndBreak || loading,
+      tooltip: !canEndBreak ? 'Must start break first' : 'End your break'
+    };
+  }
+
+  // Time Out button logic
+  if (action === 'timeOut') {
+    const canTimeOut = todayRecord.time_in && 
+                      !todayRecord.time_out && 
+                      (!todayRecord.start_break || 
+                      (todayRecord.start_break && todayRecord.end_break));
+    
+    const oneHourPassed = timeSinceTimeIn >= 60;
+    const disabled = !canTimeOut || !oneHourPassed || loading;
+    
+    let tooltip = '';
+    if (!todayRecord.time_in) {
+      tooltip = 'Must time in first';
+    } else if (todayRecord.start_break && !todayRecord.end_break) {
+      tooltip = 'Must end break first';
+    } else if (!oneHourPassed) {
+      const remainingMins = 60 - Math.floor(timeSinceTimeIn);
+      tooltip = `Time out available in ${remainingMins} minute${remainingMins !== 1 ? 's' : ''}`;
+    } else {
+      tooltip = 'Time out now';
+    }
+
+    return {
+      status: todayRecord.time_out ? 'completed' : 'enabled',
+      disabled: disabled,
+      tooltip: tooltip
+    };
+  }
+
+  return { status: 'disabled', disabled: true, tooltip: 'Action not available' };
   };
 
   // Filter records based on search term
@@ -649,59 +704,131 @@ const EmployeeAttendanceDashboard = () => {
     </Dialog>
   );
 
+  const formatTimeForTimezone = (timezone) => {
+  try {
+    const options = {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    };
+    
+    const dateOptions = {
+      timeZone: timezone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    };
+    
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', options);
+    const dateStr = now.toLocaleDateString('en-US', dateOptions);
+    
+    // Get GMT offset
+    const offset = -now.getTimezoneOffset() / 60;
+    const gmtOffset = `GMT ${offset >= 0 ? '+' : ''}${offset}:00`;
+    
+    return {
+      time12: timeStr,
+      date: dateStr,
+      gmtOffset
+    };
+  } catch (e) {
+    return null;
+  }
+};
+
   // Render time display
   const renderTimeDisplay = () => {
-    const estLabel = getESTTimezoneLabel(); 
-    const phtLabel = getPHTTimezoneLabel(); 
-    
-    return (
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        {/* Philippine Time */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={3} sx={{ p: 2, backgroundColor: theme.palette.primary.light }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <PublicIcon sx={{ mr: 1, color: theme.palette.secondary.contrastText }} />
-              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: theme.palette.secondary.contrastText }}>
-                Philippine Time ({phtLabel})
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Box>
-                <Typography variant="body1" sx={{ color: theme.palette.secondary.contrastText }}>
-                  {currentTime.pht.time12}
-                </Typography>
-                <Typography variant="body2" sx={{ color: theme.palette.secondary.contrastText }}>
-                  {currentTime.pht.date}
-                </Typography>
-              </Box>
-            </Box>
-          </Paper>
-        </Grid>
+  const estLabel = getESTTimezoneLabel(); 
+  const phtLabel = getPHTTimezoneLabel();
+  
+  // Get client timezone data if available
+  const clientTimezoneData = clientAttendanceData.length > 0 
+    ? formatTimeForTimezone(clientAttendanceData[0].timezone)
+    : null;
 
-        {/* Eastern Time */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={3} sx={{ p: 2, backgroundColor: theme.palette.secondary.light }}>
+  return (
+    <Grid container spacing={2} sx={{ mb: 3 }}>
+      {/* Philippine Time */}
+      <Grid item xs={12} md={4}>
+        <Paper elevation={3} sx={{ p: 2, backgroundColor: theme.palette.primary.light }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <PublicIcon sx={{ mr: 1, color: theme.palette.secondary.contrastText }} />
+            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: theme.palette.secondary.contrastText }}>
+              Philippine Time ({phtLabel})
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box>
+              <Typography variant="body1" sx={{ color: theme.palette.secondary.contrastText }}>
+                {currentTime.pht.time12}
+              </Typography>
+              <Typography variant="body2" sx={{ color: theme.palette.secondary.contrastText }}>
+                {currentTime.pht.date}
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+      </Grid>
+
+      {/* Eastern Time */}
+      <Grid item xs={12} md={4}>
+        <Paper elevation={3} sx={{ p: 2, backgroundColor: theme.palette.secondary.light }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <PublicIcon sx={{ mr: 1, color: theme.palette.secondary.contrastText }} />
+            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: theme.palette.secondary.contrastText }}>
+              Eastern Time ({estLabel})
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box>
+              <Typography variant="body1" sx={{ color: theme.palette.secondary.contrastText }}>
+                {currentTime.est.time12}
+              </Typography>
+              <Typography variant="body2" sx={{ color: theme.palette.secondary.contrastText }}>
+                {currentTime.est.date}
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+      </Grid>
+
+      {/* Client Timezone - only show if client data exists */}
+      {clientTimezoneData && (
+        <Grid item xs={12} md={4}>
+          <Paper elevation={3} sx={{ 
+            p: 2, 
+            backgroundColor: theme.palette.success.light,
+            color: theme.palette.success.contrastText
+          }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <PublicIcon sx={{ mr: 1, color: theme.palette.secondary.contrastText }} />
-              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: theme.palette.secondary.contrastText }}>
-                Eastern Time ({estLabel})
+              <PublicIcon sx={{ mr: 1, color: theme.palette.success.contrastText }} />
+              <Typography variant="subtitle1" sx={{ 
+                fontWeight: 'bold',
+                color: theme.palette.success.contrastText
+              }}>
+                {clientAttendanceData[0].timezone} Time ({clientTimezoneData.gmtOffset})
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Box>
-                <Typography variant="body1" sx={{ color: theme.palette.secondary.contrastText }}>
-                  {currentTime.est.time12}
+                <Typography variant="body1" sx={{ color: theme.palette.success.contrastText }}>
+                  {clientTimezoneData.time12}
                 </Typography>
-                <Typography variant="body2" sx={{ color: theme.palette.secondary.contrastText }}>
-                  {currentTime.est.date}
+                <Typography variant="body2" sx={{ color: theme.palette.success.contrastText }}>
+                  {clientTimezoneData.date}
                 </Typography>
               </Box>
             </Box>
           </Paper>
         </Grid>
-      </Grid>
-    );
-  };
+      )}
+    </Grid>
+  );
+};
 
   // Render employee info
   const renderEmployeeInfo = () => {
@@ -720,7 +847,7 @@ const EmployeeAttendanceDashboard = () => {
       }}>
         {/* Employee Basic Info */}
         <Box sx={{
-          width: 300,
+          width: 500,
           backgroundColor: theme.palette.grey[50],
           p: 2,
           borderRadius: 2,
@@ -764,36 +891,101 @@ const EmployeeAttendanceDashboard = () => {
               {employee.work_arrangement} / {employee.type}
             </Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <ScheduleIcon color="primary" sx={{ mr: 2 }} />
-            <Typography variant="h6" sx={{color:'black !important'}}>
-              {formatTimeTo12Hour(employee.time_in)} - {formatTimeTo12Hour(employee.time_out)} / {employee.contract_hours} hours
-            </Typography>
-          </Box>
-          {breakDuration && (
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              mt: 2,
-              borderRadius: 1
-            }}>
-              <TimerIcon sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography 
-                variant="h6"
-                sx={{
-                  color: 'primary.main',
-                  fontWeight: 'bold'
-                }}
-              >
-                Break Duration: <strong>{breakDuration}</strong>
-              </Typography>
-            </Box>
-          )}
+        
         </Box>
         
+          {/* Schedule */}
+       <Box sx={{
+          width: 500,
+          backgroundColor: theme.palette.grey[50],
+          p: 2,
+          borderRadius: 2,
+          borderLeft: `4px solid ${theme.palette.info.main}`,
+          boxShadow: theme.shadows[1]
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            mb: 1,
+            borderBottom: `1px solid ${theme.palette.divider}`,
+            pb: 1
+          }}> 
+            <ScheduleIcon color="info" sx={{ mr: 1, fontSize: '1rem' }} />
+            <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 600 }}>
+              Weekly Schedule
+            </Typography>
+          </Box>
+          
+          {scheduleLoading ? (
+            <CircularProgress size={20} />
+          ) : scheduleAttendanceData.length > 0 ? (
+            <Box>
+              {/* Sort days by weekday order before mapping */}
+              {[...scheduleAttendanceData]
+                .sort((a, b) => {
+                  // Define the order of weekdays
+                  const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+                  return dayOrder.indexOf(a.day.toLowerCase()) - dayOrder.indexOf(b.day.toLowerCase());
+                })
+                .map((day) => (
+                  <Box 
+                    key={day.id}
+                    sx={{ 
+                      mb: 1.5,
+                      p: 1.5,
+                      borderRadius: 1,
+                      backgroundColor: theme.palette.grey[100],
+                      borderLeft: `3px solid ${theme.palette.primary.main}`
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        {day.day.charAt(0).toUpperCase() + day.day.slice(1)}
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {formatTimeTo12Hour(day.time_in)} - {formatTimeTo12Hour(day.time_out)}
+                      </Typography>
+                    </Box>
+                    
+                    {day.has_break && (
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        mt: 0.5
+                      }}>
+                        <FreeBreakfastIcon sx={{ 
+                          fontSize: '1rem', 
+                          color: theme.palette.secondary.main,
+                          mr: 1
+                        }} />
+                        <Typography variant="caption">
+                          Break: {formatTimeTo12Hour(day.break_start)} - {formatTimeTo12Hour(day.break_end)}
+                        </Typography>
+                      </Box>
+                    )}
+                    
+                    {day.notes && (
+                      <Typography variant="caption" sx={{ 
+                        display: 'block',
+                        mt: 0.5,
+                        fontStyle: 'italic',
+                        color: theme.palette.text.secondary
+                      }}>
+                        Note: {day.notes}
+                      </Typography>
+                    )}
+                  </Box>
+                ))}
+            </Box>
+          ) : (
+            <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+              No schedule assigned
+            </Typography>
+          )}
+        </Box>
         {/* Client Information */}
         <Box sx={{
-          width: 300,
+          width: 500,
           backgroundColor: theme.palette.grey[50],
           p: 2,
           borderRadius: 2,
@@ -847,7 +1039,7 @@ const EmployeeAttendanceDashboard = () => {
 
         {/* Leave Credits */}
         <Box sx={{
-          width: 300,
+          width: 500,
           backgroundColor: theme.palette.grey[50],
           p: 2,
           borderRadius: 2,
@@ -1100,7 +1292,6 @@ const EmployeeAttendanceDashboard = () => {
               <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Break Duration</th>
               <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Time Out</th>
               <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Work Hours</th>
-              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -1169,25 +1360,6 @@ const EmployeeAttendanceDashboard = () => {
                 whiteSpace: 'nowrap'
               }}>
                 {todayRecord.work_hours ? `${todayRecord.work_hours} hrs` : '0 hr'}
-              </td>
-              
-              <td style={{ padding: '12px 16px' }}>
-                {todayRecord.time_out_status ? (
-                  <span style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '4px 10px',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    borderRadius: '12px',
-                    backgroundColor: todayRecord.time_out_status.includes('Undertime') ? '#FFE082' : '#C8E6C9',
-                    color: todayRecord.time_out_status.includes('Undertime') ? '#5D4037' : '#1B5E20',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {todayRecord.time_out_status}
-                  </span>
-                ) : '--'}
               </td>
             </tr>
           </tbody>

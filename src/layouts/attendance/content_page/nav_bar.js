@@ -30,6 +30,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import TimeToLeaveIcon from '@mui/icons-material/TimeToLeave';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import BuildIcon from '@mui/icons-material/Build';
 import TuneIcon from '@mui/icons-material/Tune';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import Logo from 'assets/images/Eighty_20_icon_transparent.png';
@@ -161,6 +162,11 @@ const SideNavBar = ({ children }) => {
       icon: <ColoredTimeToLeaveIcon fontSize="large" />, 
       text: 'Leave', 
       route: '/attendance/user/leave' 
+    },
+    {
+    icon: <BuildIcon style={{ color: '#ff9800' }} fontSize="large" />,
+    text: 'Diagnostic',
+    route: '/attendance/user/diagnostic'
     },
   ];
 

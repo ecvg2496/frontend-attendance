@@ -51,8 +51,8 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import axios from 'axios';
 import UserProfile from '../admin_profile';
 
-const drawerWidthExpanded = 265;
-const drawerWidthCollapsed = 100;
+const drawerWidthExpanded = 275;
+const drawerWidthCollapsed = 105;
 
 // Custom colored icons
 const ColoredAccessTimeIcon = styled(AccessTimeIcon)(({ theme }) => ({

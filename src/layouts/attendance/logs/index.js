@@ -17,7 +17,13 @@ import {
   Button, 
   Pagination,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Fab,
+  TextField,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel
 } from '@mui/material';
 import { 
   Today as TodayIcon,
@@ -27,7 +33,8 @@ import {
   Schedule as LateIcon,
   Cancel as AbsentIcon,
   Event as DateIcon,
-  Error as ErrorIcon
+  Error as ErrorIcon,
+  Add as AddIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -148,7 +155,7 @@ const DailyAttendanceTable = ({ employeeData, logsData, loading, error, onViewCl
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>Time-in Status</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>Start Break</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>End Break</th>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>Break Status</th> {/* Optional rendering is done in tbody */}
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>Break Status</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>Time Out</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.22rem' }}>Time Out Status</th>
           </tr>
@@ -190,7 +197,6 @@ const DailyAttendanceTable = ({ employeeData, logsData, loading, error, onViewCl
                   {log.end_break ? formatTimeProfessional(log.end_break) : ''}
                 </td>
 
-                {/* ✅ Conditionally render Break Status cell */}
                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                   {hasBreak && (
                     <StatusBadge status={log?.break_status || breakStatus} />
@@ -231,6 +237,14 @@ const AttendanceUserLogs = () => {
   });
   const [dateError, setDateError] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
+  const [openRequestForm, setOpenRequestForm] = useState(false);
+  const [requestForm, setRequestForm] = useState({
+    date: null,
+    type: '',
+    time_in: '',
+    time_out: '',
+    reason: ''
+  });
   const itemsPerPage = 7;
 
   // Disable future dates
@@ -433,6 +447,62 @@ const AttendanceUserLogs = () => {
     setDateError(false);
   };
 
+  // Handle FAB click
+  const handleFabClick = () => {
+    setOpenRequestForm(true);
+  };
+
+  // Handle request form input changes
+  const handleRequestChange = (e) => {
+    const { name, value } = e.target;
+    setRequestForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handle date change in request form
+  const handleRequestDateChange = (date) => {
+    setRequestForm(prev => ({
+      ...prev,
+      date: date
+    }));
+  };
+
+  // Submit the request form
+  const handleSubmitRequest = async () => {
+    try {
+      // Add validation here
+      if (!requestForm.date || !requestForm.type) {
+        setError('Please fill all required fields');
+        return;
+      }
+
+      const payload = {
+        employee_id: employeeData.id,
+        ...requestForm,
+        date: requestForm.date.toISOString().split('T')[0] // Format date as YYYY-MM-DD
+      };
+
+      const response = await axios.post('attendance/requests/', payload);
+      
+      // Handle success
+      setOpenRequestForm(false);
+      setRequestForm({
+        date: null,
+        type: '',
+        time_in: '',
+        time_out: '',
+        reason: ''
+      });
+      
+      // Optionally refresh data or show success message
+    } catch (err) {
+      console.error('Request submission error:', err);
+      setError(err.response?.data?.message || 'Failed to submit request');
+    }
+  };
+
   if (!employeeData) {
     return (
       <SideNavBar>
@@ -446,13 +516,36 @@ const AttendanceUserLogs = () => {
   return (
     <SideNavBar>
       <Box sx={{ p: 2 }}>
-        <Card sx={{ mb: 2, mt: -12, overflow: 'auto' }}>
+        {/* Add the FAB */}
+        <Fab 
+          color="primary" 
+          aria-label="add"
+          onClick={handleFabClick}
+          sx={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            zIndex: 1000
+          }}
+        >
+          <AddIcon />
+        </Fab>
+
+        <Card sx={{  
+          minHeight: 'calc(104vh - 64px)',
+          width: '100%',
+          maxWidth: '100%',
+          margin: '0 auto',
+          p: 3,
+          overflowX: 'hidden',
+          boxSizing: 'border-box',
+          mt: -12 
+        }}>
           <Tabs 
             value={tabValue} 
             onChange={handleTabChange}
             variant="fullWidth"
             sx={{ 
-              '& .MuiTabs-indicator': { height: 3 },
               '& .MuiTab-root': { minHeight: 48, fontSize: '0.8rem', color: 'black !important' },
               width: '100%'
             }}
@@ -482,41 +575,7 @@ const AttendanceUserLogs = () => {
                 <Typography variant="h3" color="primary" sx={{ mb: 1 }}>
                   {employeeData.first_name}'s Logs
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                  <Chip 
-                    label={`${stats.totalLogs} Records`}
-                    color="info" 
-                    variant="outlined" 
-                    icon={<PersonIcon fontSize="small" />} 
-                    size="small"
-                    sx={{ fontSize: '1.2rem' }}
-                  />
-                  <Chip 
-                    label={`${stats.present} Present`}
-                    color="success" 
-                    variant="outlined" 
-                    icon={<PresentIcon fontSize="small" />} 
-                    size="small"
-                    sx={{ fontSize: '1.2rem' }}
-                  />
-                  <Chip 
-                    label={`${stats.late} Late`}
-                    color="warning" 
-                    variant="outlined" 
-                    icon={<LateIcon fontSize="small" />} 
-                    size="small"
-                    sx={{ fontSize: '1.2rem' }}
-                  />
-                  <Chip 
-                    label={`${stats.absent} Absent`}
-                    color="error" 
-                    variant="outlined" 
-                    icon={<AbsentIcon fontSize="small" />} 
-                    size="small"
-                    sx={{ fontSize: '1.2rem' }}
-                  />
-                </Box>
-
+            
                 <DailyAttendanceTable 
                   employeeData={employeeData}
                   logsData={paginatedData}
@@ -544,7 +603,7 @@ const AttendanceUserLogs = () => {
                 </Typography>
                 
                 <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 2 }}>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 3 }}>
                     <DatePicker
                       label="Start Date"
                       value={dateRange.startDate}
@@ -585,94 +644,55 @@ const AttendanceUserLogs = () => {
                   </Box>
                 </LocalizationProvider>
                 
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2, mb: 2 }}>
-                  <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Attendance Overview</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Records:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{stats.totalLogs}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Present:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#4CAF50' }}>
-                          {stats.present} ({Math.round((stats.present / stats.totalLogs) * 100)}%)
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Leaves:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.leave} ({Math.round((stats.leave / stats.totalLogs) * 100)}%)
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Floating Holidays:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.floating} ({Math.round((stats.floating / stats.totalLogs) * 100)}%)
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Absent:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#F44336' }}>
-                          {stats.absent} ({Math.round((stats.absent / stats.totalLogs) * 100)}%)
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                  
-                  <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Time Compliance</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Late Arrivals:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.late}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Late Hours:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-                          {stats.totalLateHours} hours
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Undertime Days:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.undertime}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Undertime:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-                          {stats.totalUndertimeHours} hours
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Make Up Hours:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-                          {stats.totalMakeupHours} hours
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                  
-                  <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Overtime</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Overtime Days:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#4CAF50' }}>
-                          {stats.overtime}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Overtime:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-                          {stats.totalOvertimeHours} hours
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
+                <Box sx={{ display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap' }}>
+                  <Chip 
+                    label={`${stats.totalLogs} Records`}
+                    color="info" 
+                    variant="outlined" 
+                    icon={<PersonIcon fontSize="small" />} 
+                    size="small"
+                    sx={{ fontSize: '1.2rem' }}
+                  />
+                  <Chip 
+                    label={`${stats.present} Present`}
+                    color="success" 
+                    variant="outlined" 
+                    icon={<PresentIcon fontSize="small" />} 
+                    size="small"
+                    sx={{ fontSize: '1.2rem' }}
+                  />
+                  <Chip 
+                    label={`${stats.late} Late`}
+                    color="warning" 
+                    variant="outlined" 
+                    icon={<LateIcon fontSize="small" />} 
+                    size="small"
+                    sx={{ fontSize: '1.2rem' }}
+                  />
+                  <Chip 
+                    label={`${stats.late} Leave`}
+                    color="warning" 
+                    variant="outlined" 
+                    icon={<LateIcon fontSize="small" />} 
+                    size="small"
+                    sx={{ fontSize: '1.2rem' }}
+                  />
+                  <Chip 
+                    label={`${stats.absent} Absent`}
+                    color="error" 
+                    variant="outlined" 
+                    icon={<AbsentIcon fontSize="small" />} 
+                    size="small"
+                    sx={{ fontSize: '1.2rem' }}
+                  />
+                  <Chip 
+                    label={`${stats.absent} Undertime`}
+                    color="error" 
+                    variant="outlined" 
+                    icon={<AbsentIcon fontSize="small" />} 
+                    size="small"
+                    sx={{ fontSize: '1.2rem' }}
+                  />
                 </Box>
                 
                 <DailyAttendanceTable 
@@ -777,6 +797,103 @@ const AttendanceUserLogs = () => {
               sx={{ fontSize: '0.7rem', color: 'white !important' }}
             >
               OK
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Log Request Form */}
+        <Dialog 
+          open={openRequestForm} 
+          onClose={() => setOpenRequestForm(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle variant="h3" color="primary">Log Adjustment</DialogTitle>
+          <DialogContent dividers>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 1 }}>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Date"
+                  value={requestForm.date}
+                  onChange={handleRequestDateChange}
+                  shouldDisableDate={disableFutureDates}
+                  slotProps={{
+                    textField: {
+                      size: 'small',
+                      variant: 'outlined',
+                      fullWidth: true
+                    }
+                  }}
+                />
+              </LocalizationProvider>
+
+              <FormControl fullWidth size="small">
+                <InputLabel>Request Type</InputLabel>
+                <Select
+                  value={requestForm.type}
+                  onChange={handleRequestChange}
+                  name="type"
+                  label="Request Type"
+                >
+                  <MenuItem value="time_adjustment">Time In/Out Adjustment</MenuItem>
+                  <MenuItem value="time_adjustment">Break Adjustment</MenuItem>
+                  <MenuItem value="overtime">Overtime Request</MenuItem>
+                </Select>
+              </FormControl>
+
+              <TextField
+                label="Time In (HH:MM)"
+                value={requestForm.time_in}
+                onChange={handleRequestChange}
+                name="time_in"
+                size="small"
+                placeholder="08:00"
+              />
+
+              <TextField
+                label="Time Out (HH:MM)"
+                value={requestForm.time_out}
+                onChange={handleRequestChange}
+                name="time_out"
+                size="small"
+                placeholder="17:00"
+              />
+
+              <TextField
+                label="Reason"
+                value={requestForm.reason}
+                onChange={handleRequestChange}
+                name="reason"
+                size="small"
+                multiline
+                rows={3}
+              />
+
+              {error && (
+                <Alert severity="error" sx={{ fontSize: '0.8rem' }}>
+                  {error}
+                </Alert>
+              )}
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button 
+              onClick={() => setOpenRequestForm(false)}
+              color="secondary"
+              variant="contained"
+              size="small"
+              sx={{color:'white !important'}}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmitRequest}
+              color="primary"
+              variant="contained"
+              size="small"
+              sx={{color:'white !important'}}
+            >
+              Submit Request
             </Button>
           </DialogActions>
         </Dialog>
