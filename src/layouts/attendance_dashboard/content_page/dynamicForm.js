@@ -13,6 +13,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import { MobileTimePicker } from "@mui/x-date-pickers/MobileTimePicker";
+import { DesktopDatePicker } from "@mui/x-date-pickers/DesktopDatePicker";
 
 const DynamicForm = ({ formConfig, formData, handleInputChange, handleSubmit, handleClear }) => {
   const [focused, setFocused] = useState({});
@@ -154,18 +155,30 @@ const DynamicForm = ({ formConfig, formData, handleInputChange, handleSubmit, ha
         );
       case "date":
         return (
-          <TextField
-            fullWidth
-            label={label}
-            name={name}
-            value={formData[name] || ""}
-            onChange={handleInputChange}
-            onFocus={() => handleFocus(name)}
-            onBlur={() => handleBlur(name)}
-            required={required}
-            type={type}
-            InputLabelProps={inputLabelProps}
-          />
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DesktopDatePicker
+              label={label}
+              inputFormat={field.inputFormat || "MM/DD/YYYY"}
+              value={formData[name] ? dayjs(formData[name]) : null}
+              onChange={(newValue) => {
+                handleInputChange({
+                  target: {
+                    name,
+                    value: newValue ? newValue.format("YYYY-MM-DD") : "",
+                  },
+                });
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  fullWidth
+                  required={required}
+                  InputLabelProps={inputLabelProps}
+                  sx={{ width: '56px' }}
+                />
+              )}
+            />
+          </LocalizationProvider>
         );
       case "time-picker":
         return (

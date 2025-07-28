@@ -1061,9 +1061,9 @@ const FilterModal = ({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} color="primary" variant="contained" sx={{color: 'white !important'}}>
+        {/* <Button onClick={onClose} color="primary" variant="contained" sx={{color: 'white !important'}}>
           Apply Filters
-        </Button>
+        </Button> */}
       </DialogActions>
     </Dialog>
   );
@@ -1096,7 +1096,7 @@ const CustomizeScheduleRequestForm = () => {
   const refreshData = useCallback(() => {
     setRefreshCounter(prev => prev + 1);
   }, []);
-
+  
   useEffect(() => {
     const storedEmployee = localStorage.getItem('employee');
     if (storedEmployee) {
@@ -1221,7 +1221,7 @@ const CustomizeScheduleRequestForm = () => {
         setEmployeeLoading(false);
       }
     }, []);
-
+  
   const filteredRequests = useMemo(() => {
     return scheduleRequests
       .filter(request => {
@@ -1334,9 +1334,13 @@ const CustomizeScheduleRequestForm = () => {
       ...item,
       status: item.status.toLowerCase()
     })));
-    
+    if (status === 'approved'){
+      await fetchEmployees();
+    }
+
     handleCloseModal();
   } catch (error) {
+    
     console.error("Error updating request status:", error);
     
     let errorMessage = "Failed to update request status";

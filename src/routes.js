@@ -58,6 +58,7 @@ import AttendanceAdminRequest from "layouts/attendance_dashboard/client/request"
 import AttendanceAdminTimesheet from "layouts/attendance_dashboard/timesheet";
 import AttendanceAdminSchedule from "layouts/attendance_dashboard/schedule";
 import AttendanceAdminPTO from "layouts/attendance_dashboard/client/pto";
+import AttendanceAdminHolidayAssignment from "layouts/attendance_dashboard/holiday";
 import AttendanceUserProfile from "layouts/attendance/user_profile";
 import AttendanceUserDashboard from "layouts/attendance/index";
 import AttendanceUserLogs from "layouts/attendance/logs/"
@@ -121,6 +122,12 @@ const routes = [
     key: "submitted",
     route: "/attendance/user/make-up",
     component: <AttendanceUserMakeUpHours />
+  },
+  {
+    type: "hidden",
+    key: "submitted",
+    route: "/attendance/admin/holiday-assignment",
+    component: <AttendanceAdminHolidayAssignment />
   },
   {
     type: "hidden",

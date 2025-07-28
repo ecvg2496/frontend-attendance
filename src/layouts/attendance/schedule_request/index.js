@@ -232,7 +232,6 @@ const ApprovedRequestsTable = ({ data, loading, error }) => {
           <tr style={{ backgroundColor: '#00B4D8', color: 'white', textAlign: 'left' }}>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Date Filed</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Schedule Day</th>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Approved Time</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Work Hours</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Approved By</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Remarks</th>
@@ -252,9 +251,6 @@ const ApprovedRequestsTable = ({ data, loading, error }) => {
                     Break: {formatTimeAMPM(request.start_break)} - {formatTimeAMPM(request.end_break)}
                   </Typography>
                 )}
-              </td>
-              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {formatDate(request.processed_at)}
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 {request?.hours || ""} hours

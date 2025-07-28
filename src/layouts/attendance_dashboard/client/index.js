@@ -765,7 +765,7 @@ const AttendanceAdminClient = () => {
             fullWidth
           >
             <DialogTitle sx={{ backgroundColor: '#f5f5f5', pb: 1 }}>
-              <Typography variant="h3" color = "primary">
+              <Typography variant="h5" color = "primary">
                 Assign Employee to {selectedClient?.name || 'Selected Client'}
               </Typography>
             </DialogTitle>

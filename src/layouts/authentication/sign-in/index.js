@@ -288,7 +288,7 @@ function Basic() {
             </MDButton>
           </MDBox>
 
-          <MDBox display="flex" alignItems="center" my={2}>
+          {/* <MDBox display="flex" alignItems="center" my={2}>
             <Divider sx={{ flexGrow: 1, backgroundColor: '#72767d' }} />
             <MDTypography variant="caption" color="white" mx={1}>OR</MDTypography>
             <Divider sx={{ flexGrow: 1, backgroundColor: '#72767d' }} />
@@ -308,7 +308,7 @@ function Basic() {
               text="continue_with"
               width="100%"
             />
-          </GoogleOAuthProvider>
+          </GoogleOAuthProvider> */}
         </MDBox>
       </Card>
     </BasicLayout>

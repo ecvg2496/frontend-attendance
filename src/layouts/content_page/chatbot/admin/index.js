@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
+import { useState, useEffect, useRef } from 'react';
 import {
   Paper,
   Typography,
@@ -14,260 +13,249 @@ import {
   Tabs,
   Tab,
   Badge,
-  Divider
+  CircularProgress,
+  Chip,
+  Tooltip,
+  Menu,
+  MenuItem,
+  InputAdornment
 } from '@mui/material';
-import SendIcon from '@mui/icons-material/Send';
-import CloseIcon from '@mui/icons-material/Close';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import {
+  Send as SendIcon,
+  Close as CloseIcon,
+  ArrowBack as ArrowBackIcon,
+  Refresh as RefreshIcon,
+  Chat as ChatIcon,
+  Check as CheckIcon,
+  Error as ErrorIcon,
+  AccessTime as TimeIcon,
+  Search as SearchIcon,
+  MoreVert as MoreVertIcon,
+  Delete as DeleteIcon,
+  Info as InfoIcon
+} from '@mui/icons-material';
+import { dataService } from "global/function";
 
-// Import your image assets
-import adminAvatar from '../../../../assets/images/admin_chatbot.jpg';
-import userAvatar from '../../../../assets/images/user_icon.png';
-import chatbotIcon from '../../../../assets/images/chatbot_icon.png';
+// Avatar images
+const userAvatar = '/static/images/avatar/user.png';
+const adminAvatar = '/static/images/avatar/admin.png';
+const botAvatar = '/static/images/avatar/bot.png';
 
 const AdminChat = () => {
+  // State management
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedConversation, setSelectedConversation] = useState(null);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [apiStatus, setApiStatus] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [conversations, setConversations] = useState([]);
+  const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [selectedMessage, setSelectedMessage] = useState(null);
   const messagesEndRef = useRef(null);
-  const [messages, setMessages] = useState([]);
-  const [showQuickQuestions, setShowQuickQuestions] = useState(false);
-  const [showAllQuickQuestions, setShowAllQuickQuestions] = useState(false);
-  
-  // Get all user conversations from localStorage
-  const getAllUserConversations = useCallback(() => {
-    const conversations = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key.startsWith('chatbot_conversation_')) {
-        try {
-          const userId = key.replace('chatbot_conversation_', '');
-          const messages = JSON.parse(localStorage.getItem(key));
-          conversations.push({ userId, messages });
-        } catch (error) {
-          console.error('Error parsing conversation:', error);
-        }
-      }
+
+  // Fetch all conversations
+  const fetchConversations = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await dataService('GET', 'chatbot/conversations/');
+      setConversations(response.data);
+    } catch (err) {
+      console.error('Failed to fetch conversations:', err);
+      setError('Failed to load conversations');
+    } finally {
+      setIsLoading(false);
     }
-    return conversations;
-  }, []);
+  };
 
-  const [userConversations, setUserConversations] = useState(getAllUserConversations());
-
-  // Enhanced refresh conversations with optimization
-  const refreshConversations = useCallback(() => {
-    const newConversations = getAllUserConversations();
-    
-    // Only update state if conversations actually changed
-    if (JSON.stringify(newConversations) !== JSON.stringify(userConversations)) {
-      setUserConversations(newConversations);
-      
-      // If we're viewing a specific chat, update its messages
-      if (selectedUser) {
-        const updatedUser = newConversations.find(c => c.userId === selectedUser.userId);
-        if (updatedUser) {
-          setSelectedUser(updatedUser);
-        }
-      }
+  // Fetch single conversation
+  const fetchConversation = async (id) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await dataService('GET', `chatbot/conversations/${id}/`);
+      setSelectedConversation(response.data);
+      scrollToBottom();
+    } catch (err) {
+      console.error('Failed to fetch conversation:', err);
+      setError('Failed to load conversation');
+    } finally {
+      setIsLoading(false);
     }
-  }, [getAllUserConversations, userConversations, selectedUser]);
+  };
 
-  // Cross-window synchronization
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key && e.key.startsWith('chatbot_conversation_')) {
-        refreshConversations();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [refreshConversations]);
-
-  // Polling effect - more frequent when chat is open
-  useEffect(() => {
-    let interval;
-    
-    if (isOpen && selectedUser) {
-      // Poll every second when a specific chat is open
-      interval = setInterval(refreshConversations, 1000);
-    } else if (isOpen) {
-      // Poll every 3 seconds for the conversation list
-      interval = setInterval(refreshConversations, 3000);
-    }
-    
-    return () => clearInterval(interval);
-  }, [isOpen, selectedUser, refreshConversations]);
-
-  // Check API status when chat opens
-  useEffect(() => {
-    const checkApiStatus = async () => {
-      try {
-        setApiStatus(null);
-        await axios.get('http://localhost:8000/api/chatbot/health/');
-        setApiStatus(true);
-      } catch (error) {
-        setApiStatus(false);
-      }
-    };
-
-    if (isOpen) {
-      checkApiStatus();
-      refreshConversations();
-    }
-  }, [isOpen, refreshConversations]);
-
-  // Auto-scroll to bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [selectedUser, isTyping, messages]);
-
+  // Send message as admin
   const sendMessage = async () => {
-    if (!input.trim() || !selectedUser) return;
+    if (!input.trim() || !selectedConversation) return;
 
-    const tempId = Date.now(); // Create a temporary ID for the message
-    const adminMessage = {
-      sender: 'admin',
-      text: input,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      tempId,
+    const tempId = Date.now();
+    const tempMessage = {
+      id: tempId,
+      sender_type: 'admin',
+      content: input,
+      timestamp: new Date().toISOString(),
       status: 'sending'
     };
 
-    // Optimistically update the UI
-    setSelectedUser(prev => ({
+    // Optimistic update
+    setSelectedConversation(prev => ({
       ...prev,
-      messages: [...prev.messages, adminMessage]
+      messages: [...prev.messages, tempMessage]
     }));
-
-    // Update the conversation in localStorage
-    const conversationKey = `chatbot_conversation_${selectedUser.userId}`;
-    const currentConversation = JSON.parse(localStorage.getItem(conversationKey)) || [];
-    const updatedConversation = [...currentConversation, adminMessage];
-    localStorage.setItem(conversationKey, JSON.stringify(updatedConversation));
-
-    // Trigger storage event for other windows
-    window.dispatchEvent(new Event('storage'));
-
     setInput('');
-    setIsTyping(true);
+    scrollToBottom();
 
     try {
-      // Here you would typically send the message to your backend
-      // For this example, we'll just simulate a delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await dataService('POST', 'chatbot/admin/messages/', {
+        conversation_id: selectedConversation.id,
+        content: input
+      });
       
-      // Update message status to 'delivered'
-      const finalConversation = JSON.parse(localStorage.getItem(conversationKey)) || [];
-      const updatedMessages = finalConversation.map(msg => 
-        msg.tempId === tempId ? { ...msg, status: 'delivered' } : msg
-      );
-      
-      localStorage.setItem(conversationKey, JSON.stringify(updatedMessages));
-      window.dispatchEvent(new Event('storage'));
-      setApiStatus(true);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      // Update message status to 'failed'
-      const finalConversation = JSON.parse(localStorage.getItem(conversationKey)) || [];
-      const updatedMessages = finalConversation.map(msg => 
-        msg.tempId === tempId ? { ...msg, status: 'failed' } : msg
-      );
-      
-      localStorage.setItem(conversationKey, JSON.stringify(updatedMessages));
-      window.dispatchEvent(new Event('storage'));
-      setApiStatus(false);
+      // Refresh to get actual message from server
+      await fetchConversation(selectedConversation.id);
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      // Update status to failed
+      setSelectedConversation(prev => ({
+        ...prev,
+        messages: prev.messages.map(msg => 
+          msg.id === tempId ? { ...msg, status: 'failed' } : msg
+        )
+      }));
+    }
+  };
+
+  // Delete message
+  const deleteMessage = async () => {
+    if (!selectedMessage || !selectedConversation) return;
+    
+    try {
+      await dataService('DELETE', `chatbot/messages/${selectedMessage.id}/`);
+      await fetchConversation(selectedConversation.id);
+    } catch (err) {
+      console.error('Failed to delete message:', err);
     } finally {
-      setIsTyping(false);
+      handleMessageMenuClose();
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && input.trim()) {
-      sendMessage();
+  // Helper functions
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
+  const handleConversationSelect = (conversation) => {
+    setSelectedConversation(conversation);
+    fetchConversation(conversation.id);
+  };
+
+  const handleBackToList = () => {
+    setSelectedConversation(null);
+    fetchConversations();
+  };
+
+  const refreshData = () => {
+    if (selectedConversation) {
+      fetchConversation(selectedConversation.id);
+    } else {
+      fetchConversations();
     }
   };
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
-    setSelectedUser(null);
+  const getUnreadCount = (conversation) => {
+    return conversation.messages.filter(
+      msg => msg.sender_type === 'user' && !msg.read
+    ).length;
   };
 
-  const handleUserSelect = (user) => {
-    setSelectedUser(user);
-    markAsRead(user.userId);
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'sending': return <TimeIcon fontSize="small" />;
+      case 'delivered': return <CheckIcon fontSize="small" color="success" />;
+      case 'failed': return <ErrorIcon fontSize="small" color="error" />;
+      default: return null;
+    }
   };
 
-  const handleBackToUsers = () => {
-    setSelectedUser(null);
+  const handleMessageMenuOpen = (event, message) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedMessage(message);
   };
 
-  const getUnreadCount = (userId) => {
-    const conversation = userConversations.find(c => c.userId === userId)?.messages || [];
-    return conversation.filter(msg => msg.sender === 'user' && !msg.read).length;
+  const handleMessageMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedMessage(null);
   };
 
-  const markAsRead = (userId) => {
-    const conversationKey = `chatbot_conversation_${userId}`;
-    const currentConversation = JSON.parse(localStorage.getItem(conversationKey)) || [];
-    const updatedConversation = currentConversation.map(msg => {
-      if (msg.sender === 'user') {
-        return { ...msg, read: true };
-      }
-      return msg;
-    });
-    localStorage.setItem(conversationKey, JSON.stringify(updatedConversation));
-    window.dispatchEvent(new Event('storage'));
-  };
+  // Filter conversations based on search query
+  const filteredConversations = conversations
+    .filter(conv => 
+      activeTab === 0 ? getUnreadCount(conv) > 0 : 
+      activeTab === 1 ? true :
+      getUnreadCount(conv) > 0
+    )
+    .filter(conv => 
+      searchQuery === '' ||
+      conv.user.user_id.toString().includes(searchQuery) ||
+      conv.messages.some(msg => 
+        msg.content.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    )
+    .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
 
-  const formatMessage = (text) => {
-    return text
-      .replace(/<a\s+href="([^"]+)"[^>]*>(.*?)<\/a>/gi, '$2 ($1)')
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/?span[^>]*>/gi, '');
-  };
+  // Effects
+  useEffect(() => {
+    if (isOpen) {
+      fetchConversations();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const interval = setInterval(refreshData, 10000);
+    return () => clearInterval(interval);
+  }, [selectedConversation]);
 
   return (
     <>
-      {/* Floating button */}
-      <Box
-        onClick={() => setIsOpen(!isOpen)}
-        sx={{
-          position: 'fixed',
-          bottom: '24px',
-          right: '10px', 
-          width: '70px',
-          height: '70px',
-          cursor: 'pointer',
-          borderRadius: '50%',
-          overflow: 'hidden',
-          boxShadow: 3,
-          '&:hover': {
-            boxShadow: 6,
-            transform: 'scale(1.05)'
-          },
-          transition: 'all 0.2s ease-in-out',
-          zIndex: 9999,
-          backgroundColor: '#1976D2',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}
-      >
-        <img 
-          src={chatbotIcon}
-          alt="Admin Chat" 
-          style={{
-            width: '60%',
-            height: '60%',
-            objectFit: 'cover',
-            filter: 'brightness(0) invert(1)'
-          }}
-        />
-      </Box>
+      {/* Floating chat button */}
+      {!isOpen && (
+        <Badge 
+          badgeContent={conversations.reduce((sum, conv) => sum + getUnreadCount(conv), 0)} 
+          color="error"
+          overlap="circular"
+        >
+          <Box
+            onClick={() => setIsOpen(true)}
+            sx={{
+              position: 'fixed',
+              bottom: 24,
+              right: 24,
+              width: 60,
+              height: 60,
+              bgcolor: 'primary.main',
+              color: 'white',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: 3,
+              zIndex: 9999,
+              '&:hover': {
+                bgcolor: 'primary.dark',
+                transform: 'scale(1.05)'
+              },
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <ChatIcon fontSize="large" />
+          </Box>
+        </Badge>
+      )}
 
       {/* Chat window */}
       {isOpen && (
@@ -275,256 +263,268 @@ const AdminChat = () => {
           elevation={3}
           sx={{
             position: 'fixed',
-            bottom: '96px',
-            right: '24px',
-            width: '400px',
-            height: '500px',
+            bottom: 24,
+            right: 24,
+            width: 400,
+            height: 600,
             display: 'flex',
             flexDirection: 'column',
+            borderRadius: 2,
             overflow: 'hidden',
-            borderRadius: '12px',
             zIndex: 9998
           }}
         >
           {/* Header */}
           <Box
             sx={{
-              backgroundColor: 'primary.main',
+              bgcolor: 'primary.main',
               color: 'white',
-              padding: '12px',
+              p: 2,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between'
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {selectedUser ? (
-                <IconButton 
-                  onClick={handleBackToUsers}
-                  sx={{ color: 'white !important', mr: 1 }}
-                >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {selectedConversation && (
+                <IconButton onClick={handleBackToList} sx={{ color: 'white' }}>
                   <ArrowBackIcon />
                 </IconButton>
-              ) : null}
-              <Typography variant="h6" sx={{ color: 'white !important' }}>
-                {selectedUser ? `User #${selectedUser.userId}` : 'Admin Chat'}
+              )}
+              <Typography variant="h6" noWrap sx={{ maxWidth: 200 }}>
+                {selectedConversation 
+                  ? `User #${selectedConversation.user.user_id}` 
+                  : 'Admin Chat'}
               </Typography>
             </Box>
-            <IconButton 
-              onClick={() => setIsOpen(false)}
-              sx={{ color: 'white !important' }}
-            >
-              <CloseIcon />
-            </IconButton>
+            <Box>
+              <Tooltip title="Refresh">
+                <IconButton 
+                  onClick={refreshData} 
+                  sx={{ color: 'white', mr: 1 }}
+                  disabled={isLoading}
+                >
+                  <RefreshIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <IconButton onClick={() => setIsOpen(false)} sx={{ color: 'white' }}>
+                <CloseIcon />
+              </IconButton>
+            </Box>
           </Box>
 
+          {/* Search bar */}
+          {!selectedConversation && (
+            <Box sx={{ p: 1, bgcolor: 'background.paper' }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search users or messages..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '20px',
+                  }
+                }}
+              />
+            </Box>
+          )}
+
           {/* Tabs */}
-          {!selectedUser && (
+          {!selectedConversation && (
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
               <Tabs 
                 value={activeTab} 
-                onChange={handleTabChange}
+                onChange={(e, newVal) => setActiveTab(newVal)}
                 variant="fullWidth"
               >
-                <Tab label="Active Chats" />
-                <Tab label="All Conversations" />
+                <Tab label="Active" />
+                <Tab label="All" />
+                <Tab label="Unread" />
               </Tabs>
             </Box>
           )}
 
-          {/* Content */}
-          <Box
-            sx={{
-              flex: 1,
-              overflowY: 'auto',
-              backgroundColor: '#f9f9f9'
-            }}
-          >
-            {selectedUser ? (
-              // Chat view for selected user
-              <>
-                <Box
-                  sx={{
-                    padding: '12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '12px'
-                  }}
+          {/* Content area */}
+          <Box sx={{ 
+            flex: 1, 
+            overflow: 'auto', 
+            bgcolor: 'background.default',
+            position: 'relative'
+          }}>
+            {isLoading && !selectedConversation ? (
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                height: '100%' 
+              }}>
+                <CircularProgress />
+              </Box>
+            ) : error ? (
+              <Box sx={{ p: 3, textAlign: 'center' }}>
+                <Typography color="error">{error}</Typography>
+                <Button 
+                  onClick={refreshData} 
+                  variant="outlined" 
+                  sx={{ mt: 2 }}
                 >
-                  {selectedUser.messages.map((msg, index) => (
+                  Retry
+                </Button>
+              </Box>
+            ) : selectedConversation ? (
+              <>
+                {/* Messages */}
+                <Box sx={{ p: 1 }}>
+                  {selectedConversation.messages.map((msg) => (
                     <Box
-                      key={index}
+                      key={msg.id}
                       sx={{
                         display: 'flex',
-                        gap: '8px',
-                        alignSelf: msg.sender === 'admin' ? 'flex-end' : 'flex-start',
-                        maxWidth: '80%'
-                      }}
-                    >
-                      {msg.sender === 'user' && (
-                        <Avatar 
-                          src={userAvatar} 
-                          alt="User Avatar"
-                          sx={{ width: 32, height: 32 }}
-                        />
-                      )}
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            backgroundColor: msg.sender === 'admin' ? 'primary.main' : '#f1f3f4',
-                            color: msg.sender === 'admin' ? 'white' : 'black',
-                            padding: '8px 12px',
-                            borderRadius: '18px',
-                            borderBottomRightRadius: msg.sender === 'admin' ? '4px' : '18px',
-                            borderBottomLeftRadius: msg.sender === 'user' ? '4px' : '18px',
-                            wordBreak: 'break-word',
-                            opacity: msg.status === 'sending' ? 0.7 : 1
-                          }}
-                        >
-                          {formatMessage(msg.text)}
-                          {msg.sender === 'admin' && msg.status === 'sending' && (
-                            <Box component="span" sx={{ ml: 1, fontSize: '0.75rem' }}>🕒</Box>
-                          )}
-                          {msg.sender === 'admin' && msg.status === 'failed' && (
-                            <Box component="span" sx={{ ml: 1, fontSize: '0.75rem', color: 'error.main' }}>❌</Box>
-                          )}
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            display: 'block',
-                            textAlign: msg.sender === 'admin' ? 'right' : 'left',
-                            color: '#70757a',
-                            marginTop: '4px',
-                            marginLeft: msg.sender === 'user' ? '8px' : 0,
-                            marginRight: msg.sender === 'admin' ? '8px' : 0
-                          }}
-                        >
-                          {msg.timestamp}
-                        </Typography>
-                      </Box>
-                      {msg.sender === 'admin' && (
-                        <Avatar 
-                          src={adminAvatar} 
-                          alt="Admin Avatar"
-                          sx={{ width: 32, height: 32 }}
-                        />
-                      )}
-                    </Box>
-                  ))}
-                  {isTyping && (
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        gap: '8px',
-                        alignSelf: 'flex-start'
+                        gap: 1,
+                        mb: 1.5,
+                        flexDirection: msg.sender_type === 'admin' ? 'row-reverse' : 'row'
                       }}
                     >
                       <Avatar 
-                        src={adminAvatar} 
-                        alt="Admin Avatar"
-                        sx={{ width: 32, height: 32 }}
+                        src={msg.sender_type === 'user' ? userAvatar : 
+                             msg.sender_type === 'admin' ? adminAvatar : botAvatar}
+                        sx={{ width: 32, height: 32, alignSelf: 'flex-end' }}
                       />
-                      <Box
-                        sx={{
-                          backgroundColor: '#f1f3f4',
-                          padding: '8px 12px',
-                          borderRadius: '18px',
-                          borderBottomLeftRadius: '4px'
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', gap: '4px' }}>
-                          {[0, 1, 2].map((dot) => (
-                            <Box
-                              key={dot}
-                              sx={{
-                                width: '8px',
-                                height: '8px',
-                                borderRadius: '50%',
-                                backgroundColor: '#70757a',
-                                animation: 'typingAnimation 1.4s infinite ease-in-out',
-                                animationDelay: `${dot * 0.2}s`
-                              }}
-                            />
-                          ))}
+                      <Box sx={{ maxWidth: '80%' }}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            flexDirection: msg.sender_type === 'admin' ? 'row-reverse' : 'row',
+                            alignItems: 'flex-end',
+                            gap: 0.5
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              p: 1.5,
+                              borderRadius: 4,
+                              bgcolor: msg.sender_type === 'admin' 
+                                ? 'primary.main' 
+                                : msg.sender_type === 'bot'
+                                  ? 'grey.100'
+                                  : 'grey.200',
+                              color: msg.sender_type === 'admin' ? 'white' : 'text.primary',
+                              borderTopLeftRadius: msg.sender_type !== 'admin' ? 0 : undefined,
+                              borderTopRightRadius: msg.sender_type === 'admin' ? 0 : undefined,
+                              position: 'relative',
+                              wordBreak: 'break-word'
+                            }}
+                          >
+                            <Typography variant="body2">{msg.content}</Typography>
+                            {msg.status && (
+                              <Box sx={{ 
+                                position: 'absolute',
+                                right: 4,
+                                bottom: 4,
+                                display: 'flex'
+                              }}>
+                                {getStatusIcon(msg.status)}
+                              </Box>
+                            )}
+                          </Box>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleMessageMenuOpen(e, msg)}
+                            sx={{
+                              visibility: 'hidden',
+                              'div:hover &': { visibility: 'visible' }
+                            }}
+                          >
+                            <MoreVertIcon fontSize="small" />
+                          </IconButton>
                         </Box>
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            display: 'block',
+                            textAlign: msg.sender_type === 'admin' ? 'right' : 'left',
+                            color: 'text.secondary',
+                            mt: 0.5,
+                            px: 1
+                          }}
+                        >
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Typography>
                       </Box>
                     </Box>
-                  )}
+                  ))}
                   <div ref={messagesEndRef} />
                 </Box>
               </>
             ) : (
-              // User list view
-              <List dense sx={{ p: 0 }}>
-                {userConversations
-                  .filter(conv => 
-                    activeTab === 0 
-                      ? conv.messages.some(msg => msg.sender === 'user' && !msg.read) || 
-                        conv.messages[conv.messages.length - 1]?.sender === 'user'
-                      : true
-                  )
-                  .sort((a, b) => {
-                    // Sort by most recent message first
-                    const aLastMsg = new Date(a.messages[a.messages.length - 1]?.timestamp || 0);
-                    const bLastMsg = new Date(b.messages[b.messages.length - 1]?.timestamp || 0);
-                    return bLastMsg - aLastMsg;
-                  })
-                  .map((conv) => (
-                    <ListItem key={conv.userId} disablePadding>
-                      <ListItemButton
-                        onClick={() => {
-                          handleUserSelect(conv);
-                          markAsRead(conv.userId);
-                        }}
+              /* Conversation list */
+              <List disablePadding>
+                {filteredConversations.length > 0 ? (
+                  filteredConversations.map(conv => (
+                    <ListItem key={conv.id} disablePadding>
+                      <ListItemButton 
+                        onClick={() => handleConversationSelect(conv)}
                         sx={{
                           '&:hover': {
                             backgroundColor: 'rgba(0, 0, 0, 0.04)'
                           }
                         }}
                       >
-                        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                        <Box sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          width: '100%',
+                          py: 1.5,
+                          px: 2
+                        }}>
                           <Badge
-                            badgeContent={getUnreadCount(conv.userId)}
+                            badgeContent={getUnreadCount(conv)}
                             color="error"
                             overlap="circular"
                             sx={{ mr: 2 }}
                           >
-                            <Avatar 
-                              src={userAvatar} 
-                              alt="User Avatar"
-                              sx={{ width: 40, height: 40 }}
-                            />
+                            <Avatar src={userAvatar} sx={{ width: 40, height: 40 }} />
                           </Badge>
-                          <Box sx={{ flex: 1 }}>
-                            <Typography variant="subtitle2">
-                              User #{conv.userId}
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography fontWeight="medium" noWrap>
+                              User #{conv.user.user_id}
                             </Typography>
                             <Typography 
                               variant="body2" 
-                              sx={{ 
-                                color: 'text.secondary',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                maxWidth: '200px'
-                              }}
+                              color="text.secondary"
+                              noWrap
+                              sx={{ fontSize: '0.75rem' }}
                             >
-                              {conv.messages[conv.messages.length - 1]?.text || 'No messages yet'}
+                              {conv.messages[conv.messages.length - 1]?.content || 'No messages'}
                             </Typography>
                           </Box>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            {conv.messages[conv.messages.length - 1]?.timestamp || ''}
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              color: 'text.secondary',
+                              fontSize: '0.7rem',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            {new Date(conv.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </Typography>
                         </Box>
                       </ListItemButton>
                     </ListItem>
-                  ))}
-                {userConversations.length === 0 && (
+                  ))
+                ) : (
                   <Box sx={{ p: 3, textAlign: 'center' }}>
                     <Typography variant="body2" color="text.secondary">
-                      No conversations yet
+                      No conversations found
                     </Typography>
                   </Box>
                 )}
@@ -532,25 +532,28 @@ const AdminChat = () => {
             )}
           </Box>
 
-          {/* Input (only shown when a user is selected) */}
-          {selectedUser && (
+          {/* Input area (only when conversation is selected) */}
+          {selectedConversation && (
             <Box
               sx={{
-                padding: '12px',
-                borderTop: '1px solid #eee',
+                p: 1.5,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
                 display: 'flex',
-                gap: '8px',
-                backgroundColor: 'white'
+                gap: 1
               }}
             >
               <TextField
                 fullWidth
+                multiline
+                maxRows={4}
                 size="small"
                 placeholder="Type a message..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                disabled={isTyping || apiStatus === false}
+                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                disabled={isLoading}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: '24px',
@@ -561,31 +564,36 @@ const AdminChat = () => {
                 variant="contained"
                 color="primary"
                 onClick={sendMessage}
-                disabled={!input.trim() || isTyping || apiStatus === false}
+                disabled={!input.trim() || isLoading}
                 sx={{ 
-                  minWidth: '40px',
-                  borderRadius: '50%',
-                  width: '40px',
-                  height: '40px',
-                  color: 'white !important'
+                  minWidth: 40, 
+                  width: 40, 
+                  height: 40,
+                  borderRadius: '50%'
                 }}
               >
-                <SendIcon sx={{ fontSize: '18px' }} />
+                <SendIcon fontSize="small" />
               </Button>
             </Box>
           )}
+
+          {/* Message context menu */}
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleMessageMenuClose}
+          >
+            <MenuItem onClick={deleteMessage}>
+              <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+              Delete Message
+            </MenuItem>
+            <MenuItem onClick={handleMessageMenuClose}>
+              <InfoIcon fontSize="small" sx={{ mr: 1 }} />
+              Message Details
+            </MenuItem>
+          </Menu>
         </Paper>
       )}
-
-      {/* Animation styles */}
-      <style>
-        {`
-          @keyframes typingAnimation {
-            0%, 60%, 100% { transform: translateY(0); }
-            30% { transform: translateY(-5px); }
-          }
-        `}
-      </style>
     </>
   );
 };

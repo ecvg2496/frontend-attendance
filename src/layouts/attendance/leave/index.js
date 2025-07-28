@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react";
 import api from "api/axios";
-import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
 import { DesktopDatePicker } from '@mui/x-date-pickers/DesktopDatePicker';
 import {
   Card,
   Typography,
-  FormControl,
   Box,
   Modal,
   Tabs,
@@ -13,8 +11,6 @@ import {
   Tab,
   TextField,
   MenuItem,
-  InputLabel,
-  Select,
   Button,
   Paper,
   CircularProgress,
@@ -54,6 +50,7 @@ import SideNavBar from "../content_page/nav_bar";
 import '../content_page/css/admintable.css';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+
 const StatusBadge = ({ status, count }) => {
   const statusConfig = {
     pending: { color: 'warning', icon: <PendingActions fontSize="small" /> },
@@ -252,7 +249,6 @@ const LeaveTable = ({ data, loading, error, type, leaveTypes }) => {
     return fullDays;
   };
 
-  // Determine if we need scrolling based on the type
   const needsScroll = type === 'approved' || type === 'rejected';
 
   return (
@@ -427,8 +423,6 @@ const LeaveFormModal = () => {
     reason: "",
     contact_during_leave: "",
     emergency_contact: "",
-    date: "",
-    hours: "",
   });
   const [responseMsg, setResponseMsg] = useState("");
   const [leaveHistory, setLeaveHistory] = useState([]);
@@ -442,8 +436,6 @@ const LeaveFormModal = () => {
     start_date: false,
     end_date: false,
     reason: false,
-    date: false,
-    hours: false,
   });
   const [isHalfDay, setIsHalfDay] = useState(false);
   const [halfDayType, setHalfDayType] = useState('first_half');
@@ -477,7 +469,8 @@ const LeaveFormModal = () => {
         email: emp.email || "",
         team: emp.team,
         department: emp.department,
-        position: emp.position
+        position: emp.position,
+        birthdate: emp.birth_date
       }));
     }
   }, []);
@@ -524,16 +517,16 @@ const LeaveFormModal = () => {
     const start = new Date(startDate);
     const end = new Date(endDate);
     const diffTime = Math.abs(end - start);
-    const fullDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Inclusive counting
+    const fullDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     
     if (isHalfDay) {
       if (startDate === endDate) {
-        return 0.5; // Single day half-day leave
+        return 0.5;
       }
-      return fullDays - 0.5; // Multi-day leave with half day (e.g., 2 days becomes 1.5)
+      return fullDays - 0.5;
     }
     
-    return fullDays; // Full days
+    return fullDays;
   };
 
   const validateLeaveCredits = (leaveType, days) => {
@@ -555,7 +548,6 @@ const LeaveFormModal = () => {
     const checked = e.target.checked;
     
     if (checked && formData.start_date && formData.end_date && formData.start_date !== formData.end_date) {
-      // Show confirmation dialog when dates are different
       setConfirmDialogConfig({
         title: 'Confirm Half-Day Leave',
         message: 'You have selected different dates with half-day leave. This will calculate as 0.5 days. Continue?',
@@ -578,7 +570,8 @@ const LeaveFormModal = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
     setFormErrors(prev => ({ ...prev, [name]: false }));
     
-    if (isHalfDay && name === 'start_date') {
+    // For Birthday Leave, automatically set end date to start date
+    if (name === 'start_date' && formData.leave_type === "Birthday Leave" && value) {
       setFormData(prev => ({ ...prev, end_date: value }));
     }
     
@@ -600,12 +593,36 @@ const LeaveFormModal = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    if (name === 'start_date' || name === 'end_date') {
+    
+    if (name === 'leave_type') {
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: value,
+        start_date: "",
+        end_date: ""
+      }));
+      
+      // Reset half-day when leave type changes
+      setIsHalfDay(false);
+    } else if (name === 'start_date' || name === 'end_date') {
       handleDateChange(name, value);
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
       setFormErrors(prev => ({ ...prev, [name]: false }));
     }
+  };
+
+  const validateBirthdayLeave = (birthDate, startDate) => {
+    if (!birthDate || !startDate) return false;
+    
+    const birthDateObj = new Date(birthDate);
+    const startDateObj = new Date(startDate);
+    
+    return (
+      startDateObj.getMonth() === birthDateObj.getMonth() &&
+      startDateObj.getDate() >= birthDateObj.getDate() &&
+      startDateObj.getDate() <= 30
+    );
   };
 
   const validateForm = () => {
@@ -639,6 +656,20 @@ const LeaveFormModal = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Birthday leave validation
+    if (formData.leave_type === "Birthday Leave") {
+      if (!employee?.birth_date) {
+        setResponseMsg("Employee birth date is required for birthday leave");
+        return;
+      }
+      
+      const isValid = validateBirthdayLeave(employee.birth_date, formData.start_date);
+      if (!isValid) {
+        setResponseMsg("Birthday Leave must be on or after your birthday and before the 30th of your birth month");
+        return;
+      }
+    }
     
     const days = calculateLeaveDays(formData.start_date, formData.end_date, isHalfDay);
     const hasEnoughCredits = validateLeaveCredits(formData.leave_type, days);
@@ -675,17 +706,15 @@ const LeaveFormModal = () => {
         payload.append("attachment", file);
       }
 
-      const config = {
+      const response = await api.post(endpoint, payload, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
-      };
-
-      const response = await api.post(endpoint, payload, config);
-      console.log("Submission successful:", response.data);
+      });
 
       setResponseMsg("Leave Application submitted successfully!");
       
+      // Reset form
       setFormData(prev => ({
         ...prev,
         leave_type: "",
@@ -699,6 +728,7 @@ const LeaveFormModal = () => {
       setIsHalfDay(false);
       setHalfDayType('first_half');
       
+      // Refresh data
       await fetchLeaveHistory();
       await fetchLeaveCredits(employee.id);
       setHistoryTabValue("pending");
@@ -706,10 +736,9 @@ const LeaveFormModal = () => {
       setResponseMsg("");
     } catch (error) {
       console.error("Submission error:", error);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.error || 
-                          "Error submitting Leave Application";
-      setResponseMsg(errorMessage);
+      setResponseMsg(error.response?.data?.message || 
+                    error.response?.data?.error || 
+                    "Error submitting Leave Application");
     } finally {
       setLoading(false);
     }
@@ -759,17 +788,29 @@ const LeaveFormModal = () => {
         </Grid>
 
         <Grid item xs={12} sm={6}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={isHalfDay}
-                    onChange={handleHalfDayChange}
-                    color="primary"
-                  />
-                }
-                label="Half-day"
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={isHalfDay}
+                onChange={handleHalfDayChange}
+                color="primary"
+                disabled={formData.leave_type === "Birthday Leave"}
               />
+            }
+            label="Half-day"
+          />
         </Grid>
+
+        {/* Birthday Leave Info */}
+        {formData.leave_type === "Birthday Leave" && (
+          <Grid item xs={12}>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Birthday Leave is automatically set for 1 day only (from your selected date).
+              Must be within your birth month ({employee?.birth_date ? new Date(employee.birth_date).toLocaleString('default', { month: 'long' }) : ""}) 
+              and on/after your birthday ({employee?.birth_date ? new Date(employee.birth_date).toLocaleDateString() : ""}).
+            </Alert>
+          </Grid>
+        )}
 
         <Grid item xs={12} sm={6}>
           <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -777,6 +818,16 @@ const LeaveFormModal = () => {
               label="Start Date"
               value={formData.start_date || null}
               onChange={(newValue) => handleDateChange('start_date', newValue)}
+              shouldDisableDate={(date) => {
+                if (formData.leave_type !== "Birthday Leave" || !employee?.birth_date) {
+                  return false;
+                }
+                const birthDate = new Date(employee.birth_date);
+                return (
+                  date.getMonth() !== birthDate.getMonth() || 
+                  date.getDate() < birthDate.getDate()
+                );
+              }}
               inputFormat="yyyy-MM-dd"
               renderInput={(params) => (
                 <TextField
@@ -801,23 +852,40 @@ const LeaveFormModal = () => {
         </Grid>
         
         <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            label="End Date"
-            type="date"
-            name="end_date"
-            value={formData.end_date || ''}
-            onChange={(e) => handleDateChange('end_date', e.target.value)}
-            required
-            variant="outlined"
-            error={formErrors.end_date}
-            helperText={formErrors.end_date ? "End date is required" : ""}
-            InputLabelProps={{ shrink: true }}
-            InputProps={{
-              startAdornment: <EventAvailable color={formErrors.end_date ? "error" : "action"} sx={{ mr: 1 }} />
-            }}
-            disabled={isHalfDay}
-          />
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <DesktopDatePicker
+              label="End Date"
+              value={formData.end_date || null}
+              onChange={(newValue) => handleDateChange('end_date', newValue)}
+              inputFormat="yyyy-MM-dd"
+              disabled={formData.leave_type === "Birthday Leave" || isHalfDay}
+              shouldDisableDate={(date) => {
+                if (formData.leave_type !== "Birthday Leave") {
+                  return false;
+                }
+                // For Birthday Leave, disable dates after 30th
+                return date.getDate() > 30;
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  fullWidth
+                  required
+                  variant="outlined"
+                  error={formErrors.end_date}
+                  helperText={formErrors.end_date ? "End date is required" : ""}
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <EventAvailable color={formErrors.end_date ? "error" : "action"} />
+                      </InputAdornment>
+                    )
+                  }}
+                />
+              )}
+            />
+          </LocalizationProvider>
         </Grid>
 
         {formData.start_date && formData.end_date && (
@@ -1078,218 +1146,209 @@ const LeaveFormModal = () => {
         </Fab>
 
         <Modal
-        open={showModal}
-        onClose={() => {
-        setShowModal(false);
-        setResponseMsg("");
-        setFile(null);
-        setIsHalfDay(false);
-        setHalfDayType('first_half');
-        setFormErrors({
-          file: false,
-          leave_type: false,
-          start_date: false,
-          end_date: false,
-          reason: false,
-          date: false,
-          hours: false
-       });
-  }}
-  sx={{
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backdropFilter: 'blur(4px)',
-    overflow: 'auto'
-  }}
->
-  <Paper
-    sx={{
-      width: '90%',
-      maxWidth: 800,
-      maxHeight: '90vh',
-      overflowY: 'auto',
-      p: 4,
-      pb: 6,
-      borderRadius: 2,
-      position: 'relative',
-      boxShadow: 6
-    }}
-  >
-    <IconButton
-      aria-label="close"
-      onClick={() => {
-        setShowModal(false);
-        setResponseMsg("");
-        setFile(null);
-        setIsHalfDay(false);
-        setHalfDayType('first_half');
-        setFormErrors({
-          file: false,
-          leave_type: false,
-          start_date: false,
-          end_date: false,
-          reason: false,
-          date: false,
-          hours: false
-        });
-      }}
-      sx={{
-        position: 'absolute',
-        right: 16,
-        top: 16,
-        color: 'text.secondary'
-      }}
-    >
-      <Close />
-    </IconButton>
-
-    <Typography variant="h3" component="h2" color="primary" gutterBottom sx={{ fontWeight: 600 }}>
-      Leave Application
-    </Typography>
-
-    {leaveCredits && (
-      <Box sx={{ display: 'flex', gap: 3, mb: 1 }}>
-        {leaveCredits.map((credit) => {
-          const isBirthdayLeave = credit.leave_type.toLowerCase() === 'birthday';
-          const used = isBirthdayLeave ? credit.is_paid_birthday || 0 : credit.is_paid || 0;
-          const remainingDays = credit.total_days - used;
-
-          return (
-            <Chip
-              key={credit.id}
-              label={`${credit.leave_type === 'regular' ? 'Regular' : 'Birthday'} Leave: ${
-                remainingDays
-              } ${remainingDays === 1 ? 'day' : 'days'}`}
-              color={remainingDays > 0 ? 'primary' : 'error'}
-              variant="outlined"
-            />
-          );
-        })}
-      </Box>
-    )}
-
-    <Box sx={{ pt: 2 }}>
-      <Box component="form" onSubmit={handleSubmit}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Employee Name"
-              name="employee_name"
-              value={formData.employee_name}
-              variant="outlined"
-              InputProps={{
-                readOnly: true,
-                startAdornment: <Person color="action" sx={{ mr: 1 }} />
+          open={showModal}
+          onClose={() => {
+            setShowModal(false);
+            setResponseMsg("");
+            setFile(null);
+            setIsHalfDay(false);
+            setHalfDayType('first_half');
+            setFormErrors({
+              file: false,
+              leave_type: false,
+              start_date: false,
+              end_date: false,
+              reason: false,
+            });
+          }}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backdropFilter: 'blur(4px)',
+            overflow: 'auto'
+          }}
+        >
+          <Paper
+            sx={{
+              width: '90%',
+              maxWidth: 800,
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              p: 4,
+              pb: 6,
+              borderRadius: 2,
+              position: 'relative',
+              boxShadow: 6
+            }}
+          >
+            <IconButton
+              aria-label="close"
+              onClick={() => {
+                setShowModal(false);
+                setResponseMsg("");
+                setFile(null);
+                setIsHalfDay(false);
+                setHalfDayType('first_half');
+                setFormErrors({
+                  file: false,
+                  leave_type: false,
+                  start_date: false,
+                  end_date: false,
+                  reason: false,
+                });
               }}
-              sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
-            />
-          </Grid>
-
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Email"
-              name="email"
-              value={formData.email}
-              variant="outlined"
-              InputProps={{
-                readOnly: true,
-                startAdornment: <Email color="action" sx={{ mr: 1 }} />
+              sx={{
+                position: 'absolute',
+                right: 16,
+                top: 16,
+                color: 'text.secondary'
               }}
-              sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
-            />
-          </Grid>
+            >
+              <Close />
+            </IconButton>
 
-          <Grid item xs={12} sm={6} mb ={3}>
-            <TextField
-              fullWidth
-              label="Team"
-              name="team"
-              value={formData.team}
-              variant="outlined"
-              InputProps={{
-                readOnly: true,
-                startAdornment: <Person color="action" sx={{ mr: 1 }} />
-              }}
-              sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
-            />
-          </Grid>
+            <Typography variant="h3" component="h2" color="primary" gutterBottom sx={{ fontWeight: 600 }}>
+              Leave Application
+            </Typography>
 
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Department"
-              name="department"
-              value={formData.department}
-              variant="outlined"
-              InputProps={{
-                readOnly: true,
-                startAdornment: <Email color="action" sx={{ mr: 1 }} />
-              }}
-              sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
-            />
-          </Grid>
+            {leaveCredits && (
+              <Box sx={{ display: 'flex', gap: 3, mb: 1 }}>
+                {leaveCredits.map((credit) => {
+                  const isBirthdayLeave = credit.leave_type.toLowerCase() === 'birthday';
+                  const used = isBirthdayLeave ? credit.is_paid_birthday || 0 : credit.is_paid || 0;
+                  const remainingDays = credit.total_days - used;
 
-          {/* Additional dynamic form fields if any */}
-          {renderFormContent()}
+                  return (
+                    <Chip
+                      key={credit.id}
+                      label={`${credit.leave_type === 'regular' ? 'Regular' : 'Birthday'} Leave: ${
+                        remainingDays
+                      } ${remainingDays === 1 ? 'day' : 'days'}`}
+                      color={remainingDays > 0 ? 'primary' : 'error'}
+                      variant="outlined"
+                    />
+                  );
+                })}
+              </Box>
+            )}
 
-          <Grid item xs={12}>
-            <Stack direction="row" spacing={2} justifyContent="flex-end">
-              <Button
-                variant="outlined"
-                color="inherit"
-                onClick={() => {
-                  setShowModal(false);
-                  setFile(null);
-                  setIsHalfDay(false);
-                  setHalfDayType('first_half');
-                  setFormErrors({
-                    file: false,
-                    leave_type: false,
-                    start_date: false,
-                    end_date: false,
-                    reason: false,
-                    date: false,
-                    hours: false
-                  });
-                }}
-                startIcon={<Cancel />}
-                sx={{ minWidth: 120 }}
+            <Box sx={{ pt: 2 }}>
+              <Box component="form" onSubmit={handleSubmit}>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Employee Name"
+                      name="employee_name"
+                      value={formData.employee_name}
+                      variant="outlined"
+                      InputProps={{
+                        readOnly: true,
+                        startAdornment: <Person color="action" sx={{ mr: 1 }} />
+                      }}
+                      sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Email"
+                      name="email"
+                      value={formData.email}
+                      variant="outlined"
+                      InputProps={{
+                        readOnly: true,
+                        startAdornment: <Email color="action" sx={{ mr: 1 }} />
+                      }}
+                      sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={6} mb={3}>
+                    <TextField
+                      fullWidth
+                      label="Team"
+                      name="team"
+                      value={formData.team}
+                      variant="outlined"
+                      InputProps={{
+                        readOnly: true,
+                        startAdornment: <Person color="action" sx={{ mr: 1 }} />
+                      }}
+                      sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Department"
+                      name="department"
+                      value={formData.department}
+                      variant="outlined"
+                      InputProps={{
+                        readOnly: true,
+                        startAdornment: <Email color="action" sx={{ mr: 1 }} />
+                      }}
+                      sx={{ '& .MuiOutlinedInput-root': { height: '53px' } }}
+                    />
+                  </Grid>
+
+                  {renderFormContent()}
+
+                  <Grid item xs={12}>
+                    <Stack direction="row" spacing={2} justifyContent="flex-end">
+                      <Button
+                        variant="outlined"
+                        color="inherit"
+                        onClick={() => {
+                          setShowModal(false);
+                          setFile(null);
+                          setIsHalfDay(false);
+                          setHalfDayType('first_half');
+                          setFormErrors({
+                            file: false,
+                            leave_type: false,
+                            start_date: false,
+                            end_date: false,
+                            reason: false,
+                          });
+                        }}
+                        startIcon={<Cancel />}
+                        sx={{ minWidth: 120 }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        color="primary"
+                        disabled={loading}
+                        startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Send />}
+                        sx={{ minWidth: 120, color: 'white !important' }}
+                      >
+                        {loading ? 'Submitting...' : 'Submit'}
+                      </Button>
+                    </Stack>
+                  </Grid>
+                </Grid>
+              </Box>
+            </Box>
+
+            {responseMsg && (
+              <Alert
+                severity={responseMsg.includes("Error") ? "error" : "success"}
+                sx={{ mt: 3 }}
+                onClose={() => setResponseMsg("")}
               >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                color="primary"
-                disabled={loading}
-                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Send />}
-                sx={{ minWidth: 120, color: 'white !important' }}
-              >
-                {loading ? 'Submitting...' : 'Submit'}
-              </Button>
-            </Stack>
-          </Grid>
-        </Grid>
-      </Box>
-    </Box>
+                {responseMsg}
+              </Alert>
+            )}
+          </Paper>
+        </Modal>
 
-    {responseMsg && (
-      <Alert
-        severity={responseMsg.includes("Error") ? "error" : "success"}
-        sx={{ mt: 3 }}
-        onClose={() => setResponseMsg("")}
-      >
-        {responseMsg}
-      </Alert>
-    )}
-  </Paper>
-</Modal>
-
-
-        {/* Confirmation Dialog */}
         <Dialog
           open={confirmDialogOpen}
           onClose={() => setConfirmDialogOpen(false)}

@@ -462,13 +462,13 @@ function AttendanceDashboard() {
     e.preventDefault();
     
     // Get current employee data from localStorage
-    const currentEmployee = JSON.parse(localStorage.getItem('employee'));
-    if (!currentEmployee) {
-      showAlert('No employee data found. Please log in again.', 'error');
-      return;
-    }
+    // const currentEmployee = JSON.parse(localStorage.getItem('employee'));
+    // if (!currentEmployee) {
+    //   showAlert('No employee data found. Please log in again.', 'error');
+    //   return;
+    // }
 
-    const processedBy = `${currentEmployee.first_name} ${currentEmployee.last_name}`;
+    // const processedBy = `${currentEmployee.first_name} ${currentEmployee.last_name}`;
     const processedAt = getManilaTimeISOString();
 
     // Validation patterns
@@ -544,7 +544,7 @@ function AttendanceDashboard() {
         time_out: formatTimeToHHMM(formData.time_out),
         hourly_rate: Number(formData.hourly_rate),
         daily_rate: Number(formData.daily_rate),
-        processed_by: processedBy, 
+        // processed_by: processedBy, 
         processed_at: processedAt, 
         date_regular: processedAt,
       };
