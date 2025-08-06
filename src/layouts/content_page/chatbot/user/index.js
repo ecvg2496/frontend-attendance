@@ -259,89 +259,161 @@ const Chatbot = () => {
   };
 
   const sendMessage = async (message = input) => {
-    if (!message.trim()) return;
+  if (!message.trim()) return;
 
-    if (showGetStarted || showFAQTitle) {
-      setShowGetStarted(false);
-      setShowFAQTitle(false);
-      setShowQuickQuestions(false);
-    }
-
+  // Handle admin replies differently
+  if (replyingTo?.sender === 'admin') {
     const tempMessageId = Date.now().toString();
-    processedMessageIds.current.add(tempMessageId);
-
     const userMessage = {
       sender: 'user',
       text: message,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       tempId: tempMessageId,
-      replyTo: replyingTo ? {
+      replyTo: {
         id: replyingTo.id || replyingTo.tempId,
         text: replyingTo.text,
         sender: replyingTo.sender
-      } : null
+      },
+      conversationId: conversationId
     };
 
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
-    localStorage.setItem(conversationKey, JSON.stringify(newMessages));
-      
+    setMessages(prev => {
+      const updated = [...prev, userMessage];
+      localStorage.setItem(conversationKey, JSON.stringify(updated));
+      return updated;
+    });
     setInput('');
-    setIsTyping(true);
     setReplyingTo(null);
+    scrollToBottom();
+    return;
+  }
 
-    try {
-      let response;
-      if (message.toLowerCase().includes('location') || 
-          message.toLowerCase().includes('contact') || 
-          message.toLowerCase().includes('where')) {
-        // Handle local response for location questions
-        const botMessage = {
-          sender: 'bot',
-          text: locationInfo,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          type: 'text',
-          intent: 'location_info',
-          tempId: `bot-${tempMessageId}`
-        };
-        processedMessageIds.current.add(`bot-${tempMessageId}`);
-        setMessages(prev => [...prev, botMessage]);
-        localStorage.setItem(conversationKey, JSON.stringify([...newMessages, botMessage]));
-      } else {
-        // Send to backend for processing
-        response = await dataService('POST', 'chatbot/chat/', { 
-          message,
-          user_id: userId,
-          conversation_id: conversationId,
-          temp_message_id: tempMessageId,
-          reply_to: replyingTo ? {
-            message_id: replyingTo.id || replyingTo.tempId,
-            sender_type: replyingTo.sender
-          } : null
-        });
+  // Hide get started and FAQ if shown
+  if (showGetStarted || showFAQTitle) {
+    setShowGetStarted(false);
+    setShowFAQTitle(false);
+    setShowQuickQuestions(false);
+  }
 
-        if (response.data?.conversation_id && !conversationId) {
-          setConversationId(response.data.conversation_id);
-        }
-      }
+  const tempMessageId = Date.now().toString();
+  processedMessageIds.current.add(tempMessageId);
 
-      setApiStatus(true);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      
-      const errorMessage = {
+  const userMessage = {
+    sender: 'user',
+    text: message,
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    tempId: tempMessageId,
+    replyTo: replyingTo ? {
+      id: replyingTo.id || replyingTo.tempId,
+      text: replyingTo.text,
+      sender: replyingTo.sender
+    } : null,
+    conversationId: conversationId
+  };
+
+  // Optimistically update UI
+  setMessages(prev => {
+    const updated = [...prev, userMessage];
+    localStorage.setItem(conversationKey, JSON.stringify(updated));
+    return updated;
+  });
+
+  setInput('');
+  setIsTyping(true);
+  setReplyingTo(null);
+
+  try {
+    // Handle known keywords locally
+    if (
+      message.toLowerCase().includes('location') || 
+      message.toLowerCase().includes('contact') || 
+      message.toLowerCase().includes('where')
+    ) {
+      const botMessage = {
         sender: 'bot',
-        text: "Sorry, I'm having trouble connecting. Please try again later.",
+        text: locationInfo,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        tempId: `error-${tempMessageId}`
+        type: 'text',
+        intent: 'location_info',
+        tempId: `bot-${tempMessageId}`,
+        conversationId: conversationId
       };
 
-      setMessages(prev => [...prev, errorMessage]);
-      setApiStatus(false);
-    } finally {
-      setIsTyping(false);
-      scrollToBottom();
+      setMessages(prev => {
+        const updated = [...prev, botMessage];
+        localStorage.setItem(conversationKey, JSON.stringify(updated));
+        return updated;
+      });
+
+      processedMessageIds.current.add(`bot-${tempMessageId}`);
+    } else {
+      // Send message to backend (allow null conversation_id)
+      const response = await dataService('POST', 'chatbot/chat/', { 
+        message,
+        user_id: userId,
+        conversation_id: conversationId || null,
+        temp_message_id: tempMessageId,
+        reply_to: replyingTo ? {
+          message_id: replyingTo.id || replyingTo.tempId,
+          sender_type: replyingTo.sender
+        } : null
+      });
+      
+      // Update conversation ID if returned and previously null
+      if (response.data?.conversation_id && !conversationId) {
+        setConversationId(response.data.conversation_id);
+        // Update all previous messages with the new conversation ID
+        setMessages(prev => {
+          const updated = prev.map(msg => ({
+            ...msg,
+            conversationId: response.data.conversation_id
+          }));
+          localStorage.setItem(conversationKey, JSON.stringify(updated));
+          return updated;
+        });
+      }
+      
+      // Process bot response if available
+      if (response.data?.bot_message) {
+        const botMessage = {
+          ...response.data.bot_message,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          conversationId: response.data.conversation_id || conversationId
+        };
+
+        setMessages(prev => {
+          const updated = [...prev, botMessage];
+          localStorage.setItem(conversationKey, JSON.stringify(updated));
+          return updated;
+        });
+
+        processedMessageIds.current.add(botMessage.tempId || botMessage.id);
+      }
     }
+
+    setConnectionStatus('connected');
+  } catch (error) {
+    console.error('Error sending message:', error);
+
+    const errorMessage = {
+      sender: 'bot',
+      text: "Sorry, I'm having trouble connecting. Please try again later.",
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      tempId: `error-${tempMessageId}`,
+      conversationId: conversationId
+    };
+
+    setMessages(prev => {
+      const updated = [...prev, errorMessage];
+      localStorage.setItem(conversationKey, JSON.stringify(updated));
+      return updated;
+    });
+
+    setConnectionStatus('error');
+  } finally {
+    setIsTyping(false);
+    scrollToBottom();
+  }
   };
 
   const handleKeyPress = (e) => {

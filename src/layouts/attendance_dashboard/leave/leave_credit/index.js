@@ -746,6 +746,7 @@ const LeaveCreditTable = ({
               />
             </th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Employee</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Department / Team</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Schedule</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Regularization Date</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
@@ -803,7 +804,7 @@ const LeaveCreditTable = ({
                     </Tooltip>
                   )}
                 </td>
-                
+              
                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                   <Box display="flex" alignItems="center" gap={1}>
                     <Avatar sx={{ width: 32, height: 32, bgcolor: '#1976d2', fontSize: '0.75rem' }}>
@@ -816,6 +817,15 @@ const LeaveCreditTable = ({
                       <Box fontSize="0.75rem" color="#666">{employee?.email || 'No email'}</Box>
                     </Box>
                   </Box>
+                </td>
+
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                  <Box display="flex" alignItems="center" gap={0.5}>
+                    {(employee?.department)}
+                  </Box>
+                  <div>
+                    {employee?.team}
+                  </div>
                 </td>
 
                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
