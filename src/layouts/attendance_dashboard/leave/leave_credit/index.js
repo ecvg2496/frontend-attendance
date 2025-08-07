@@ -538,6 +538,13 @@ const LeaveCreditTable = ({
     try {
       setProcessing(true);
       
+      const storedEmployee = localStorage.getItem('employee');
+      const currentEmployee = storedEmployee ? JSON.parse(storedEmployee) : null;
+      const createdBy = currentEmployee 
+        ? `${currentEmployee.first_name} ${currentEmployee.last_name}`
+        : 'System Admin';
+      const processedAt = new Date().toISOString();
+      
       const updates = [];
       for (const employeeId in editableCredits) {
         const employee = activeEmployees.find(e => e.id === parseInt(employeeId));
@@ -558,7 +565,8 @@ const LeaveCreditTable = ({
         if (regularCredit) {
           updates.push(
             axiosPrivate.patch(`attendance/leave-credits/${regularCredit.id}/`, {
-              total_days: regular
+              total_days: regular,
+              processed_at: processedAt  // Add processed_at for updates
             })
           );
         } else {
@@ -568,7 +576,9 @@ const LeaveCreditTable = ({
               leave_type: 'regular',
               year: year,
               total_days: regular,
-              is_paid: 0
+              is_paid: 0,
+              created_by: createdBy,
+              processed_at: processedAt  // Add processed_at for new records
             })
           );
         }
@@ -576,7 +586,8 @@ const LeaveCreditTable = ({
         if (birthdayCredit) {
           updates.push(
             axiosPrivate.patch(`attendance/leave-credits/${birthdayCredit.id}/`, {
-              total_days: birthday
+              total_days: birthday,
+              processed_at: processedAt  // Add processed_at for updates
             })
           );
         } else {
@@ -586,18 +597,23 @@ const LeaveCreditTable = ({
               leave_type: 'birthday',
               year: year,
               total_days: birthday,
-              is_paid_birthday: 0
+              is_paid_birthday: 0,
+              created_by: createdBy,
+              processed_at: processedAt  // Add processed_at for new records
             })
           );
         }
       }
       
-      await Promise.all(updates);
+      const responses = await Promise.all(updates);
       await refreshData();
+      
+      // Get the most recent processed_at from responses (if available)
+      const lastProcessedAt = responses[responses.length - 1]?.data?.processed_at || processedAt;
       
       setSnackbar({
         open: true,
-        message: 'Leave credits updated successfully',
+        message: `Leave credits updated successfully at ${new Date(lastProcessedAt).toLocaleString()}`,
         severity: 'success'
       });
       setEditMode(false);
@@ -611,7 +627,7 @@ const LeaveCreditTable = ({
     } finally {
       setProcessing(false);
     }
-  }, [editableCredits, activeEmployees, year, refreshData]);
+  }, [editableCredits, activeEmployees, year, refreshData, axiosPrivate]);
 
   const handleInitializeSelected = useCallback(async () => {
     try {
@@ -1565,20 +1581,27 @@ useEffect(() => {
         ? `${currentEmployee.first_name} ${currentEmployee.last_name}`
         : 'System Admin';
       
-      // Don't send processed_at from frontend - let backend handle it
+      // Create ISO string with timezone info
+      const processedAt = new Date().toISOString();
+      
       const response = await axiosPrivate.post('attendance/initialize-leave-credits/', {
         employee_ids: selectedEmployees,
         year,
-        created_by: createdBy
-        // removed processed_at from here
+        created_by: createdBy,
+        processed_at: processedAt
       });
       
       await fetchData();
       setSelectedEmployees([]);
       
+      // Use the processed_at from response if available, otherwise fallback to local time
+      const successTime = response.data.processed_at 
+        ? new Date(response.data.processed_at) 
+        : new Date(processedAt);
+      
       setSnackbar({
         open: true,
-        message: `Successfully initialized leave credits at ${new Date(response.data.processed_at).toLocaleString()}`,
+        message: `Successfully initialized leave credits at ${successTime.toLocaleString()}`,
         severity: 'success'
       });
       
@@ -1591,7 +1614,7 @@ useEffect(() => {
     } finally {
       setLoading(false);
     }
-  };
+};
 
   const handleCloseSnackbar = () => {
     setSnackbar(prev => ({ ...prev, open: false }));

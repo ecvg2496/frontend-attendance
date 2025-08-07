@@ -54,6 +54,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { MobileTimePicker } from '@mui/x-date-pickers/MobileTimePicker';
 import { dataServicePrivate } from "global/function";
+
 // Helper function for avatar colors
 function stringToColor(string) {
   let hash = 0;
@@ -125,7 +126,6 @@ const ClientTable = ({
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Schedule</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Assigned Employees</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Processed By</th>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Date Created</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Date Modified</th>
           </tr>
         </thead>
@@ -252,12 +252,6 @@ const ClientTable = ({
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 {client.created_by}
-              </td>
-              <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>{new Date(client.created_at).toLocaleDateString('en-US', {
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric'
-                })}
               </td>
               <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>{new Date(client.updated_at).toLocaleDateString('en-US', {
                   month: 'long',
@@ -1423,84 +1417,104 @@ const AttendanceAdminClient = () => {
                           Working Hours
                         </Typography>
                         {clientFormData.client_type !== 'project' && (
-                          <Grid container spacing={2}>
-                            <Grid item xs={6}>
-                              <TextField
-                                fullWidth
-                                label="Start Time"
-                                type="time"
-                                name="start_time"
-                                value={clientFormData.start_time}
-                                onChange={handleClientFormChange}
-                                InputLabelProps={{ shrink: true }}
-                                variant="outlined"
-                                size="small"
-                                sx={{
-                                  '& .MuiInputBase-root': {
-                                    height: '40px'
+                          <LocalizationProvider dateAdapter={AdapterDateFns}>
+                            <Grid container spacing={2}>
+                              <Grid item xs={6}>
+                                <MobileTimePicker
+                                  label="Start Time"
+                                  value={clientFormData.start_time ? new Date(`1970-01-01T${clientFormData.start_time}`) : null}
+                                  onChange={(newValue) => {
+                                    const timeString = newValue ? newValue.toTimeString().substring(0, 5) : '';
+                                    handleClientFormChange({
+                                      target: {
+                                        name: 'start_time',
+                                        value: timeString
+                                      }
+                                    });
+                                  }}
+                                  slotProps={{
+                                    textField: {
+                                      variant: 'outlined',
+                                      fullWidth: true,
+                                      size: 'small',
+                                      sx: {
+                                        '& .MuiInputBase-root': {
+                                          height: '40px'
+                                        }
+                                      }
+                                    }
+                                  }}
+                                />
+                              </Grid>
+                              <Grid item xs={6}>
+                                <MobileTimePicker
+                                  label="End Time"
+                                  value={clientFormData.end_time ? new Date(`1970-01-01T${clientFormData.end_time}`) : null}
+                                  onChange={(newValue) => {
+                                    const timeString = newValue ? newValue.toTimeString().substring(0, 5) : '';
+                                    handleClientFormChange({
+                                      target: {
+                                        name: 'end_time',
+                                        value: timeString
+                                      }
+                                    });
+                                  }}
+                                  slotProps={{
+                                    textField: {
+                                      variant: 'outlined',
+                                      fullWidth: true,
+                                      size: 'small',
+                                      sx: {
+                                        '& .MuiInputBase-root': {
+                                          height: '40px'
+                                        }
+                                      },
+                                      InputProps: {
+                                        readOnly: true
+                                      }
+                                    }
+                                  }}
+                                />
+                              </Grid>
+                              <Grid item xs={12}>
+                                <FormControlLabel
+                                  control={
+                                    <Checkbox
+                                      name="lunch_break"
+                                      checked={clientFormData.lunch_break}
+                                      onChange={handleClientFormChange}
+                                      color="primary"
+                                    />
                                   }
-                                }}
-                              />
+                                  label="Include 1-hour lunch break (automatically deducted from working hours)"
+                                />
+                              </Grid>
+                              <Grid item xs={12}>
+                                <TextField
+                                  fullWidth
+                                  label={`Total Working Hours (${clientFormData.client_type === 'part-time' ? '4' : '8'} hrs/day)`}
+                                  type="number"
+                                  name="working_hours"
+                                  value={clientFormData.working_hours}
+                                  onChange={handleClientFormChange}
+                                  variant="outlined"
+                                  size="small"
+                                  InputProps={{
+                                    readOnly: true,
+                                    endAdornment: <Typography variant="body2">hours/day</Typography>,
+                                  }}
+                                  sx={{
+                                    '& .MuiInputBase-root': {
+                                      height: '40px'
+                                    },
+                                    '& .MuiInputBase-input': {
+                                      color: theme.palette.text.secondary
+                                    }
+                                  }}
+                                />
+                              </Grid>
                             </Grid>
-                            <Grid item xs={6}>
-                              <TextField
-                                fullWidth
-                                label="End Time"
-                                type="time"
-                                name="end_time"
-                                value={clientFormData.end_time}
-                                onChange={handleClientFormChange}
-                                InputLabelProps={{ shrink: true }}
-                                variant="outlined"
-                                size="small"
-                                sx={{
-                                  '& .MuiInputBase-root': {
-                                    height: '40px'
-                                  }
-                                }}
-                                InputProps={{
-                                  readOnly: true
-                                }}
-                              />
-                            </Grid>
-                            <Grid item xs={12}>
-                              <FormControlLabel
-                                control={
-                                  <Checkbox
-                                    name="lunch_break"
-                                    checked={clientFormData.lunch_break}
-                                    onChange={handleClientFormChange}
-                                    color="primary"
-                                  />
-                                }
-                                label="Include 1-hour lunch break (automatically deducted from working hours)"
-                              />
-                            </Grid>
-                            <Grid item xs={12}>
-                              <TextField
-                                fullWidth
-                                label={`Total Working Hours (${clientFormData.client_type === 'part-time' ? '4' : '8'} hrs/day)`}
-                                type="number"
-                                name="working_hours"
-                                value={clientFormData.working_hours}
-                                onChange={handleClientFormChange}
-                                variant="outlined"
-                                size="small"
-                                InputProps={{
-                                  readOnly: true,
-                                  endAdornment: <Typography variant="body2">hours/day</Typography>,
-                                }}
-                                sx={{
-                                  '& .MuiInputBase-root': {
-                                    height: '40px'
-                                  },
-                                  '& .MuiInputBase-input': {
-                                    color: theme.palette.text.secondary
-                                  }
-                                }}
-                              />
-                            </Grid>
-                          </Grid>
+                          </LocalizationProvider>
                         )}
                         {clientFormData.client_type === 'project' && (
                           <Typography variant="body2" color="textSecondary">

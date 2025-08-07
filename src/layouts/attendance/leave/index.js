@@ -29,6 +29,7 @@ import {
 } from '@mui/material';
 import {
   Add,
+  AccessTime,
   Close,
   Send,
   PendingActions,
@@ -181,6 +182,8 @@ const LeaveFormModal = () => {
     team: "",
     department: "",
     email: "",
+    time_in: "",
+    time_out: "",
     position: "",
     birthdate: "",
     leave_type: "",
@@ -234,6 +237,8 @@ const LeaveFormModal = () => {
         employee_name: full_name,
         email: emp.email || "",
         team: emp.team,
+        time_in: emp.time_in,
+        time_out: emp.time_out,
         department: emp.department,
         position: emp.position,
         birthdate: emp.birthdate
@@ -416,6 +421,26 @@ const LeaveFormModal = () => {
     setFormErrors(newErrors);
     return isValid;
   };
+  
+  //Convert time format
+  
+  const formatTimeToAMPM = (timeString) => {
+  if (!timeString) return '';
+  
+  // Handle both "HH:mm" and "HH:mm:ss" formats
+  const timeParts = timeString.split(':');
+  if (timeParts.length < 2) return timeString;
+  
+  let hours = parseInt(timeParts[0]);
+  const minutes = timeParts[1];
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  
+  // Convert 24h to 12h format
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  
+  return `${hours}:${minutes} ${ampm}`;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -450,6 +475,8 @@ const LeaveFormModal = () => {
       payload.append("employee_name", formData.employee_name);
       payload.append("position", formData.position);
       payload.append("email", formData.email);
+      payload.append("time_in", formData.time_in);
+      payload.append("time_out", formData.time_out);
       payload.append("reason", formData.reason);
       payload.append("leave_type", formData.leave_type);
       payload.append("start_date", formData.start_date);
@@ -629,12 +656,13 @@ const LeaveFormModal = () => {
             backgroundColor: 'primary.main',
             color: 'white',
             py: 2,
-            px: 3
+            px: 3,
+            mb: 2
           }}>
-            <Typography variant="h6">Leave Application</Typography>
+            <Typography variant="h5" color="white">Leave Application</Typography>
             <IconButton 
               edge="end" 
-              color="inherit" 
+              color="white" 
               onClick={() => {
                 setShowModal(false);
                 setResponseMsg("");
@@ -735,25 +763,59 @@ const LeaveFormModal = () => {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                 <Grid item xs={12} sm={6}>
                   <TextField
-                    select
                     fullWidth
-                    label="Leave Type"
-                    name="leave_type"
-                    value={formData.leave_type || ''}
-                    onChange={handleChange}
-                    required
+                    label="Time in"
+                    name="time_in"
+                    value={formData.time_in ? formatTimeToAMPM(formData.time_in) : ''}
                     variant="outlined"
-                    error={formErrors.leave_type}
-                    helperText={formErrors.leave_type ? "Leave type is required" : ""}
-                  >
-                    {leaveTypes.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                    InputProps={{
+                      readOnly: true,
+                      startAdornment: <AccessTime color="action" sx={{ mr: 1 }} />
+                    }}
+                  />
+                </Grid>
+
+               <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Time out"
+                    name="time_out"
+                    value={formData.time_out ? formatTimeToAMPM(formData.time_out) : ''}
+                    variant="outlined"
+                    InputProps={{
+                      readOnly: true,
+                      startAdornment: <AccessTime color="action" sx={{ mr: 1 }} />
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                 <TextField
+                      select
+                      fullWidth
+                      label="Leave Type"
+                      name="leave_type"
+                      value={formData.leave_type || ''}
+                      onChange={handleChange}
+                      required
+                      variant="outlined"
+                      error={formErrors.leave_type}
+                      helperText={formErrors.leave_type ? "Leave type is required" : ""}
+                      sx={{ 
+                        width: '100%',
+                        '& .MuiSelect-select': {
+                          padding: '10px 14px' // Match TextField padding
+                        }
+                      }}
+                    >
+                      {leaveTypes.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </TextField>
                 </Grid>
 
                 <Grid item xs={12} sm={6}>
