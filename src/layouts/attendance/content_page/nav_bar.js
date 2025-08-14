@@ -160,7 +160,7 @@ const SideNavBar = ({ children }) => {
     // },
     { 
       icon: <ColoredTimeToLeaveIcon fontSize="large" />, 
-      text: 'Leave', 
+      text: 'Leave Request', 
       route: '/attendance/user/leave' 
     },
     {

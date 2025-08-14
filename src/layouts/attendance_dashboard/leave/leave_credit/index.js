@@ -286,7 +286,7 @@ const LeaveActionModal = ({ open, onClose, leaveApplication, onApprove, onReject
             </Grid>
             <Grid item xs={12}>
               <Typography variant="body1" style={{ fontWeight: '400' }}>
-                Account Assigned: {leaveApplication?.account || ''}
+                Account Assigned: {leaveApplication?.account || 'N/A'}
               </Typography>
             </Grid>
             <Grid item xs={6}>
@@ -993,64 +993,79 @@ const LeaveCreditTable = ({
 
   const handleApprove = async (id, isPaid) => {
     try {
-      setProcessing(true);
-      const storedEmployee = localStorage.getItem('employee');
-      const currentEmployee = storedEmployee ? JSON.parse(storedEmployee) : null;
-      const processedBy = currentEmployee 
-        ? `${currentEmployee.first_name} ${currentEmployee.last_name}`
-        : 'System Admin';
-      const processedAt = new Date().toISOString();
+        setProcessing(true);
+        const storedEmployee = localStorage.getItem('employee');
+        const currentEmployee = storedEmployee ? JSON.parse(storedEmployee) : null;
+        const processedBy = currentEmployee 
+            ? `${currentEmployee.first_name} ${currentEmployee.last_name}`
+            : 'System Admin';
+        const processedAt = new Date().toISOString();
 
-      // Check if this is birthday leave
-      const isBirthdayLeave = selectedLeave?.leave_type?.toLowerCase() === 'birthday leave';
+        // Check if this is birthday leave (always paid)
+        const isBirthdayLeave = selectedLeave?.leave_type?.toLowerCase() === 'birthday leave';
 
-      const response = await axiosPrivate.patch(
-        `attendance/leave-applications/${id}/`,
-        {
-          status: 'approved',
-          remarks: remarks,
-          is_paid: isBirthdayLeave ? true : isPaid,
-          approval_date: processedAt,
-          processed_by: processedBy
-        }
-      );
+        // Calculate leave days
+        const days = calculateLeaveDays(selectedLeave.start_date, selectedLeave.end_date);
 
-      const days = calculateLeaveDays(selectedLeave.start_date, selectedLeave.end_date);
-      
-      setSnackbar({
-        open: true,
-        message: isBirthdayLeave 
-          ? `Approved ${days} paid day(s) from birthday leave`
-          : isPaid
-            ? `Approved ${days} paid day(s) - added to paid leave balance`
-            : `Approved ${days} unpaid day(s) - added to used leave days`,
-        severity: 'success'
-      });
-      
-      await refreshData();
+        // Prepare the data to send to the backend
+        const payload = {
+            status: 'approved',
+            remarks: remarks,
+            is_paid: isBirthdayLeave ? true : isPaid,  // Birthday leave is always paid
+            approval_date: processedAt,
+            processed_by: processedBy,
+            // Include these additional fields to help with log creation
+            start_date: selectedLeave.start_date,
+            end_date: selectedLeave.end_date,
+            leave_type: selectedLeave.leave_type,
+            employee_id: selectedLeave.employee.id,  // Make sure employee object is included in selectedLeave
+            reason: selectedLeave.reason,
+            is_half_day: selectedLeave.is_half_day || false
+        };
+
+        const response = await axiosPrivate.patch(
+            `attendance/leave-applications/${id}/`,
+            payload
+        );
+
+        // Show appropriate success message
+        setSnackbar({
+            open: true,
+            message: isBirthdayLeave 
+                ? `Approved ${days} paid day(s) from birthday leave`
+                : isPaid
+                    ? `Approved ${days} paid day(s) - added to paid leave balance`
+                    : `Approved ${days} unpaid day(s)`,
+            severity: 'success'
+        });
+        
+        // Refresh the data to show updated status and logs
+        await refreshData();
     } catch (error) {
-      let errorMessage = 'Failed to approve leave';
-      if (error.response?.data?.error) {
-        if (error.response.data.error.includes('regular leave credits')) {
-          errorMessage = 'Cannot approve: Regular leave credits not initialized';
-        } else if (error.response.data.error.includes('birthday leave credits')) {
-          errorMessage = 'Cannot approve: Birthday leave credits not initialized';
-        } else if (error.response.data.error.includes('exceed available')) {
-          errorMessage = 'Cannot approve: Would exceed available paid leave days';
+        let errorMessage = 'Failed to approve leave';
+        if (error.response?.data?.error) {
+            if (error.response.data.error.includes('regular leave credits')) {
+                errorMessage = 'Cannot approve: Regular leave credits not initialized';
+            } else if (error.response.data.error.includes('birthday leave credits')) {
+                errorMessage = 'Cannot approve: Birthday leave credits not initialized';
+            } else if (error.response.data.error.includes('exceed available')) {
+                errorMessage = 'Cannot approve: Would exceed available paid leave days';
+            } else if (error.response.data.error.includes('EmployeeLogs')) {
+                errorMessage = 'Error updating attendance logs';
+            }
         }
-      }
 
-      setSnackbar({
-        open: true,
-        message: errorMessage,
-        severity: 'error'
-      });
+        setSnackbar({
+            open: true,
+            message: errorMessage,
+            severity: 'error'
+        });
     } finally {
-      setProcessing(false);
-      handleCloseModal();
+        setProcessing(false);
+        handleCloseModal();
     }
   };
-
+  
   const handleReject = async (id) => {
     try {
       setProcessing(true);
@@ -1338,6 +1353,14 @@ const LeaveCreditTable = ({
                       </Box>
                     </Box>
                   </td>
+
+                   {/* <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                       <Box>
+                        <Box fontWeight={500}> {formatTimeProfessional(client?.) || ""}</Box> to
+                        <Box fontWeight={500}> {formatTimeProfessional(client?.time_out) || ""}</Box>
+                      </Box>   
+                  </td> */}
+
                   <td style={{ padding: '12px 16px' }}>{client.leave_type}</td>
                   <td style={{ padding: '12px 16px'}}>
                     {formatDisplayDate(client.start_date)} to {formatDisplayDate(client.end_date)}
@@ -1406,7 +1429,7 @@ const LeaveCreditTable = ({
                     {client.processed_by || (client.status !== 'pending' ? 'System' : '')}
                 </td>
                  <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                    {client.status !== 'pending' ? formatDisplayDate(client.approval_date) || '' : ''}
+                    {client.status !== 'pending' ? formatDisplayDate(client?.approval_date) || '' : ''}
                 </td>
                   
                 </tr>

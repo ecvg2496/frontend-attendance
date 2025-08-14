@@ -25,21 +25,15 @@ import {
   TableContainer,
   TextField,
   InputAdornment,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
-  Snackbar
+  Checkbox,
+  FormControlLabel
 } from '@mui/material';
 import { 
   Today as TodayIcon,
   DateRange as DateRangeIcon,
   Person as PersonIcon,
-  CheckCircle as CheckCircleIcon,
   CheckCircle as PresentIcon,
-  Schedule as ScheduleIcon,
-  Schedule as LateIcon,    
-  Cancel as CancelIcon,
+  Schedule as LateIcon,
   Cancel as AbsentIcon,
   Visibility as VisibilityIcon,
   Download as DownloadIcon,
@@ -50,8 +44,7 @@ import {
   WorkOff as LeaveIcon,
   Error as ErrorIcon,
   Search as SearchIcon,
-  Check as ApproveIcon,
-  Close as RejectIcon
+  FilterList as FilterListIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -70,32 +63,51 @@ const getCurrentPhilippineDate = () => {
 };
 
 // Status Badge Component
-const StatusBadge = ({ status, isDuration = false }) => {
+const StatusBadge = ({ status, isDuration, duration }) => {
+  const getMatchedStyle = (statusText) => {
+    if (isDuration) {
+      return duration > 60 ? statusStyles.Overbreak : statusStyles.Break;
+    }
+    if (statusText.includes("Early")) return statusStyles.Early;
+    if (statusText.includes("Late")) return statusStyles.Late;
+    if (statusText.includes("Undertime")) return statusStyles.Undertime;
+    if (statusText.includes("Overtime")) return statusStyles.Overtime;
+    if (statusText.includes("Overbreak")) return statusStyles.Overbreak;
+    if (statusText.includes("On Time")) return statusStyles.OnTime;
+    if (statusText.includes("Paid Leave")) return statusStyles.paidLeave;
+    if (statusText.includes("Completed")) return statusStyles.Completed;
+    return statusStyles[statusText];
+  };
+
   const statusStyles = {
     Active: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
     Inactive: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
     Leave: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
     Floating: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
     Present: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
+    Completed: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
     Working: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
+    Overtime: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
     Late: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
     Undertime: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
-    Absent : { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
+    Absent: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
     Taken: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
     Missed: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
-    Pending: { background: 'linear-gradient(to right, #9E9E9E, #BDBDBD)', color: 'white' },
-    Approved: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
-    Rejected: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' }
+    Overbreak: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
+    Early: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
+    OnTime: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
+    paidLeave: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
+    Break: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' }, 
   };
 
   return (
     <span style={{
       padding: '2px 8px',
       borderRadius: '10px',
-      fontSize: '0.95em',
+      fontSize: '1.2em',
       fontWeight: '600',
-      textTransform: isDuration ? 'none' : 'capitalize',
-      ...statusStyles[status] || { background: '#e0e0e0' }
+      textTransform: 'capitalize',
+      ...(getMatchedStyle(status) || { background: '#e0e0e0', color: '#333' })
     }}>
       {status}
     </span>
@@ -126,7 +138,7 @@ const formatDisplayDate = (dateString) => {
   
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
-    month: 'short',
+    month: 'long',
     day: 'numeric',
     year: 'numeric'
   });
@@ -151,22 +163,64 @@ const formatTimeToAMPM = (timeString) => {
 
 const formatBreakDuration = (durationMinutes) => {
   if (durationMinutes === null || durationMinutes === undefined) return '--';
-  
+
   try {
     const duration = parseInt(durationMinutes, 10);
-    
-    if (isNaN(duration)) return '0 mins';
-    
-    if (duration > 59) {
-      const hours = Math.floor(duration / 60);
-      return `${hours} ${hours !== 1 ? 'hours' : 'hour'}`;
-    }
-    
-    return `${duration} ${duration !== 1 ? 'mins' : 'min'}`;
+    if (isNaN(duration)) return '0m';
+
+    const hours = Math.floor(duration / 60);
+    const minutes = duration % 60;
+
+    let result = '';
+    if (hours > 0) result += `${hours}h`;
+    if (minutes > 0) result += ` ${minutes}m`;
+
+    return result.trim() || '0m';
   } catch (e) {
     console.error('Error formatting break duration:', e);
     return durationMinutes;
   }
+};
+
+// Status Filter Modal Component
+const StatusFilterModal = ({ open, onClose, statusFilters, onFilterChange }) => {
+  const statusOptions = [
+    { value: 'Present', label: 'Present' },
+    { value: 'Late', label: 'Late' },
+    { value: 'Absent', label: 'Absent' },
+    { value: 'Leave', label: 'Leave' },
+    { value: 'Floating', label: 'Floating' },
+    { value: 'Undertime', label: 'Undertime' },
+    { value: 'Overtime', label: 'Overtime' },
+  ];
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Filter by Status</DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
+          {statusOptions.map((option) => (
+            <FormControlLabel
+              key={option.value}
+              control={
+                <Checkbox
+                  checked={statusFilters[option.value] || false}
+                  onChange={() => onFilterChange(option.value)}
+                  color="primary"
+                />
+              }
+              label={option.label}
+            />
+          ))}
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} color="primary">
+          Apply Filters
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
 };
 
 // Main Table Component with Joined Data
@@ -175,14 +229,9 @@ const DailyAttendanceTable = ({
   logsData, 
   loading, 
   error, 
-  onViewClick,
-  onApprove,
-  onReject,
-  isAdmin
+  onViewClick 
 }) => {
   const theme = useTheme();
-  const isXLargeScreen = useMediaQuery(theme.breakpoints.up('xl'));
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
   const [clientData, setClientData] = useState({});
   const [clientLoading, setClientLoading] = useState(false);
   const [clientError, setClientError] = useState(null);
@@ -194,12 +243,19 @@ const DailyAttendanceTable = ({
     return `${firstInitial}${lastInitial}`.toUpperCase();
   };
 
+  const getInitialClientName = (fullName) => {
+    if (!fullName) return '?';
+    const nameParts = fullName.trim().split(' ');
+    const firstInitial = nameParts[0]?.charAt(0).toUpperCase() || '';
+    const lastInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1].charAt(0).toUpperCase() : '';
+    return `${firstInitial}${lastInitial}` || '?';
+  };
+
   // Fetch client data for each employee
   useEffect(() => {
     const fetchClientData = async () => {
       const clientMap = {};
-      // Extract employee IDs properly
-      const uniqueEmployeeIds = [...new Set(logsData.map(log => log.employee.id))];
+      const uniqueEmployeeIds = [...new Set(logsData.map(log => log.employee))];
       
       try {
         setClientLoading(true);
@@ -208,7 +264,7 @@ const DailyAttendanceTable = ({
         await Promise.all(uniqueEmployeeIds.map(async (employeeId) => {
           try {
             const response = await axios.get(
-              `http://localhost:8000/api/attendance/employees/${employeeId}/assigned-clients/`
+              `/attendance/employees/${employeeId}/assigned-clients/`
             );
             clientMap[employeeId] = response.data[0] || null;
           } catch (err) {
@@ -236,12 +292,8 @@ const DailyAttendanceTable = ({
   if (!logsData || logsData.length === 0) return <div className="no-data">No attendance records found</div>;
 
   return (
-    <div className="container" style={{ 
-      width: '100%', 
-      overflow: 'auto',
-      maxHeight: 'calc(100vh - 300px)'
-    }}>
-      <table style={{ 
+    <Box width="100%" overflow="auto" position="relative">
+       <table style={{ 
         width: '100%',
         minWidth: '1200px',
         borderCollapse: 'collapse',
@@ -249,226 +301,152 @@ const DailyAttendanceTable = ({
       }}>
         <thead>
           <tr style={{ 
-            position: 'sticky',
-            top: 0,
-            zIndex: 1,
-            backgroundColor: '#00B4D8',
-            color: 'white',
-            fontSize: '1rem'
+           backgroundColor: '#00B4D8', color: 'white', textAlign: 'left'
           }}>
-            <th scope="col" style={{ padding: '8px 12px', textAlign: 'left'}}>Date</th>
-            <th scope="col" style={{ padding: '8px 12px', textAlign: 'left'}}>Employee</th>
-            <th scope="col" style={{ padding: '8px 12px', textAlign: 'left' }}>Client</th>
-            <th scope="col" style={{ padding: '8px 12px'}}>Time In/Out</th>
-            <th scope="col" style={{ padding: '8px 12px'}}>Break</th>
-            <th scope="col" style={{ padding: '8px 12px'}}>Status</th>
-            <th scope="col" style={{ padding: '8px 12px'}}>Approval</th>
-            <th scope="col" style={{ padding: '8px 12px'}}>Actions</th>
+            <th scope="col" style={{ padding: '8px 12px', textAlign: 'left', fontSize: '1.1rem'}}>Information</th>
+            <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Status</th>
+            <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Time In/Out</th>
+            <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Break</th>
+            <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Work Hours</th>
           </tr>
         </thead>
         <tbody>
           {logsData
             .sort((a, b) => new Date(b.date) - new Date(a.date))
             .map((log) => {
-              const employee = log.employee || {};
-              const initials = employee.name ? 
-                employee.name.split(' ').map(n => n[0]).join('').substring(0, 2) : 
-                'NA';
-              const fullName = employee.name || 'Unknown';
+              const employee = log.employee_details || {};
+              const initials = getInitials(employee.first_name, employee.last_name);
+              const fullName = employee.first_name && employee.last_name 
+                ? `${employee.first_name} ${employee.last_name}`
+                : 'Unknown';
               
-              // Get client data using employee ID as key
-              const client = clientData[log.employee.id] || {};
+              const client = clientData[log.employee] || {};
+              const clientInitials = getInitialClientName(client.name);
               const clientName = client.name || 'Not assigned';
-              const clientInitials = clientName.split(' ').map(n => n[0]).join('').substring(0, 2);
+              const clientEmail = employee?.time_in && employee?.time_out 
+                ? `${formatTimeToAMPM(employee?.time_in)} - ${formatTimeToAMPM(employee?.time_out)}` 
+                : '';
 
               return (
                 <tr key={log.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
-                  {/* Date Column */}
-                  <td data-title="Date" style={{ 
-                    padding: '8px 12px',
-                    textAlign: 'left',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {log.date ? formatDisplayDate(log.date) : "No date"}
+                  {/* Information Column */}
+                <td 
+                    data-title="Date" 
+                    style={{ 
+                      padding: '8px 12px',
+                      textAlign: 'left',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <span style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>
+                      {log.date ? formatDisplayDate(log.date) : "No date"}
+                    </span>
+                    
+                    <div>
+                      VA: {employee.first_name} {employee.last_name}
+                    </div>
+                    <div>
+                      Client: {clientName}
+                    </div>
+                    <div>
+                      Task Id: {log.transaction_id}
+                    </div>
                   </td>
 
-                  {/* Employee Column */}
-                  <td data-title="Employee" style={{ 
-                    padding: '8px 12px',
-                    textAlign: 'left'
+                   {/* Status Column */}
+                  <td data-title="Status" style={{ 
+                    padding: '8px 12px', fontSize: '0.7rem', whiteSpace: 'nowrap'
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Avatar 
-                        sx={{ 
-                          bgcolor: '#1976d2', 
-                          width: 28, 
-                          height: 28, 
-                          fontSize: 12,
-                          color: 'white'
-                        }}
-                      >
-                        {initials}
-                      </Avatar>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 100 }}>{fullName}</div>
-                        <div style={{ fontSize: '0.7rem', color: '#666' }}>
-                          {employee.department || ''} / {employee.team || ''}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  
-                  {/* Client Column */}
-                  <td data-title="Client" style={{ 
-                    padding: '8px 12px',
-                    textAlign: 'left'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Avatar 
-                        sx={{ 
-                          bgcolor: '#3f51b5',
-                          width: 28, 
-                          height: 28, 
-                          fontSize: 12,
-                          color: 'white'
-                        }}
-                      >
-                        {clientInitials}
-                      </Avatar>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ 
-                          fontSize: '0.9rem', 
-                          fontWeight: 'normal',
-                          color: '#757575'
-                        }}>
-                          {clientName}
-                          {!client.client_name && (
-                            <Tooltip title="This employee is not assigned to any client" arrow>
-                              <span style={{ marginLeft: '4px', color: '#f44336' }}>*</span>
-                            </Tooltip>
-                          )}
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: '#666' }}>
-                           {client.schedule_type || ''}
-                        </div>
-                      </div>
-                    </div>
+                    <StatusBadge status={log.status || 'Absent'} />
                   </td>
 
                   {/* Time In/Out Column */}
                   <td data-title="Time In/Out" style={{ 
-                    padding: '8px 12px'
-                  }}>
+                      padding: '8px 12px', whiteSpace: 'nowrap'
+                    }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <ClockIcon fontSize="medium" color="action" />
+                          <span 
+                            style={{ 
+                              fontSize: '1rem', 
+                              color: log.time_in_status?.includes('Late') ? 'red' : 'inherit' 
+                            }}
+                          >
+                            {log.time_in ? formatTimeProfessional(log.time_in) : ''}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <OvertimeIcon fontSize="medium" color="action" />
+                          <span 
+                            style={{ 
+                              fontSize: '1rem', 
+                              color: log.time_out_status?.includes('Overtime') ? 'red' : 'inherit' 
+                            }}
+                          >
+                            {log.time_out ? formatTimeProfessional(log.time_out) : ''}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Start Break/End Break */}
+                    <td data-title="Break" style={{ padding: '8px 12px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <ClockIcon fontSize="medium" color="action" />
+                          <span style={{ fontSize: '1rem' }}>
+                            {log.start_break ? formatTimeProfessional(log.start_break) : ''}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <OvertimeIcon fontSize="medium" color="action" />
+                          <span 
+                            style={{ 
+                              fontSize: '1rem', 
+                              color: (log.break_status?.startsWith('Overbreak') || log.break_duration > 60) 
+                                ? 'red' 
+                                : 'inherit' 
+                            }}
+                          >
+                            {log.end_break ? formatTimeProfessional(log.end_break) : ''}
+                          </span>
+                        </div>
+                      </div> 
+</td>
+
+                  {/* Work Hours */}
+                    <td data-title="Break" style={{ padding: '8px 12px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <ClockIcon fontSize="small" color="action" />
-                        <span style={{ fontSize: '0.8rem' }}>
-                          {log.time_in ? formatTimeProfessional(log.time_in) : '--:--'}
+                        <ClockIcon fontSize="medium" color="action" />
+                        <span style={{ fontSize: '1rem' }}>
+                          {log?.work_hours || '0'}
                         </span>
-                        {log.time_in_status && (
-                          <StatusBadge status={log.time_in_status} />
-                        )}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <OvertimeIcon fontSize="small" color="action" />
-                        <span style={{ fontSize: '0.8rem' }}>
-                          {log.time_out ? formatTimeProfessional(log.time_out) : '--:--'}
-                        </span>
-                        {log.time_out_status && (
-                          <StatusBadge status={log.time_out_status} />
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  
-                  {/* Break Column */}
-                  <td data-title="Break" style={{ padding: '8px 12px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <ClockIcon fontSize="small" color="action" />
-                        <span style={{ fontSize: '0.8rem' }}>
-                          {log.start_break ? formatTimeProfessional(log.start_break) : '--:--'}
-                        </span>
-                        {log.start_break && (
-                          <StatusBadge status={formatBreakDuration(log.break_duration)} isDuration />
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <OvertimeIcon fontSize="small" color="action" />
-                        <span style={{ fontSize: '0.8rem' }}>
-                          {log.end_break ? formatTimeProfessional(log.end_break) : '--:--'}
+                      {/* <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <OvertimeIcon fontSize="medium" color="action" />
+                        <span style={{ fontSize: '1rem' }}>
+                          {log.end_break ? formatTimeProfessional(log.end_break) : ''}
                         </span>
                         {log.end_break && (
                           <StatusBadge status={log.break_status} />
                         )}
-                      </div>
+                      </div> */}
                     </div> 
                   </td>
 
-                  {/* Status Column */}
-                  <td data-title="Status" style={{ 
-                    padding: '8px 12px',
-                    textAlign: 'center'
-                  }}>
-                    <StatusBadge status={log.status || 'Absent'} />
-                  </td>
-                  
-                  {/* Approval Status Column */}
-                  <td data-title="Approval" style={{ 
-                    padding: '8px 12px',
-                    textAlign: 'center'
-                  }}>
-                    <StatusBadge status={log.processed_status || 'Pending'} />
-                  </td>
-                  
-                  {/* Actions Column */}
-                  <td data-title="Actions" style={{ 
-                    padding: '8px 12px',
-                    textAlign: 'center'
-                  }}>
-                    <IconButton 
-                      size="small"  
-                      color="primary" 
-                      sx={{ '&:hover': { backgroundColor: 'rgba(46, 125, 50, 0.1)' } }}
-                      title="View Details"
-                      onClick={() => onViewClick({ employee: employee, log })}
-                    >
-                      <VisibilityIcon fontSize="small" />
-                    </IconButton>
-                    
-                    {isAdmin && (
-                      <>
-                        <IconButton 
-                          size="small"  
-                          color="success" 
-                          sx={{ '&:hover': { backgroundColor: 'rgba(46, 125, 50, 0.1)' } }}
-                          title="Approve"
-                          onClick={() => onApprove(log.id)}
-                        >
-                          <ApproveIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton 
-                          size="small"  
-                          color="error" 
-                          sx={{ '&:hover': { backgroundColor: 'rgba(244, 67, 54, 0.1)' } }}
-                          title="Reject"
-                          onClick={() => onReject(log.id)}
-                        >
-                          <RejectIcon fontSize="small" />
-                        </IconButton>
-                      </>
-                    )}
-                  </td>
                 </tr>
               );
             })}
         </tbody>
       </table>
-    </div>
+    </Box>
   );
 };
 
-const AttendanceAdminLogs = () => {
+const AttendanceAdminActivities = () => {
+  const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [employeeData, setEmployeeData] = useState(null);
@@ -477,11 +455,21 @@ const AttendanceAdminLogs = () => {
   const [openModal, setOpenModal] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [overviewPage, setOverviewPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const itemsPerPage = 10;
-  const [snackbar, setSnackbar] = useState({ open: false, message: '' });
+  const itemsPerPage = 5;
+  const [statusFilters, setStatusFilters] = useState({
+    Present: true,
+    Late: true,
+    Absent: true,
+    Leave: true,
+    Floating: true,
+    Undertime: true,
+    Overtime: true,
+  });
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const navigate = useNavigate();
+  
   const isAdmin = () => {
     const employeeData = localStorage.getItem("employee");
     if (employeeData) {
@@ -490,7 +478,7 @@ const AttendanceAdminLogs = () => {
     }
     return false;
   };
-  
+
   // Redirect if not admin
   useEffect(() => {
     if (!isAdmin()) {
@@ -498,11 +486,43 @@ const AttendanceAdminLogs = () => {
     } 
   }, [navigate]);
 
-  // Filter data based on search term and approval status
+  // Filter data based on current Philippine time, search term, and status filters
   const filterData = (data) => {
     let filtered = [...data];
     
-    // Apply search term filter
+    // Get current Philippine date
+    const currentDate = getCurrentPhilippineDate();
+    
+    // Group logs by employee and keep only the latest log for each
+    const employeeLogsMap = {};
+    
+    filtered.forEach(log => {
+      const logDate = new Date(log.date);
+      const employeeId = log.employee;
+      
+      // If we don't have a log for this employee yet, or this log is newer
+      if (!employeeLogsMap[employeeId] || 
+          new Date(employeeLogsMap[employeeId].date) < logDate) {
+        employeeLogsMap[employeeId] = log;
+      }
+    });
+    
+    // Convert back to array
+    filtered = Object.values(employeeLogsMap);
+    
+    // Filter to show only logs from today or incomplete logs from yesterday
+    filtered = filtered.filter(log => {
+      const logDate = new Date(log.date);
+      const isToday = logDate.toDateString() === currentDate.toDateString();
+      const isYesterday = new Date(logDate.getTime() + 86400000).toDateString() === currentDate.toDateString();
+      
+      // Show if:
+      // 1. It's from today, OR
+      // 2. It's from yesterday and has time_in but no time_out
+      return isToday || (isYesterday && log.time_in && !log.time_out);
+    });
+    
+    // Apply search term filter if needed
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(log => {
@@ -522,38 +542,116 @@ const AttendanceAdminLogs = () => {
       });
     }
     
-    // Apply approval status filter
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(log => {
-        if (filterStatus === 'pending') return !log.processed_status;
-        return log.processed_status === filterStatus;
-      });
-    }
+    // Apply status filters
+    filtered = filtered.filter(log => {
+      if (!log.status) return false;
+      
+      if (log.status === 'Present' && !statusFilters.Present) return false;
+      if (log.status === 'Leave' && !statusFilters.Leave) return false;
+      if (log.status === 'Floating' && !statusFilters.Floating) return false;
+      if (log.status === 'Absent' && !statusFilters.Absent) return false;
+      
+      // Check time statuses
+      if (log.time_in_status === 'Late' && !statusFilters.Late) return false;
+      if (log.time_out_status === 'Undertime' && !statusFilters.Undertime) return false;
+      if (log.overtime && log.overtime > 0 && !statusFilters.Overtime) return false;
+      
+      return true;
+    });
     
     return filtered;
   };
 
+  const handleStatusFilterChange = (status) => {
+    setStatusFilters(prev => ({
+      ...prev,
+      [status]: !prev[status]
+    }));
+  };
+
   const filteredData = filterData(logsData);
 
-  // Paginate the data
+  // Paginate the data for Attendance Logs tab
   const paginatedData = filteredData.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
+  // Paginate the data for Overview tab
+  const paginatedOverviewData = filteredData.slice(
+    (overviewPage - 1) * itemsPerPage,
+    overviewPage * itemsPerPage
+  );
+
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterStatus]);
-  
+    setOverviewPage(1);
+  }, [searchTerm, statusFilters]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch all employees and logs
+        const [employeesRes, logsRes] = await Promise.all([
+          axios.get('/attendance/employees/'),
+          axios.get('/attendance/logs/')
+        ]);
+
+        const employees = employeesRes.data;
+        const rawLogs = logsRes.data;
+        const logs = Array.isArray(rawLogs) ? rawLogs : rawLogs.results || rawLogs.logs || [];
+
+        // Create employee map for quick lookup
+        const employeeMap = {};
+        employees.forEach(emp => {
+          employeeMap[emp.id] = emp;
+        });
+
+        // Join logs with employee data
+        const joinedData = logs.map(log => {
+          const emp = employeeMap[log.employee];
+          return {
+            ...log,
+            employee_details: emp || null
+          };
+        });
+
+        setAllEmployees(employees);
+        setLogsData(joinedData);
+        setError(null);
+        
+        // Set the first employee as default
+        if (employees.length > 0) {
+          setEmployeeData(employees[0]);
+        }
+      } catch (err) {
+        console.error('Fetch error:', err);
+        setError(err.message || 'Failed to fetch data');
+        setLogsData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   const handleViewClick = (data) => {
     setSelectedLog(data);
     setOpenModal(true);
   };
 
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
+
   const formatMinutesToHours = (minutes) => {
     if (!minutes && minutes !== 0) return '--';
     const mins = parseFloat(minutes);
+    if (isNaN(mins)) return '0h 0m';
     const hours = Math.floor(mins / 60);
     const remainingMins = mins % 60;
     return `${hours}h ${remainingMins}m`;
@@ -562,7 +660,7 @@ const AttendanceAdminLogs = () => {
   const calculateStats = (data) => {
     const lateCount = data.filter(log => log.time_in_status === 'Late').length;
     const undertimeCount = data.filter(log => log.time_out_status === 'Undertime').length;
-    const overtimeCount = data.filter(log => log.overtime && log.overtime > 0).length;
+    const overtimeCount = data.filter(log => log.overtime && parseFloat(log.overtime) > 0).length;
     const presentCount = data.filter(log => log.status === 'Present').length;
     const leaveCount = data.filter(log => log.status === 'Leave').length;
     const floatingCount = data.filter(log => log.status === 'Floating').length;
@@ -570,7 +668,7 @@ const AttendanceAdminLogs = () => {
     
     const totalUndertime = data.reduce((total, log) => {
       if (log.time_out_status === 'Undertime' && log.undertime_hours) {
-        return total + parseFloat(log.undertime_hours);
+        return total + (parseFloat(log.undertime_hours) || 0);
       }
       return total;
     }, 0);
@@ -582,15 +680,15 @@ const AttendanceAdminLogs = () => {
 
     const totalMakeupHours = data.reduce((total, log) => {
       if (log.make_up_hours) {
-        return total + parseFloat(log.make_up_hours);
+        return total + (parseFloat(log.make_up_hours) || 0);
       }
       return total;
     }, 0);
 
-    // Approval stats
-    const pendingCount = data.filter(log => !log.processed_status).length;
-    const approvedCount = data.filter(log => log.processed_status === 'Approved').length;
-    const rejectedCount = data.filter(log => log.processed_status === 'Rejected').length;
+    // Calculate percentages safely
+    const safePercentage = (numerator, denominator) => {
+      return denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
+    };
 
     return {
       totalLogs: data.length,
@@ -604,9 +702,10 @@ const AttendanceAdminLogs = () => {
       overtime: overtimeCount,
       totalOvertimeHours: (totalOvertimeMinutes / 60).toFixed(2),
       totalMakeupHours: totalMakeupHours.toFixed(2),
-      pending: pendingCount,
-      approved: approvedCount,
-      rejected: rejectedCount
+      presentPercentage: safePercentage(presentCount, data.length),
+      leavePercentage: safePercentage(leaveCount, data.length),
+      floatingPercentage: safePercentage(floatingCount, data.length),
+      absentPercentage: safePercentage(absentCount, data.length),
     };
   };
 
@@ -622,11 +721,10 @@ const AttendanceAdminLogs = () => {
       'Break Start': formatTimeProfessional(log.start_break),
       'Break End': formatTimeProfessional(log.end_break),
       'Break Status': log.start_break ? 'Taken' : 'Missed',
-      'Break Duration': `${log.break_duration} mins`,
+      'Break Duration': `${log.break_duration || 0} mins`,
       'Time Out': formatTimeProfessional(log.time_out),
       'Time Out Status': log.time_out_status || '',
       'Status': log.status || 'Absent',
-      'Approval Status': log.processed_status || 'Pending',
       'Undertime Hours': log.undertime_hours || '0',
       'Overtime Hours': formatMinutesToHours(log.overtime) || '0',
       'Make up Hours': log.make_up_hours || "0"
@@ -638,7 +736,7 @@ const AttendanceAdminLogs = () => {
       { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, 
       { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, 
       { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, 
-      { wch: 15 }, { wch: 25 }
+      { wch: 25 }
     ];
     ws['!cols'] = colWidths;
     
@@ -650,137 +748,6 @@ const AttendanceAdminLogs = () => {
       "Employee_Attendance.xlsx";
     
     XLSX.writeFile(wb, fileName);
-  };
-  useEffect(() => {
-  fetchPendingLogs();
-  }, []);
- const fetchPendingLogs = async () => {
-  try {
-    setLoading(true);
-    
-    // Fetch pending logs and employees in parallel
-    const [logsRes, employeesRes] = await Promise.all([
-      axios.get('http://localhost:8000/api/attendance/logs/pending/'),
-      axios.get('http://localhost:8000/api/attendance/employees/')
-    ]);
-
-    const logs = Array.isArray(logsRes.data) ? logsRes.data : logsRes.data.results || logsRes.data.logs || [];
-    const employees = employeesRes.data;
-
-    // Create employee map for quick lookup
-    const employeeMap = {};
-    employees.forEach(emp => {
-      employeeMap[emp.id] = emp;
-    });
-
-    // Join logs with employee data
-    const joinedData = logs.map(log => {
-      const emp = employeeMap[log.employee];
-      return {
-        ...log,
-        employee_details: emp || null
-      };
-    });
-
-    setAllEmployees(employees);
-    setLogsData(joinedData);
-    setError(null);
-    
-    // Set the first employee as default if needed
-    if (employees.length > 0 && !employeeData) {
-      setEmployeeData(employees[0]);
-    }
-  } catch (err) {
-    console.error('Error fetching pending logs:', err);
-    setError(err.message || 'Failed to fetch pending logs');
-  } finally {
-    setLoading(false);
-  }
-  };
-  const handleApprove = async (logId) => {
-  try {
-    setLoading(true);
-    const employeeData = JSON.parse(localStorage.getItem("employee"));
-    
-    // Prepare the request data
-    const requestData = {
-      remarks: prompt("Enter approval remarks (optional):") || "",
-    };
-
-    const response = await axios.patch(
-      `http://localhost:8000/api/attendance/logs/approve/${logId}/`,
-      requestData,
-      {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    if (response.data.status === 'success') {
-      // Update the local state to reflect approval
-      setLogsData(prevLogs => 
-        prevLogs.map(log => 
-          log.id === logId ? { 
-            ...log, 
-            processed_status: 'Approved',
-            processed_by: `${employeeData.first_name} ${employeeData.last_name}`,
-            processed_at: new Date().toISOString(),
-            remarks: requestData.remarks
-          } : log
-        )
-      );
-
-      // Show success notification
-      setSnackbar({
-        open: true,
-        message: `Approved! Timesheet ID: ${response.data.timesheet_id}`
-      });
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({...snackbar, open: false})}
-        message={snackbar.message}
-      />
-      // Optional: Refresh the pending logs list
-      fetchPendingLogs();
-    } else {
-      throw new Error(response.data.message || 'Approval failed');
-    }
-  } catch (err) {
-    console.error('Error approving log:', err);
-    alert(`Approval failed: ${err.response?.data?.message || err.message}`);
-  } finally {
-    setLoading(false);
-  }
-  };
-
-  const handleReject = async (logId) => {
-    try {
-      setLoading(true);
-      const employeeData = JSON.parse(localStorage.getItem("employee"));
-      
-      const response = await axios.patch(
-        `http://localhost:8000/api/attendance/logs/reject/${logId}/`,
-        {
-          processed_by: `${employeeData.first_name} ${employeeData.last_name}`,
-          processed_status: 'Rejected'
-        }
-      );
-      
-      // Update the local state
-      setLogsData(prevLogs => 
-        prevLogs.map(log => 
-          log.id === logId ? { ...log, processed_status: 'Rejected' } : log
-        )
-      );
-      
-    } catch (err) {
-      console.error('Error rejecting log:', err);
-      setError(err.message || 'Failed to reject log');
-    } finally {
-      setLoading(false);
-    }
   };
 
   if (!employeeData) {
@@ -798,119 +765,336 @@ const AttendanceAdminLogs = () => {
   return (
     <SideNavBar>
       <Box sx={{ p: 2, mt: -12 }}>
-        <Card sx={{ mb: 10, minHeight: 'calc(100vh - 64px)'}}>
-          <CardContent sx={{ p: 1 }}>
-            <Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="subtitle1" color="primary">
-                  Employee Attendance Logs
+        <Card sx={{ mb: 10, minHeight: 'calc(104vh - 64px)'}}>
+          <Tabs 
+            value={tabValue} 
+            onChange={handleTabChange}
+            variant="fullWidth"
+            sx={{ 
+              '& .MuiTabs-indicator': { height: 3 },
+              '& .MuiTab-root': { minHeight: 48, fontSize: '0.8rem' }
+            }}
+          >
+            <Tab label={
+              <Typography sx={{ fontSize: '1.5rem', fontWeight: 400 }}>Attendance Logs</Typography>
+            }
+            icon={<TodayIcon fontSize="medium" />}
+            iconPosition="start"
+            />
+            <Tab
+              label={
+                <Typography sx={{ fontSize: '1.5rem', fontWeight: 400, color: 'black !important' }}>
+                  Overview
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <TextField
-                    variant="outlined"
+              }
+              icon={<DateRangeIcon fontSize="medium" />}
+              iconPosition="start"
+            />
+          </Tabs>
+          <CardContent sx={{ p: 1 }}>
+            {tabValue === 0 && (
+              <Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h3" color="primary">
+                    Activities History
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      variant="outlined"
+                      size="small"
+                      placeholder="Search by name..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchIcon fontSize="small" />
+                          </InputAdornment>
+                        ),
+                        sx: { fontSize: '0.8rem' }
+                      }}
+                      sx={{ width: '250px' }}
+                    />
+                    <Button
+                      variant="outlined"
+                      startIcon={<FilterListIcon />}
+                      onClick={() => setFilterModalOpen(true)}
+                      size="small"
+                    >
+                      Filter
+                    </Button>
+                  </Box>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                  <Chip 
+                    label={`${stats.totalLogs} Records`}
+                    color="info" 
+                    variant="outlined" 
+                    icon={<PersonIcon fontSize="small" />} 
                     size="small"
-                    placeholder="Search by name..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon fontSize="small" />
-                        </InputAdornment>
-                      ),
-                      sx: { fontSize: '0.8rem' }
-                    }}
-                    sx={{ width: '250px' }}
+                    sx={{ fontSize: '1.2rem' }}
+                  />
+                  <Chip 
+                    label={`${stats.present} Present`}
+                    color="success" 
+                    variant="outlined" 
+                    icon={<PresentIcon fontSize="small" />} 
+                    size="small"
+                    sx={{ fontSize: '1.2rem' }}
+                  />
+                  <Chip 
+                    label={`${stats.late} Late`}
+                    color="warning" 
+                    variant="outlined" 
+                    icon={<LateIcon fontSize="small" />} 
+                    size="small"
+                    sx={{ fontSize: '1.2rem' }}
+                  />
+                  <Chip 
+                    label={`${stats.absent} Absent`}
+                    color="error" 
+                    variant="outlined" 
+                    icon={<AbsentIcon fontSize="small" />} 
+                    size="small"
+                    sx={{ fontSize: '1.2rem' }}
+                  />
+                </Box>
+
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    startIcon={<DownloadIcon fontSize="small" />}
+                    onClick={exportToExcel}
+                    disabled={!logsData.length}
+                    size="small"
+                    sx={{ fontSize: '0.7rem' }}
+                  >
+                    Export Excel
+                  </Button>
+                </Box>
+                   
+                <DailyAttendanceTable 
+                  employeeData={employeeData}
+                  logsData={paginatedData}
+                  loading={loading}
+                  error={error}
+                  onViewClick={handleViewClick}
+                />
+              
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                  <Pagination
+                    count={Math.ceil(filteredData.length / itemsPerPage)}
+                    page={currentPage}
+                    onChange={(event, page) => setCurrentPage(page)}
+                    color="primary"
+                    size="small"
+                    sx={{ '& .MuiPaginationItem-root': { fontSize: '0.7rem' } }}
                   />
                 </Box>
               </Box>
-              
-              <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                <Chip 
-                  label={`${stats.totalLogs} Records`}
-                  color="info" 
-                  variant="outlined" 
-                  icon={<PersonIcon fontSize="small" />} 
-                  size="small"
-                  sx={{ fontSize: '0.7rem' }}
-                />
-               <Chip 
-                  label={`${stats.pending} Pending`}
-                  color="default" 
-                  variant="outlined" 
-                  icon={<ScheduleIcon fontSize="small" />} 
-                  size="small"
-                  sx={{ fontSize: '0.7rem' }}
-                />
-                <Chip 
-                  label={`${stats.approved} Approved`}
-                  color="success" 
-                  variant="outlined" 
-                  icon={<CheckCircleIcon fontSize="small" />} 
-                  size="small"
-                  sx={{ fontSize: '0.7rem' }}
-                />
-                <Chip 
-                  label={`${stats.rejected} Rejected`}
-                  color="error" 
-                  variant="outlined" 
-                  icon={<CancelIcon fontSize="small" />} 
-                  size="small"
-                  sx={{ fontSize: '0.7rem' }}
-                />
-                <Chip 
-                  label={`${stats.present} Present`}
-                  color="success" 
-                  variant="outlined" 
-                  icon={<PresentIcon fontSize="small" />} 
-                  size="small"
-                  sx={{ fontSize: '0.7rem' }}
-                />
-                <Chip 
-                  label={`${stats.late} Late`}
-                  color="warning" 
-                  variant="outlined" 
-                  icon={<LateIcon fontSize="small" />} 
-                  size="small"
-                  sx={{ fontSize: '0.7rem' }}
-                />
-                <Chip 
-                  label={`${stats.absent} Absent`}
-                  color="error" 
-                  variant="outlined" 
-                  icon={<AbsentIcon fontSize="small" />} 
-                  size="small"
-                  sx={{ fontSize: '0.7rem' }}
-                />
+            )}
+            {tabValue === 1 && (
+              <Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h3" color="primary">
+                    Overview Logs
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      variant="outlined"
+                      size="small"
+                      placeholder="Search by name..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchIcon fontSize="small" />
+                          </InputAdornment>
+                        ),
+                        sx: { fontSize: '0.8rem' }
+                      }}
+                      sx={{ width: '250px' }}
+                    />
+                    <Button
+                      variant="contained"
+                      color="success"
+                      startIcon={<DownloadIcon fontSize="small" />}
+                      onClick={exportToExcel}
+                      disabled={!logsData.length}
+                      size="small"
+                      sx={{ fontSize: '0.7rem' }}
+                    >
+                      Export Excel
+                    </Button>
+                  </Box>
+                </Box>
+                
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
+                  <Card sx={{ p: 2 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Attendance Overview</Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Records:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{stats.totalLogs}</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Present:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#4CAF50' }}>
+                          {stats.present} ({stats.presentPercentage}%)
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Leaves:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
+                          {stats.leave} ({stats.leavePercentage}%)
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Floating Holidays:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
+                          {stats.floating} ({stats.floatingPercentage}%)
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Absent:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#F44336' }}>
+                          {stats.absent} ({stats.absentPercentage}%)
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Card>
+                  
+                  <Card sx={{ p: 2 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Time Compliance</Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Late Arrivals:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
+                          {stats.late}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Undertime Days:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
+                          {stats.undertime}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Undertime:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
+                          {stats.totalUndertimeHours} hours
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Make Up Hours:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
+                          {stats.totalMakeupHours} hours
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Card>
+                  
+                  <Card sx={{ p: 2 }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Overtime</Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Overtime Days:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#4CAF50' }}>
+                          {stats.overtime}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Overtime:</Typography>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
+                          {stats.totalOvertimeHours} hours
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Card>
+                </Box>
+                
+                <Box sx={{
+                  width: '100%',
+                  mt: 2,
+                  overflowX: 'auto',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  '& .container': {
+                    minWidth: '100%',
+                    margin: 0,
+                    padding: 0
+                  },
+                  '& .responsive-table': {
+                    minWidth: '100%', 
+                    width: '100%'
+                  }
+                }}>
+                  <DailyAttendanceTable 
+                    employeeData={employeeData}
+                    logsData={searchTerm 
+                      ? logsData.filter(log => {
+                          if (!log.employee_details) return false;
+                          const searchLower = searchTerm.toLowerCase();
+                          const firstName = log.employee_details.first_name?.toLowerCase() || '';
+                          const lastName = log.employee_details.last_name?.toLowerCase() || '';
+                          const email = log.employee_details.email?.toLowerCase() || '';
+                          return (
+                            firstName.includes(searchLower) ||
+                            lastName.includes(searchLower) ||
+                            email.includes(searchLower) ||
+                            `${firstName} ${lastName}`.includes(searchLower) ||
+                            `${lastName} ${firstName}`.includes(searchLower)
+                          );
+                        })
+                      : logsData
+                    }
+                    loading={loading}
+                    error={error}
+                    onViewClick={handleViewClick}
+                  />
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                  <Pagination
+                    count={Math.ceil(
+                      (searchTerm 
+                        ? logsData.filter(log => {
+                            if (!log.employee_details) return false;
+                            const searchLower = searchTerm.toLowerCase();
+                            const firstName = log.employee_details.first_name?.toLowerCase() || '';
+                            const lastName = log.employee_details.last_name?.toLowerCase() || '';
+                            const email = log.employee_details.email?.toLowerCase() || '';
+                            return (
+                              firstName.includes(searchLower) ||
+                              lastName.includes(searchLower) ||
+                              email.includes(searchLower) ||
+                              `${firstName} ${lastName}`.includes(searchLower) ||
+                              `${lastName} ${firstName}`.includes(searchLower)
+                            );
+                          }).length 
+                        : logsData.length) / itemsPerPage
+                    )}
+                    page={overviewPage}
+                    onChange={(event, page) => setOverviewPage(page)}
+                    color="primary"
+                    size="small"
+                    sx={{ '& .MuiPaginationItem-root': { fontSize: '0.7rem' } }}
+                  />
+                </Box>
               </Box>
-
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-                <Button
-                  variant="contained"
-                  color="success"
-                  startIcon={<DownloadIcon fontSize="small" />}
-                  onClick={exportToExcel}
-                  disabled={!logsData.length}
-                  size="small"
-                  sx={{ fontSize: '0.7rem' }}
-                >
-                  Export Excel
-                </Button>
-              </Box>
-                 
-              <DailyAttendanceTable 
-                employeeData={employeeData}
-                logsData={paginatedData}
-                loading={loading}
-                error={error}
-                onViewClick={handleViewClick}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                isAdmin={isAdmin()}
-              />
-            </Box>
+            )}
           </CardContent>
         </Card>
+
+        {/* Status Filter Modal */}
+        <StatusFilterModal
+          open={filterModalOpen}
+          onClose={() => setFilterModalOpen(false)}
+          statusFilters={statusFilters}
+          onFilterChange={handleStatusFilterChange}
+        />
 
         {/* Log Details Modal */}
         <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="md" fullWidth>
@@ -950,55 +1134,17 @@ const AttendanceAdminLogs = () => {
                         'No break recorded'}
                     </Typography>
                     <Typography sx={{ fontSize: '0.75rem' }}>Work Hours: {selectedLog.log.work_hours || '0'} hours</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Overtime: {selectedLog.log.overtime || '0'} hours</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Overtime: {formatMinutesToHours(selectedLog.log.overtime)}</Typography>
                     <Typography sx={{ fontSize: '0.75rem' }}>Undertime: {selectedLog.log.undertime_hours || '0'} hours</Typography>
                     <Typography sx={{ fontSize: '0.75rem' }}>Make Up Hours: {selectedLog.log.make_up_hours || '0'} hours</Typography>
                     <Typography sx={{ fontSize: '0.75rem' }}>Status: <StatusBadge status={selectedLog.log.status} /></Typography>
                     <Typography sx={{ fontSize: '0.75rem' }}>Break Status: <StatusBadge status={selectedLog.log.start_break ? 'Taken' : 'Missed'} /></Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Approval Status: <StatusBadge status={selectedLog.log.processed_status || 'Pending'} /></Typography>
-                    {selectedLog.log.processed_by && (
-                      <Typography sx={{ fontSize: '0.75rem' }}>Processed By: {selectedLog.log.processed_by}</Typography>
-                    )}
-                    {selectedLog.log.processed_at && (
-                      <Typography sx={{ fontSize: '0.75rem' }}>Processed At: {new Date(selectedLog.log.processed_at).toLocaleString()}</Typography>
-                    )}
-                    {selectedLog.log.remarks && (
-                      <Typography sx={{ fontSize: '0.75rem' }}>Remarks: {selectedLog.log.remarks}</Typography>
-                    )}
                   </Box>
                 </Box>
               </Box>
             )}
           </DialogContent>
           <DialogActions sx={{ p: 1 }}>
-            {isAdmin() && selectedLog?.log && !selectedLog.log.processed_status && (
-              <>
-                <Button 
-                  onClick={() => {
-                    handleApprove(selectedLog.log.id);
-                    setOpenModal(false);
-                  }} 
-                  color="success"
-                  size="small"
-                  sx={{ fontSize: '0.7rem' }}
-                  startIcon={<ApproveIcon />}
-                >
-                  Approve
-                </Button>
-                <Button 
-                  onClick={() => {
-                    handleReject(selectedLog.log.id);
-                    setOpenModal(false);
-                  }} 
-                  color="error"
-                  size="small"
-                  sx={{ fontSize: '0.7rem' }}
-                  startIcon={<RejectIcon />}
-                >
-                  Reject
-                </Button>
-              </>
-            )}
             <Button 
               onClick={() => setOpenModal(false)} 
               color="primary"
@@ -1014,4 +1160,4 @@ const AttendanceAdminLogs = () => {
   );
 };
 
-export default AttendanceAdminLogs;
+export default AttendanceAdminActivities;

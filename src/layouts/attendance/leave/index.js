@@ -441,90 +441,109 @@ const LeaveFormModal = () => {
   
   return `${hours}:${minutes} ${ampm}`;
   };
+  
+  const formatDateForBackend = (date) => {
+  return new Date(date).toISOString().split('T')[0]; // YYYY-MM-DD format
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (formData.leave_type === "Birthday Leave") {
-      const isValid = validateBirthdayLeave(employee.birthdate, formData.start_date);
-      if (!isValid) {
-        setResponseMsg("Birthday Leave must be on or after your birthday and before the 30th of your birth month");
-        return;
-      }
-    }
-    
-    const days = calculateLeaveDays(formData.start_date, formData.end_date, isHalfDay);
-    const hasEnoughCredits = validateLeaveCredits(formData.leave_type, days);
-    
-    if (!hasEnoughCredits) {
-      setResponseMsg(`Insufficient leave credits for ${formData.leave_type}`);
+  e.preventDefault();
+  
+  // First validate all required fields
+  if (!validateForm()) {
+    setResponseMsg("Please fill all required fields");
+    return;
+  }
+  
+  // Special validation for Birthday Leave
+  if (formData.leave_type === "Birthday Leave") {
+    const isValid = validateBirthdayLeave(employee.birthdate, formData.start_date);
+    if (!isValid) {
+      setResponseMsg("Birthday Leave must be on or after your birthday and before the 30th of your birth month");
       return;
     }
-    
-    if (!validateForm()) {
-      setResponseMsg("Please fill all required fields");
-      return;
-    }
-
+  }
+  
+  // Calculate leave days and validate credits for all leave types
+  const days = calculateLeaveDays(formData.start_date, formData.end_date, isHalfDay);
+  const hasEnoughCredits = validateLeaveCredits(formData.leave_type, days);
+  
+  if (!hasEnoughCredits) {
+    setResponseMsg(`Insufficient leave credits for ${formData.leave_type}`);
+    return;
+  }
+  
+  // Format dates for backend
+  const formatDateForBackend = (date) => {
     try {
-      setLoading(true);
-      const endpoint = "/attendance/leave-applications/";
-      const payload = new FormData();
-      
-      payload.append("employee", formData.employee);
-      payload.append("employee_name", formData.employee_name);
-      payload.append("position", formData.position);
-      payload.append("email", formData.email);
-      payload.append("time_in", formData.time_in);
-      payload.append("time_out", formData.time_out);
-      payload.append("reason", formData.reason);
-      payload.append("leave_type", formData.leave_type);
-      payload.append("start_date", formData.start_date);
-      payload.append("end_date", formData.end_date);
-      payload.append("is_half_day", isHalfDay);
-      payload.append("half_day_type", isHalfDay ? halfDayType : 'none');
-      payload.append("contact_during_leave", formData.contact_during_leave || "");
-      payload.append("emergency_contact", formData.emergency_contact || "");
-      
-      if (file) {
-        payload.append("attachment", file);
-      }
-
-      const response = await api.post(endpoint, payload, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-
-      setResponseMsg("Leave Application submitted successfully!");
-      
-      setFormData(prev => ({
-        ...prev,
-        leave_type: "",
-        start_date: "",
-        end_date: "",
-        reason: "",
-        contact_during_leave: "",
-        emergency_contact: "",
-      }));
-      setFile(null);
-      setIsHalfDay(false);
-      setHalfDayType('first_half');
-      
-      await fetchLeaveHistory();
-      await fetchLeaveCredits(employee.id);
-      setHistoryTabValue("pending");
-      setShowModal(false);
-      setResponseMsg("");
-    } catch (error) {
-      console.error("Submission error:", error);
-      setResponseMsg(error.response?.data?.message || 
-                    error.response?.data?.error || 
-                    "Error submitting Leave Application");
-    } finally {
-      setLoading(false);
+      return new Date(date).toISOString().split('T')[0];
+    } catch (e) {
+      console.error("Date formatting error:", e);
+      return date; // fallback to original value
     }
   };
+
+  try {
+    setLoading(true);
+    const endpoint = "/attendance/leave-applications/";
+    const payload = new FormData();
+    
+    // Add all form data with properly formatted dates
+    payload.append("employee", formData.employee);
+    payload.append("employee_name", formData.employee_name);
+    payload.append("position", formData.position);
+    payload.append("email", formData.email);
+    payload.append("time_in", formData.time_in);
+    payload.append("time_out", formData.time_out);
+    payload.append("reason", formData.reason);
+    payload.append("leave_type", formData.leave_type);
+    payload.append("start_date", formatDateForBackend(formData.start_date));
+    payload.append("end_date", formatDateForBackend(formData.end_date));
+    payload.append("is_half_day", isHalfDay);
+    payload.append("half_day_type", isHalfDay ? halfDayType : 'none');
+    payload.append("contact_during_leave", formData.contact_during_leave || "");
+    payload.append("emergency_contact", formData.emergency_contact || "");
+    
+    if (file) {
+      payload.append("attachment", file);
+    }
+
+    const response = await api.post(endpoint, payload, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+
+    setResponseMsg("Leave Application submitted successfully!");
+    
+    // Reset form
+    setFormData(prev => ({
+      ...prev,
+      leave_type: "",
+      start_date: "",
+      end_date: "",
+      reason: "",
+      contact_during_leave: "",
+      emergency_contact: "",
+    }));
+    setFile(null);
+    setIsHalfDay(false);
+    setHalfDayType('first_half');
+    
+    await fetchLeaveHistory();
+    await fetchLeaveCredits(employee.id);
+    setHistoryTabValue("pending");
+    setShowModal(false);
+    setResponseMsg("");
+  } catch (error) {
+    console.error("Submission error:", error);
+    setResponseMsg(error.response?.data?.message || 
+                  error.response?.data?.error || 
+                  "Error submitting Leave Application");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const pendingLeaves = leaveHistory.filter(item => item.status === "pending");
   const approvedLeaves = leaveHistory.filter(item => item.status === "approved");
@@ -554,7 +573,7 @@ const LeaveFormModal = () => {
           justifyContent: 'space-between', 
           alignItems: 'center',
           mb: 2,
-          p: 2,
+          p: 1,
           borderRadius: 1
         }}>
           {leaveCredits && (
@@ -610,6 +629,114 @@ const LeaveFormModal = () => {
           </Tabs>
           
           {/* Leave History Tables would go here */}
+        </Box>
+        <Box sx={{ mt: 3 }}>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Box sx={{ width: '100%', overflowX: 'auto'  }}>
+            <table style={{ 
+                    width: '100%',
+                    minWidth: '1200px',
+                    borderCollapse: 'collapse',
+                    fontSize: '0.875rem'
+                  }}>       
+              <thead>
+                  <tr style={{ backgroundColor: '#00B4D8', color: 'white', textAlign: 'left' }}>
+                    <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.0rem' }}>Date of Filing</th>
+                    <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.0rem' }}>Leave Type</th>
+                    <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.0rem' }}>Start Date</th>
+                    <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.0rem' }}>End Date</th>
+                    <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.0rem' }}>Duration</th>
+                    <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.0rem' }}>Reason</th>
+                    <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.0rem' }}>Processed By</th>
+                     <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.0rem' }}>Updated At</th>
+                    <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.0rem' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyTabValue === 'pending' && pendingLeaves.length === 0 && (
+                    <tr>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.0rem'}}>
+                        <Typography variant="body2">No pending leave applications</Typography>
+                      </td>
+                    </tr>
+                  )}
+                  {historyTabValue === 'approved' && approvedLeaves.length === 0 && (
+                    <tr>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.0rem'}}>
+                        <Typography variant="body2">No approved leave applications</Typography>
+                      </td>
+                    </tr>
+                  )}
+                  {historyTabValue === 'rejected' && rejectedLeaves.length === 0 && (
+                    <tr>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1.0rem'}}>
+                        <Typography variant="body2">No rejected leave applications</Typography>
+                      </td>
+                    </tr>
+                  )}
+                  
+                  {(historyTabValue === 'pending' ? pendingLeaves : 
+                    historyTabValue === 'approved' ? approvedLeaves : 
+                    rejectedLeaves).map((leave) => (
+                    <tr key={leave.id}>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap'}}>{new Date(leave.applied_at).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}</td>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap'}}>{leave.leave_type}</td>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap'}}>
+                        {new Date(leave.start_date).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </td>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap'}}>
+                        {new Date(leave.end_date).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </td>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap'}}>
+                        {leave.is_half_day ? '0.5 day' : `${leave.duration} ${leave.duration === 1 ? 'day' : 'days'}`}
+                      </td>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {leave.reason}
+                      </td>
+                       <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {leave.processed_by}
+                      </td>
+                        <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                         {new Date(leave.approval_date).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </td>
+                      <td>
+                        {leave.status === 'pending' && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            onClick={() => handleCancelLeave(leave.id)}
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Box>
+          )}
         </Box>
 
         <Fab

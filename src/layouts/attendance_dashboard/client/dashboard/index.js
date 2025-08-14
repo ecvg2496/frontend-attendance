@@ -302,12 +302,11 @@ const DailyAttendanceTable = ({
            backgroundColor: '#00B4D8', color: 'white', textAlign: 'left'
           }}>
             <th scope="col" style={{ padding: '8px 12px', textAlign: 'left', fontSize: '1.1rem'}}>Date</th>
+            <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Status</th>
             <th scope="col" style={{ padding: '8px 12px', textAlign: 'left', fontSize: '1.1rem'}}>Employee</th>
             <th scope="col" style={{ padding: '8px 12px', textAlign: 'left', fontSize: '1.1rem' }}>Client</th>
             <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Time In/Out</th>
             <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Break</th>
-            <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Status</th>
-            <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -338,10 +337,18 @@ const DailyAttendanceTable = ({
                     {log.date ? formatDisplayDate(log.date) : "No date"}
                   </td>
 
+                   {/* Status Column */}
+                  <td data-title="Status" style={{ 
+                    padding: '8px 12px', fontSize: '0.7rem', whiteSpace: 'nowrap'
+                  }}>
+                    <StatusBadge status={log.status || 'Absent'} />
+                  </td>
+
                   {/* Employee Column */}
                   <td data-title="Employee" style={{ 
                     padding: '8px 12px',
-                    textAlign: 'left'
+                    textAlign: 'left', 
+                    whiteSpace: 'nowrap'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Avatar 
@@ -413,9 +420,9 @@ const DailyAttendanceTable = ({
                         <span style={{ fontSize: '1rem' }}>
                           {log.time_in ? formatTimeProfessional(log.time_in) : ''}
                         </span>
-                        {log.time_in_status && (
+                        {/* {log.time_in_status && (
                           <StatusBadge status={log.time_in_status} />
-                        )}
+                        )} */}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <OvertimeIcon fontSize="medium" color="action" />
@@ -436,13 +443,6 @@ const DailyAttendanceTable = ({
                         <span style={{ fontSize: '1rem' }}>
                           {log.start_break ? formatTimeProfessional(log.start_break) : ''}
                         </span>
-                       {log.start_break && (
-                        <StatusBadge 
-                          status={formatBreakDuration(log?.break_duration)} 
-                          isDuration 
-                          duration={log?.break_duration}
-                        />
-                      )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <OvertimeIcon fontSize="medium" color="action" />
@@ -454,28 +454,6 @@ const DailyAttendanceTable = ({
                         )}
                       </div>
                     </div> 
-                  </td>
-
-                  {/* Status Column */}
-                  <td data-title="Status" style={{ 
-                    padding: '8px 12px', fontSize: '1rem'
-                  }}>
-                    <StatusBadge status={log.status || 'Absent'} />
-                  </td>
-                  
-                  {/* Actions Column */}
-                  <td data-title="Actions" style={{ 
-                    padding: '8px 12px'
-                  }}>
-                    <IconButton 
-                      size="small"  
-                      color="primary" 
-                      sx={{ '&:hover': { backgroundColor: 'rgba(46, 125, 50, 0.1)' } }}
-                      title="View Details"
-                      onClick={() => onViewClick({ employee: employee, log })}
-                    >
-                      <VisibilityIcon fontSize="small" />
-                    </IconButton>
                   </td>
                 </tr>
               );

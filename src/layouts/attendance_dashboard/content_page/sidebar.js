@@ -218,13 +218,13 @@ const GlobalSideNav = ({ children }) => {
 
   const clientSubMenuItems = [
     { icon: <ColoredDashboardIcon />, text: 'Dashboard', route: '/attendance/admin/client' },
+    { icon: <ColoredHistoryIcon />, text: 'Activities History', route: '/attendance/admin/activities-history' },
     { icon: <ColoredPersonAddIcon />, text: 'Create User', route: '/attendance/admin/employee' },
     { icon: <ColoredPeopleIcon />, text: 'Browse Users', route: '/attendance/admin/dashboard/browse' },
     { icon: <ColoredPeopleIcon />, text: 'Assign Users', route: '/attendance/admin/assign-users' },
     { icon: <ColoredTimeToLeaveIcon />, text: 'Leave', route: '/attendance/admin/leave-credit'},
-    // { icon: <ColoredHistoryIcon />, text: 'Activities History', route: '/attendance/admin/activities-history' },
     { icon: <ColoredSyncIcon />, text: 'Schedule Request', route: '/attendance/admin/schedule' },
-    { icon: <ColoredEventAvailableIcon />, text: 'Holiday Assignment', route: '/attendance/admin/holiday-assignment' },
+    { icon: <ColoredEventAvailableIcon />, text: 'Assign Holiday', route: '/attendance/admin/holiday-assignment' },
     { icon: <ColoredEventAvailableIcon />, text: 'Manage PTO', route: '/attendance/admin/pto' },
   ];
 

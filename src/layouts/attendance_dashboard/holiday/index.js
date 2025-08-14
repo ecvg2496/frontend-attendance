@@ -97,6 +97,58 @@ const formatDate = (dateString) => {
   }
 };
 
+//Label Holiday based on current day
+const HolidayBanner = ({ holidays }) => {
+  const today = new Date();
+  
+  // Find holidays that match today's date
+  const todaysHolidays = holidays.filter(holiday => {
+    const holidayDate = new Date(holiday.date);
+    return (
+      holidayDate.getDate() === today.getDate() &&
+      holidayDate.getMonth() === today.getMonth() &&
+      holidayDate.getFullYear() === today.getFullYear()
+    );
+  });
+
+  if (todaysHolidays.length === 0) return null;
+
+  return (
+    <Box sx={{ 
+      mb: 3,
+      display: 'flex',
+      justifyContent: 'center',
+      gap: 2,
+      flexWrap: 'wrap'
+    }}>
+      {todaysHolidays.map(holiday => (
+        <Alert 
+          key={holiday.id}
+          severity="info"
+          icon={<Event />}
+          sx={{ 
+            width: '100%',
+            maxWidth: '800px',
+            alignItems: 'center'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6" component="span">
+              Today is a {holiday.type} holiday:
+            </Typography>
+            <Typography variant="h6" component="span" fontWeight="bold">
+              {holiday.name}
+            </Typography>
+            <Typography variant="body1" component="span" sx={{ ml: 1 }}>
+              ({format(holiday.date, 'MMMM d, yyyy')})
+            </Typography>
+          </Box>
+        </Alert>
+      ))}
+    </Box>
+  );
+};
+
 // Table Components
 const HolidayListTable = ({ data, loading, error, onEdit, onAssign }) => {
   if (loading) return <LoadingIndicator />;
@@ -196,42 +248,50 @@ const EmployeeHolidayTable = ({ data, loading, error }) => {
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Holiday</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Date</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Processed By</th>
-            {/* <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Paid</th>
-            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Pay Multiplier</th> */}
           </tr>
         </thead>
         <tbody>
-          {data.map((assignment) => (
-            <tr key={assignment.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
-              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {assignment.employee.first_name} {assignment.employee.last_name}
-                <Typography variant="caption" display="block" color="text.secondary">
-                  {assignment.employee.email}
-                </Typography>
-              </td>
-              <td style={{ padding: '12px 16px' }}>
-                {assignment.employee.position} 
-              </td>
-              <td style={{ padding: '12px 16px' }}>
-                {assignment.employee.work_arrangement} 
-              </td>
-              <td style={{ padding: '12px 16px' }}>
-                {assignment.employee.status} 
-              </td>
-              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {assignment.holiday.name}
-                <Typography variant="caption" display="block" color="text.secondary">
-                  {assignment.holiday.type}
-                </Typography>
-              </td>
-              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {formatDate(assignment.holiday.date)}
-              </td>
-               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {assignment.holiday.processed_by}
-              </td>
-            </tr>
-          ))}
+          {data.map((assignment) => {
+            // Add null checks
+            const employee = assignment.employee || {};
+            const holiday = assignment.holiday || {};
+            
+            return (
+              <tr key={assignment.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                  {employee.first_name} {employee.last_name}
+                  {employee.email && (
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      {employee.email}
+                    </Typography>
+                  )}
+                </td>
+                <td style={{ padding: '12px 16px' }}>
+                  {employee.position || 'N/A'} 
+                </td>
+                <td style={{ padding: '12px 16px' }}>
+                  {employee.work_arrangement || 'N/A'} 
+                </td>
+                <td style={{ padding: '12px 16px' }}>
+                  {employee.status || 'N/A'} 
+                </td>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                  {holiday.name || 'N/A'}
+                  {holiday.type && (
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      {holiday.type}
+                    </Typography>
+                  )}
+                </td>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                  {holiday.date ? formatDate(holiday.date) : 'N/A'}
+                </td>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                  {assignment.processed_by || 'System'}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </Box>
@@ -284,16 +344,18 @@ const HolidayManagement = () => {
   };
 
   const fetchEmployeeHolidays = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get("/attendance/employee-holidays/");
-      setEmployeeHolidays(response.data);
-    } catch (err) {
-      setError(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+    const response = await api.get("/attendance/employee-holidays/");
+    console.log("Employee holidays response:", response.data); 
+    setEmployeeHolidays(response.data);
+  } catch (err) {
+    console.error("Error details:", err.response?.data); 
+    setError(err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fetchEmployees = async () => {
     try {
@@ -390,7 +452,7 @@ const HolidayManagement = () => {
     const payload = {
       employee_ids: selectedEmployees.map(e => e.id),
       is_paid: assignmentData.is_paid,
-      pay_multiplier: parseFloat(assignmentData.pay_multiplier) // Ensure it's a number
+      pay_multiplier: parseFloat(assignmentData.pay_multiplier) 
     };
 
     const response = await api.post(
@@ -525,6 +587,8 @@ const HolidayManagement = () => {
           </Tabs>
 
           <Box sx={{ mt: 3 }}>
+            <HolidayBanner holidays={holidays} />
+            
             {activeTab === "holidays" && (
               <HolidayListTable
                 data={holidays.filter(h => h.type === 'regular')}
