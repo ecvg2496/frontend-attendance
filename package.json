@@ -44,6 +44,7 @@
     "chroma-js": "2.4.2",
     "classnames": "^2.5.1",
     "date-fns": "^2.30.0",
+    "date-fns-tz": "^3.2.0",
     "dayjs": "^1.11.13",
     "exceljs": "^4.4.0",
     "formik": "^2.4.6",
@@ -56,6 +57,7 @@
     "mui-file-input": "^6.0.0",
     "notistack": "^2.0.8",
     "prop-types": "15.8.1",
+    "pusher-js": "^8.4.0",
     "react": "^18.2.0",
     "react-animate-on-scroll": "^2.1.9",
     "react-beautiful-dnd": "^13.1.1",
@@ -78,15 +80,15 @@
     "xlsx": "^0.18.5",
     "yup": "^1.1.1"
   },
- "scripts": {
-  "start": "GENERATE_SOURCEMAP=false PORT=3100 react-scripts start",
-  "build": "GENERATE_SOURCEMAP=false react-scripts build",
-  "postbuild": "cp public/_redirects build/_redirects",
-  "test": "react-scripts test",
-  "eject": "react-scripts eject",
-  "install:clean": "rm -rf node_modules/ && rm -rf package-lock.json && npm install && npm start",
-  "server": "live-server public --host=0.0.0.0 --port=3100 --middleware=./disable-browser-cache.js",
-  "prod": "npm run build && npx serve -s build"
+  "scripts": {
+    "start": "GENERATE_SOURCEMAP=false PORT=3100 react-scripts start",
+    "build": "GENERATE_SOURCEMAP=false react-scripts build",
+    "postbuild": "cp public/_redirects build/_redirects",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "install:clean": "rm -rf node_modules/ && rm -rf package-lock.json && npm install && npm start",
+    "server": "live-server public --host=0.0.0.0 --port=3100 --middleware=./disable-browser-cache.js",
+    "prod": "npm run build && npx serve -s build"
   },
   "eslintConfig": {},
   "browserslist": {

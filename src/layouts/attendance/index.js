@@ -4,67 +4,133 @@ import {
   useMediaQuery, CircularProgress, Snackbar, Alert,
   Paper, Tooltip, Grid, LinearProgress, Modal,
   TextField, Dialog, DialogTitle, DialogContent,
-  DialogActions, IconButton, Icon, InputAdornment
+  DialogActions, IconButton, Icon, InputAdornment,
+  Card, CardContent, Avatar
 } from '@mui/material';
 import {
   Person as PersonIcon, Schedule as ScheduleIcon,
   WarningAmber as WarningAmberIcon, AccessTime as AccessTimeIcon,
   FreeBreakfast as FreeBreakfastIcon, LunchDining as LunchDiningIcon,
   ExitToApp as ExitToAppIcon, Work as WorkIcon, 
-  Timer as TimerIcon, Public as PublicIcon
+  Timer as TimerIcon, Public as PublicIcon,
+  WatchLater as WatchLaterIcon,
+  Badge as BadgeIcon,
+  Business as BusinessIcon
 } from '@mui/icons-material';
 import axios from 'api/axios';
 import SideNavBar from './content_page/nav_bar';
 import './content_page/css/admintable.css';
 
-// Helper functions for Philippine Time (PHT)
-const getCurrentPHTDate = () => {
-  return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }));
+// Manila timezone
+const MANILA_TIMEZONE = 'Asia/Manila';
+
+// Helper function to convert UTC to Manila time
+const utcToManilaTime = (date) => {
+  if (!date) return null;
+  
+  try {
+    const utcDate = new Date(date);
+    const manilaOffset = 8 * 60; // Manila is UTC+8
+    const localOffset = utcDate.getTimezoneOffset();
+    const manilaTime = new Date(utcDate.getTime() + (localOffset + manilaOffset) * 60000);
+    
+    return manilaTime;
+  } catch (e) {
+    console.error('Error converting to Manila time:', e);
+    return new Date();
+  }
 };
 
+// Format date to Manila date string (for display)
+const formatToManilaDate = (date) => {
+  try {
+    const manilaDate = utcToManilaTime(date);
+    if (!manilaDate) return '';
+    
+    return manilaDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  } catch (e) {
+    console.error('Error formatting Manila date:', e);
+    return 'Invalid date';
+  }
+};
+
+// Get Manila date in YYYY-MM-DD format (for API requests)
+const getManilaDateYMD = (date) => {
+  try {
+    const manilaDate = utcToManilaTime(date);
+    if (!manilaDate) return '';
+    
+    const year = manilaDate.getFullYear();
+    const month = String(manilaDate.getMonth() + 1).padStart(2, '0');
+    const day = String(manilaDate.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  } catch (e) {
+    console.error('Error getting Manila date YMD:', e);
+    return '';
+  }
+};
+
+// Format time to 12-hour format
 const formatTimeTo12Hour = (timeString) => {
   if (!timeString) return '';
-  const timePart = timeString.includes('T') ? timeString.split('T')[1].substring(0, 5) : timeString.substring(0, 5);
-  const [hours, minutes] = timePart.split(':');
-  const hour = parseInt(hours, 10);
-  const ampm = hour >= 12 ? 'PM' : 'AM';
-  const hour12 = hour % 12 || 12;
-  return `${hour12}:${minutes} ${ampm}`;
-};
-
-const formatDateToYMD = (date) => {
-  const phtDate = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Manila" }));
-  const year = phtDate.getFullYear();
-  const month = String(phtDate.getMonth() + 1).padStart(2, '0');
-  const day = String(phtDate.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const formatTimeToHMS = (date) => {
-  const phtDate = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Manila" }));
-  return phtDate.toTimeString().substring(0, 8);
-};
-
-const formatDisplayDate = (dateString) => {
+  
   try {
-    const dateParts = dateString.split('-');
-    if (dateParts.length === 3) {
-      const date = new Date(`${dateParts[0]}-${dateParts[1]}-${dateParts[2]}`);
-      return date.toLocaleDateString('en-US', {
-        timeZone: "Asia/Manila",
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
+    let date;
+    if (timeString.includes('T') && timeString.endsWith('Z')) {
+      // UTC ISO string
+      date = utcToManilaTime(timeString);
+    } else if (typeof timeString === 'string' && timeString.includes(':')) {
+      // Time string (HH:MM:SS)
+      const now = new Date();
+      const [hours, minutes, seconds] = timeString.split(':');
+      date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 
+                     parseInt(hours), parseInt(minutes), seconds ? parseInt(seconds) : 0);
+      date = utcToManilaTime(date);
+    } else {
+      return timeString;
     }
-    return dateString;
+    
+    if (!date) return timeString;
+    
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const seconds = date.getSeconds();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12;
+    
+    return `${hours12}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} ${ampm}`;
   } catch (e) {
-    return 'Invalid date';
+    console.error('Error formatting time:', e, timeString);
+    return timeString;
+  }
+};
+
+// Format time to HH:MM:SS for API
+const formatTimeToHMS = (date) => {
+  try {
+    const manilaDate = utcToManilaTime(date);
+    if (!manilaDate) return '';
+    
+    const hours = manilaDate.getHours().toString().padStart(2, '0');
+    const minutes = manilaDate.getMinutes().toString().padStart(2, '0');
+    const seconds = manilaDate.getSeconds().toString().padStart(2, '0');
+    
+    return `${hours}:${minutes}:${seconds}`;
+  } catch (e) {
+    console.error('Error formatting time to HMS:', e);
+    return '';
   }
 };
 
 const EmployeeAttendanceDashboard = () => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [employee, setEmployee] = useState(null);
   const [todayRecord, setTodayRecord] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -73,7 +139,7 @@ const EmployeeAttendanceDashboard = () => {
   const [breakDuration, setBreakDuration] = useState(null);
   const [actionInProgress, setActionInProgress] = useState(null);
   const [currentTime, setCurrentTime] = useState({
-    pht: { time12: '', date: '' }
+    manila: { time12: '', time24: '', date: '' }
   });
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
@@ -86,28 +152,36 @@ const EmployeeAttendanceDashboard = () => {
 
   // Update current time every second
   useEffect(() => {
-    const timer = setInterval(() => {
+    const updateTime = () => {
       const now = new Date();
-      setCurrentTime({
-        pht: {
-          time12: now.toLocaleTimeString('en-US', { 
-            timeZone: "Asia/Manila",
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true 
-          }),
-          date: now.toLocaleDateString('en-US', { 
-            timeZone: "Asia/Manila",
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })
-        }
-      });
-    }, 1000);
-
+      const manilaTime = utcToManilaTime(now);
+      
+      if (manilaTime) {
+        const hours = manilaTime.getHours();
+        const minutes = manilaTime.getMinutes();
+        const seconds = manilaTime.getSeconds();
+        
+        const time24 = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        const hours12 = hours % 12 || 12;
+        const time12 = `${hours12}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} ${ampm}`;
+        
+        const date = manilaTime.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        
+        setCurrentTime({
+          manila: { time12, time24, date }
+        });
+      }
+    };
+    
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -123,149 +197,150 @@ const EmployeeAttendanceDashboard = () => {
 
   // Fetch today's attendance
   const fetchTodayAttendance = async (employeeId) => {
-  setLoading(true);
-  setError(null);
-  try {
-    const now = getCurrentPHTDate();
-    const todayDate = formatDateToYMD(now);
+    setLoading(true);
+    setError(null);
+    try {
+      const now = new Date();
+      const todayDate = getManilaDateYMD(now);
 
-    // First check for incomplete logs
-    const incompleteResponse = await axios.get('attendance/logs/', {
-      params: {
-        employee_id: employeeId,
-        time_out__isnull: true
-      }
-    });
-
-    let existingRecord = Array.isArray(incompleteResponse.data) ? 
-      incompleteResponse.data[0] : 
-      incompleteResponse.data?.logs?.[0];
-
-    // If no incomplete log, check today's records
-    if (!existingRecord) {
-      const todayResponse = await axios.get('attendance/logs/', {
+      // First check for incomplete logs
+      const incompleteResponse = await axios.get('attendance/logs/', {
         params: {
           employee_id: employeeId,
-          date: todayDate
+          time_out__isnull: true
         }
       });
-      
-      existingRecord = Array.isArray(todayResponse.data) ? 
-        todayResponse.data[0] : 
-        todayResponse.data?.logs?.[0];
-    }
 
-    if (!existingRecord) {
-      setTodayRecord({
-        employee: employeeId,
-        date: todayDate,
-        status: 'Absent',
-        time_in: null,
-        start_break: null,
-        end_break: null,
-        time_out: null,
-        break_duration: 0,
-        work_hours: 0,
-        time_in_status: 'Absent',
-        time_out_status: 'Absent',
-        break_status: null
-      });
-    } else {
-      // Ensure the record has all required fields
-      const completeRecord = {
-        ...existingRecord,
-        status: existingRecord.status || 
-               (!existingRecord.time_in && !existingRecord.time_out ? 'Absent' : 
-                existingRecord.time_out ? 'Completed' : 'Present'),
-        time_in_status: existingRecord.time_in_status || 
-                       (existingRecord.time_in ? 'On Time' : 'Absent'),
-        time_out_status: existingRecord.time_out_status || 
-                        (existingRecord.time_out ? 'On Time' : ''),
-        break_status: existingRecord.break_status || '',
-        break_duration: existingRecord.break_duration || 0,
-        work_hours: existingRecord.work_hours || 0
-      };
-      setTodayRecord(completeRecord);
-    }
+      let existingRecord = Array.isArray(incompleteResponse.data) ? 
+        incompleteResponse.data[0] : 
+        incompleteResponse.data?.logs?.[0];
 
-  } catch (error) {
-    setError('Failed to load attendance records');
-    console.error('Error fetching attendance:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+      // If no incomplete log, check today's records using Manila date
+      if (!existingRecord) {
+        const todayResponse = await axios.get('attendance/logs/', {
+          params: {
+            employee_id: employeeId,
+            date: todayDate
+          }
+        });
+        
+        existingRecord = Array.isArray(todayResponse.data) ? 
+          todayResponse.data[0] : 
+          todayResponse.data?.logs?.[0];
+      }
+
+      if (!existingRecord) {
+        setTodayRecord({
+          employee: employeeId,
+          date: todayDate,
+          status: 'Absent',
+          time_in: null,
+          start_break: null,
+          end_break: null,
+          time_out: null,
+          break_duration: 0,
+          work_hours: 0,
+          time_in_status: 'Absent',
+          time_out_status: 'Absent',
+          break_status: null
+        });
+      } else {
+        // Ensure the record has all required fields
+        const completeRecord = {
+          ...existingRecord,
+          status: existingRecord.status || 
+                 (!existingRecord.time_in && !existingRecord.time_out ? 'Absent' : 
+                  existingRecord.time_out ? 'Completed' : 'Present'),
+          time_in_status: existingRecord.time_in_status || 
+                         (existingRecord.time_in ? 'On Time' : 'Absent'),
+          time_out_status: existingRecord.time_out_status || 
+                          (existingRecord.time_out ? 'On Time' : ''),
+          break_status: existingRecord.break_status || '',
+          break_duration: existingRecord.break_duration || 0,
+          work_hours: existingRecord.work_hours || 0
+        };
+        setTodayRecord(completeRecord);
+      }
+
+    } catch (error) {
+      setError('Failed to load attendance records');
+      console.error('Error fetching attendance:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Handle time actions (time in, break start/end, time out)
- const handleTimeAction = async (actionType) => {
-  if (!employee || !employee.id) {
-    setError('Employee data not found');
-    return;
-  }
+  const handleTimeAction = async (actionType) => {
+    if (!employee || !employee.id) {
+      setError('Employee data not found');
+      return;
+    }
 
-  setLoading(true);
-  setActionInProgress(actionType);
-  setError(null);
+    setLoading(true);
+    setActionInProgress(actionType);
+    setError(null);
 
-  try {
-    const now = getCurrentPHTDate();
-    const timeString = formatTimeToHMS(now);
+    try {
+      const now = new Date();
+      const timeString = formatTimeToHMS(now);
 
-    // Check if we're completing a time-out action
-    const isCompletingTimeOut = actionType === 'timeOut';
+      // Check if we're completing a time-out action
+      const isCompletingTimeOut = actionType === 'timeOut';
 
-    // First check for incomplete logs (missing time_out)
-    const incompleteResponse = await axios.get('attendance/logs/', {
-      params: {
-        employee_id: employee.id,
-        time_out__isnull: true
-      }
-    });
-
-    let existingRecord = Array.isArray(incompleteResponse.data) ?
-      incompleteResponse.data[0] :
-      incompleteResponse.data?.logs?.[0];
-
-    // If no incomplete log and we're doing time-in, check for today's record
-    if (!existingRecord && actionType === 'timeIn') {
-      const todayResponse = await axios.get('attendance/logs/', {
-        params: { employee_id: employee.id }
+      // First check for incomplete logs (missing time_out)
+      const incompleteResponse = await axios.get('attendance/logs/', {
+        params: {
+          employee_id: employee.id,
+          time_out__isnull: true
+        }
       });
-      
-      existingRecord = Array.isArray(todayResponse.data) ?
-        todayResponse.data[0] :
-        todayResponse.data?.logs?.[0];
-    }
 
-    // Prepare payload (NO DATE SENT)
-    const payload = {
-      employee: employee.id,
-      [actionType === 'timeIn' ? 'time_in' :
-       actionType === 'breakStart' ? 'start_break' :
-       actionType === 'breakEnd' ? 'end_break' : 'time_out']: timeString,
-      ...(existingRecord?.time_in && { time_in: existingRecord.time_in }),
-      ...(existingRecord?.start_break && { start_break: existingRecord.start_break }),
-      ...(existingRecord?.end_break && { end_break: existingRecord.end_break }),
-      ...(existingRecord?.time_out && { time_out: existingRecord.time_out }),
-      ...(actionType === 'timeIn' && { status: 'Present' }),
-      ...(isCompletingTimeOut && { status: 'Completed' })
-    };
+      let existingRecord = Array.isArray(incompleteResponse.data) ?
+        incompleteResponse.data[0] :
+        incompleteResponse.data?.logs?.[0];
 
-    let apiResponse;
-    if (existingRecord?.id) {
-      // Update existing record
-      apiResponse = await axios.patch(`attendance/logs/${existingRecord.id}/`, payload);
-    } else {
-      // Only allow creating new record for time-in action
-      if (actionType === 'timeIn') {
-        apiResponse = await axios.post('attendance/logs/', payload);
-      } else {
-        throw new Error(`Cannot record ${actionType} without an existing record`);
+      // If no incomplete log and we're doing time-in, check for today's record
+      if (!existingRecord && actionType === 'timeIn') {
+        const todayResponse = await axios.get('attendance/logs/', {
+          params: { employee_id: employee.id }
+        });
+        
+        existingRecord = Array.isArray(todayResponse.data) ?
+          todayResponse.data[0] :
+          todayResponse.data?.logs?.[0];
       }
-    }
 
-    // After successful time-out, force fetch today's record from backend
-    if (isCompletingTimeOut) {
+      // Prepare payload with Manila date
+      const manilaDate = getManilaDateYMD(now);
+      const payload = {
+        employee: employee.id,
+        date: manilaDate, // Send Manila date to backend
+        [actionType === 'timeIn' ? 'time_in' :
+         actionType === 'breakStart' ? 'start_break' :
+         actionType === 'breakEnd' ? 'end_break' : 'time_out']: timeString,
+        ...(existingRecord?.time_in && { time_in: existingRecord.time_in }),
+        ...(existingRecord?.start_break && { start_break: existingRecord.start_break }),
+        ...(existingRecord?.end_break && { end_break: existingRecord.end_break }),
+        ...(existingRecord?.time_out && { time_out: existingRecord.time_out }),
+        ...(actionType === 'timeIn' && { status: 'present' }),
+        ...(isCompletingTimeOut && { status: 'completed' })
+      };
+
+      let apiResponse;
+      if (existingRecord?.id) {
+        // Update existing record
+        apiResponse = await axios.patch(`attendance/logs/${existingRecord.id}/`, payload);
+      } else {
+        // Only allow creating new record for time-in action
+        if (actionType === 'timeIn') {
+          apiResponse = await axios.post('attendance/logs/', payload);
+        } else {
+          throw new Error(`Cannot record ${actionType} without an existing record`);
+        }
+      }
+
+      // After successful action, force fetch today's record from backend
       const todayResponse = await axios.get('attendance/logs/', {
         params: { employee_id: employee.id }
       });
@@ -287,35 +362,30 @@ const EmployeeAttendanceDashboard = () => {
         time_out_status: 'Absent',
         break_status: null
       });
-    } else {
-      // For other actions, use the updated record
-      setTodayRecord(apiResponse.data);
+
+      setSuccess(`Successfully recorded ${actionType}`);
+      
+      // Always refresh data after any action
+      await fetchTodayAttendance(employee.id);
+
+    } catch (error) {
+      let errorMessage = `Failed to ${actionType}`;
+      
+      if (error.response) {
+        errorMessage = error.response.data?.error || 
+                       error.response.data?.message || 
+                       JSON.stringify(error.response.data);
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setError(errorMessage);
+      console.error('Error in handleTimeAction:', error);
+    } finally {
+      setLoading(false);
+      setActionInProgress(null);
     }
-
-    setSuccess(`Successfully recorded ${actionType}`);
-    
-    // Always refresh data after any action
-    await fetchTodayAttendance(employee.id);
-
-  } catch (error) {
-    let errorMessage = `Failed to ${actionType}`;
-    
-    if (error.response) {
-      errorMessage = error.response.data?.error || 
-                     error.response.data?.message || 
-                     JSON.stringify(error.response.data);
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-
-    setError(errorMessage);
-    console.error('Error in handleTimeAction:', error);
-  } finally {
-    setLoading(false);
-    setActionInProgress(null);
-  }
-};
-
+  };
 
   // Determine the next action button to show
   const getNextAction = () => {
@@ -368,7 +438,7 @@ const EmployeeAttendanceDashboard = () => {
 
   // Show confirmation dialog
   const showConfirmationDialog = (actionType) => {
-    const now = getCurrentPHTDate();
+    const now = new Date();
     const timeString = formatTimeToHMS(now);
     const formattedTime = formatTimeTo12Hour(timeString);
   
@@ -411,14 +481,120 @@ const EmployeeAttendanceDashboard = () => {
     await handleTimeAction(confirmDialog.action);
   };
 
-  // Render employee info
+  // Render the digital clock and action button box
+  const renderClockAndActionBox = () => {
+    const buttonConfig = getButtonConfig();
+    const isLoading = loading && actionInProgress === buttonConfig.action;
+    
+    return (
+      <Card sx={{ 
+        mb: 3, 
+        p: 3,
+        borderRadius: 3,
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        color: 'white',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+      }}>
+        <CardContent sx={{ textAlign: 'center' }}>
+          {/* Digital Clock */}
+          <Box sx={{ mb: 3 }}>
+            <WatchLaterIcon sx={{ fontSize: "3rem !important", mb: 1, opacity: 0.9 }} />
+            <Typography variant="h3" sx={{ 
+              fontWeight: 'bold',
+              fontFamily: '"Orbitron", monospace',
+              letterSpacing: '2px',
+              mb: 0.5
+            }}>
+              {currentTime.manila.time24}
+            </Typography>
+            <Typography variant="h6" sx={{ 
+              opacity: 0.9,
+              fontFamily: '"Roboto Mono", monospace'
+            }}>
+              {currentTime.manila.time12}
+            </Typography>
+            <Typography variant="body2" sx={{ 
+              opacity: 0.8, 
+              mt: 1,
+              fontFamily: '"Roboto", sans-serif'
+            }}>
+              {currentTime.manila.date}
+            </Typography>
+            <Typography variant="caption" sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              opacity: 0.7,
+              mt: 1,
+              fontFamily: '"Roboto", sans-serif'
+            }}>
+              <PublicIcon sx={{ fontSize: 14, mr: 0.5 }} />
+              Asia/Manila Time
+            </Typography>
+          </Box>
+
+          {/* Action Button */}
+          <Tooltip title={buttonConfig.tooltip} arrow>
+            <Button
+              variant="contained"
+              color={buttonConfig.color}
+              startIcon={buttonConfig.icon}
+              onClick={() => showConfirmationDialog(buttonConfig.action)}
+              disabled={isLoading}
+              sx={{
+                minWidth: 200,
+                height: 50,
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+                textTransform: 'none',
+                borderRadius: 2,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+                fontFamily: '"Roboto", sans-serif',
+                '&:hover': {
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.3)',
+                  transform: 'translateY(-1px)'
+                },
+                transition: 'all 0.2s ease-in-out'
+              }}
+            >
+              {buttonConfig.label}
+              {isLoading && (
+                <CircularProgress 
+                  size={24} 
+                  sx={{ 
+                    position: 'absolute',
+                    right: 12,
+                    color: 'inherit'
+                  }} 
+                />
+              )}
+            </Button>
+          </Tooltip>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // Render employee info with avatar
   const renderEmployeeInfo = () => {
     if (!employee) return (
-      <Typography sx={{ mt: 4, color: "error.main" }}>
+      <Typography sx={{ mt: 4, color: "error.main", fontFamily: '"Roboto", sans-serif' }}>
         <WarningAmberIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
         Employee not registered
       </Typography>
     );
+
+    // Get initials for avatar
+    const getInitials = () => {
+      const firstInitial = employee.first_name ? employee.first_name.charAt(0) : '';
+      const lastInitial = employee.last_name ? employee.last_name.charAt(0) : '';
+      return `${firstInitial}${lastInitial}`.toUpperCase();
+    };
+
+    const capitalizeFirstLetter = (string) => {
+      if (!string) return "";
+      return string.charAt(0).toUpperCase() + string.slice(1);
+    };
 
     return (
       <Box sx={{ 
@@ -427,123 +603,268 @@ const EmployeeAttendanceDashboard = () => {
         mb: 3,
         flexWrap: 'wrap'
       }}>
-        {/* Employee Basic Info */}
-        <Paper sx={{
+        {/* Employee Basic Info - Styled like the clock box */}
+        <Card sx={{
           flex: 1,
           minWidth: 300,
-          p: 2,
-          borderRadius: 2,
-          borderLeft: `4px solid ${theme.palette.info.main}`,
+          p: 3,
+          borderRadius: 3,
+          background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+          color: 'white',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
         }}>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            mb: 1,
-            borderBottom: `1px solid ${theme.palette.divider}`,
-            pb: 1
-          }}>
-            <PersonIcon color="info" sx={{ mr: 1, fontSize: '1rem' }} />
-            <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 600 }}>
-              User Information
-            </Typography>
-          </Box>
+          <CardContent>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              mb: 2,
+              borderBottom: '2px solid rgba(255,255,255,0.2)',
+              pb: 2
+            }}>
+              <BadgeIcon sx={{ mr: 1, fontSize: '3rem !important' }} />
+              <Typography variant="h3" sx={{ 
+                fontWeight: 700,
+                fontFamily: '"Roboto", sans-serif'
+              }}>
+                USER INFORMATION
+              </Typography>
+            </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <PersonIcon color="primary" sx={{ mr: 2 }} />
-            <Typography variant="h6">
-              {employee.first_name} {employee.last_name}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <WorkIcon color="primary" sx={{ mr: 2 }} />
-            <Typography variant="h6">
-              {employee.department} / {employee.team}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <WorkIcon color="primary" sx={{ mr: 2 }} />
-            <Typography variant="h6">
-              {employee.employment_type} / {employee.status}
-            </Typography>
-          </Box>
-        </Paper>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+              <Avatar sx={{ 
+                width: 60, 
+                height: 60, 
+                mr: 2, 
+                bgcolor: 'rgba(255,255,255,0.2)',
+                fontSize: '1.5rem',
+                fontWeight: 'bold'
+              }}>
+                {getInitials()}
+              </Avatar>
+              <Box>
+                <Typography variant="h4" sx={{ 
+                  fontWeight: 'bold',
+                  fontFamily: '"Roboto", sans-serif'
+                }}>
+                  {employee.first_name} {employee.last_name}
+                </Typography>
+                {/* <Typography variant="body1" sx={{ 
+                  opacity: 0.9,
+                  fontFamily: '"Roboto", sans-serif'
+                }}>
+                  Employee ID: {employee.employee_id || 'N/A'}
+                </Typography> */}
+              </Box>
+            </Box>
 
-        {/* Schedule */}
-        <Paper sx={{
+            <Box sx={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+              gap: 2 
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <BusinessIcon sx={{ mr: 1, opacity: 0.8, fontSize: '1.5rem' }} />
+                <Box>
+                  <Typography variant="body1" sx={{ 
+                    fontSize: '0.9rem', 
+                    opacity: 0.8,
+                    fontFamily: '"Roboto", sans-serif'
+                  }}>
+                    Department
+                  </Typography>
+                  <Typography variant="h5" sx={{ 
+                    fontWeight: 'medium',
+                    fontFamily: '"Roboto", sans-serif'
+                  }}>
+                    {employee.department}
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <WorkIcon sx={{ mr: 1, opacity: 0.8, fontSize: '1.5rem' }} />
+                <Box>
+                  <Typography variant="body1" sx={{ 
+                    fontSize: '0.9rem', 
+                    opacity: 0.8,
+                    fontFamily: '"Roboto", sans-serif'
+                  }}>
+                    Team
+                  </Typography>
+                  <Typography variant="h5" sx={{ 
+                    fontWeight: 'medium',
+                    fontFamily: '"Roboto", sans-serif'
+                  }}>
+                    {employee.team}
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <PersonIcon sx={{ mr: 1, opacity: 0.8, fontSize: '1.5rem' }} />
+                <Box>
+                  <Typography variant="body1" sx={{ 
+                    fontSize: '0.9rem', 
+                    opacity: 0.8,
+                    fontFamily: '"Roboto", sans-serif'
+                  }}>
+                    Employment Type
+                  </Typography>
+                  <Typography variant="h5" sx={{ 
+                    fontWeight: 'medium',
+                    fontFamily: '"Roboto", sans-serif'
+                  }}>
+                    {capitalizeFirstLetter(employee.employment_type)}
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <BadgeIcon sx={{ mr: 1, opacity: 0.8, fontSize: '1.5rem' }} />
+                <Box>
+                  <Typography variant="body1" sx={{ 
+                    fontSize: '0.9rem', 
+                    opacity: 0.8,
+                    fontFamily: '"Roboto", sans-serif'
+                  }}>
+                    Status
+                  </Typography>
+                  <Typography variant="h5" sx={{ 
+                    fontWeight: 'medium',
+                    fontFamily: '"Roboto", sans-serif'
+                    // color: employee.status === 'Active' ? '#4caf50' : '#ff9800'
+                  }}>
+                    {employee.status}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+
+        {/* Work Schedule - Styled like the clock box */}
+        <Card sx={{
           flex: 1,
           minWidth: 300,
-          p: 2,
-          borderRadius: 2,
-          borderLeft: `4px solid ${theme.palette.info.main}`,
+          p: 3,
+          borderRadius: 3,
+          background: 'linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%)',
+          color: '#2c3e50',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
         }}>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            mb: 1,
-            borderBottom: `1px solid ${theme.palette.divider}`,
-            pb: 1
-          }}> 
-            <ScheduleIcon color="info" sx={{ mr: 1, fontSize: '1rem' }} />
-            <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 600 }}>
-              Work Schedule
-            </Typography>
-          </Box>
-          
-          <Box sx={{ mb: 0.5 }}>
-            <Typography variant="body1">
-              Time In: {formatTimeTo12Hour(employee.time_in)}
-            </Typography>
-            <Typography variant="body1">
-              Time Out:{formatTimeTo12Hour(employee.time_out)}
-            </Typography>
-          </Box>
-          <Typography variant="body2" color="text.secondary">
-            {employee.work_arrangement} / {employee.type}
-          </Typography>
-        </Paper>
-      </Box>
-    );
-  };
+          <CardContent>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              mb: 2,
+              borderBottom: '2px solid rgba(0,0,0,0.1)',
+              pb: 2
+            }}>
+              <ScheduleIcon sx={{ mr: 1, fontSize: '3rem !important' }} />
+              <Typography variant="h3" sx={{ 
+                fontWeight: 700,
+                fontFamily: '"Roboto", sans-serif'
+              }}>
+                WORK SCHEDULE
+              </Typography>
+            </Box>
 
-  // Render the dynamic action button
-  const renderActionButton = () => {
-    const buttonConfig = getButtonConfig();
-    const isLoading = loading && actionInProgress === buttonConfig.action;
-    
-    return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center',
-        mb: 3
-      }}>
-        <Tooltip title={buttonConfig.tooltip} arrow>
-          <Button
-            variant="contained"
-            color={buttonConfig.color}
-            startIcon={buttonConfig.icon}
-            onClick={() => showConfirmationDialog(buttonConfig.action)}
-            disabled={isLoading}
-            sx={{
-              minWidth: 200,
-              height: 50,
-              fontSize: '1.1rem',
-              fontWeight: 'bold',
-              textTransform: 'none'
-            }}
-          >
-            {buttonConfig.label}
-            {isLoading && (
-              <CircularProgress 
-                size={24} 
-                sx={{ 
-                  position: 'absolute',
-                  right: 12,
-                  color: 'inherit'
-                }} 
-              />
-            )}
-          </Button>
-        </Tooltip>
+            <Box sx={{ mb: 3 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                mb: 2,
+                p: 2,
+                borderRadius: 2,
+                bgcolor: 'rgba(255,255,255,0.3)'
+              }}>
+                <AccessTimeIcon sx={{ mr: 2, color: '#2c3e50', fontSize: '1.8rem' }} />
+                <Box>
+                  <Typography variant="body1" sx={{ 
+                    fontSize: '0.9rem', 
+                    opacity: 0.8,
+                    fontFamily: '"Roboto", sans-serif'
+                  }}>
+                    Time In
+                  </Typography>
+                  <Typography variant="h5" sx={{ 
+                    fontWeight: 'bold',
+                    fontFamily: '"Roboto Mono", monospace'
+                  }}>
+                    {formatTimeTo12Hour(employee.time_in)}
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                mb: 2,
+                p: 2,
+                borderRadius: 2,
+                bgcolor: 'rgba(255,255,255,0.3)'
+              }}>
+                <ExitToAppIcon sx={{ mr: 2, color: '#2c3e50', fontSize: '1.8rem' }} />
+                <Box>
+                  <Typography variant="body1" sx={{ 
+                    fontSize: '0.9rem', 
+                    opacity: 0.8,
+                    fontFamily: '"Roboto", sans-serif'
+                  }}>
+                    Time Out
+                  </Typography>
+                  <Typography variant="h5" sx={{ 
+                    fontWeight: 'bold',
+                    fontFamily: '"Roboto Mono", monospace'
+                  }}>
+                    {formatTimeTo12Hour(employee.time_out)}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+
+            <Box sx={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
+              gap: 2,
+              p: 2,
+              borderRadius: 2,
+              bgcolor: 'rgba(255,255,255,0.3)'
+            }}>
+              <Box>
+                <Typography variant="body1" sx={{ 
+                  fontSize: '0.9rem', 
+                  opacity: 0.8,
+                  fontFamily: '"Roboto", sans-serif'
+                }}>
+                  Work Arrangement
+                </Typography>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 'medium',
+                  fontFamily: '"Roboto", sans-serif'
+                }}>
+                  {capitalizeFirstLetter(employee?.work_arrangement)}
+                </Typography>
+              </Box>
+
+              <Box>
+                <Typography variant="body1" sx={{ 
+                  fontSize: '0.9rem', 
+                  opacity: 0.8,
+                  fontFamily: '"Roboto", sans-serif'
+                }}>
+                  Type
+                </Typography>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 'medium',
+                  fontFamily: '"Roboto", sans-serif'
+                }}>
+                  {employee.type}
+                </Typography>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
       </Box>
     );
   };
@@ -551,12 +872,21 @@ const EmployeeAttendanceDashboard = () => {
   // Render attendance table
   const renderAttendanceTable = () => {
     if (loading && !todayRecord) {
-      return <CircularProgress sx={{ mt: 4 }} />;
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <CircularProgress />
+        </Box>
+      );
     }
 
     if (!todayRecord) {
       return (
-        <Typography sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
+        <Typography sx={{ 
+          p: 3, 
+          textAlign: 'center', 
+          color: 'text.secondary',
+          fontFamily: '"Roboto", sans-serif'
+        }}>
           No attendance record for today
         </Typography>
       );
@@ -568,7 +898,10 @@ const EmployeeAttendanceDashboard = () => {
       const durationNum = typeof duration === 'string' ? parseFloat(duration) : duration;
       return `${Math.floor(durationNum / 60)}h ${durationNum % 60}m`;
     };
-    
+    const capitalizeFirstLetter = (string) => {
+      if (!string) return "";
+      return string.charAt(0).toUpperCase() + string.slice(1);
+    };
     return (
       <Box sx={{ 
         width: '100%', 
@@ -578,89 +911,180 @@ const EmployeeAttendanceDashboard = () => {
         <table style={{ 
           width: '100%',
           borderCollapse: 'collapse',
-          fontSize: '0.875rem'
-        }}>
+          fontSize: '0.875rem',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'        
+          }}>
           <thead>
-            <tr style={{ backgroundColor: theme.palette.primary.main, color: 'white', textAlign: 'left' }}>
-              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Date</th>
-              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Status</th>
-              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Time In</th>
-              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Time In Status</th>
-              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Break</th>
-              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Break Duration</th>
-              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Break Status</th>
-              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Time Out</th>
-              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Time Out Status</th>
-              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Work Hours</th>
+            <tr style={{ 
+              backgroundColor: theme.palette.primary.main, 
+              color: 'white', 
+              textAlign: 'left' 
+            }}>
+              <th style={{ 
+                padding: '16px', 
+                whiteSpace: 'nowrap',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}>Date</th>
+              <th style={{ 
+                padding: '16px', 
+                whiteSpace: 'nowrap',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}>Status</th>
+              <th style={{ 
+                padding: '16px', 
+                whiteSpace: 'nowrap',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}>Time In</th>
+              <th style={{ 
+                padding: '16px', 
+                whiteSpace: 'nowrap',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}>Time In Status</th>
+              <th style={{ 
+                padding: '16px', 
+                whiteSpace: 'nowrap',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}>Break</th>
+              <th style={{ 
+                padding: '16px', 
+                whiteSpace: 'nowrap',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}>Break Duration</th>
+              <th style={{ 
+                padding: '16px', 
+                whiteSpace: 'nowrap',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}>Break Status</th>
+              <th style={{ 
+                padding: '16px', 
+                whiteSpace: 'nowrap',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}>Time Out</th>
+              <th style={{ 
+                padding: '16px', 
+                whiteSpace: 'nowrap',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}>Time Out Status</th>
+              <th style={{ 
+                padding: '16px', 
+                whiteSpace: 'nowrap',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}>Work Hours</th>
             </tr>
           </thead>
           <tbody>
-            <tr style={{ borderBottom: '1px solid #ddd', whiteSpace: 'nowrap' }}>
-              <td style={{ padding: '12px 16px' }}>
-                {formatDisplayDate(todayRecord.date)}
+            <tr style={{ 
+              borderBottom: '1px solid #e0e0e0', 
+              whiteSpace: 'nowrap',
+              backgroundColor: '#fafafa'
+            }}>
+              <td style={{ 
+                padding: '16px', 
+                fontWeight: '500'
+              }}>
+                {formatToManilaDate(todayRecord.date)}
               </td>
               <td style={{ 
-                padding: '12px 16px',
-                color: todayRecord.status === 'Absent' ? 'red' : 'inherit',
-                fontWeight: todayRecord.status === 'Absent' ? 'bold' : 'normal'
+                padding: '16px',
+                color: todayRecord.status === 'Absent' ? '#d32f2f' : '#2e7d32',
+                fontWeight: 'bold'
               }}>
-                {todayRecord.status}
+                {capitalizeFirstLetter(todayRecord.status)}
               </td>
-              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+              <td style={{ 
+                padding: '16px', 
+                whiteSpace: 'nowrap', 
+                fontWeight: '500'
+              }}>
                 {formatTimeTo12Hour(todayRecord.time_in) || '--'}
               </td>
               
-              <td
-                style={{
-                  padding: '12px 16px', whiteSpace: 'nowrap',
-                  color:
-                    todayRecord.time_in_status?.includes('Absent') ? 'red' :
-                    todayRecord.time_in_status?.includes('Late') ? '#ed6c02' : 'inherit'
-                }}
-              >
-                {todayRecord.time_in ? todayRecord.time_in_status : ''}
+              <td style={{
+                padding: '16px', 
+                whiteSpace: 'nowrap',
+                color:
+                  todayRecord.time_in_status?.includes('Absent') ? '#d32f2f' :
+                  todayRecord.time_in_status?.includes('Late') ? '#ed6c02' : '#2e7d32',
+                fontWeight: '500'
+              }}>
+                {capitalizeFirstLetter(todayRecord.time_in ? todayRecord.time_in_status : '')}
               </td>
                 
-              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+              <td style={{ 
+                padding: '16px', 
+                whiteSpace: 'nowrap'
+              }}>
                 {todayRecord.start_break ? (
                   <>
-                    <div>{formatTimeTo12Hour(todayRecord.start_break)}</div>
+                    <div style={{ fontWeight: '500' }}>{formatTimeTo12Hour(todayRecord.start_break)}</div>
                     {todayRecord.end_break ? (
-                      <div>{formatTimeTo12Hour(todayRecord.end_break)}</div>
+                      <div style={{ fontWeight: '500' }}>{formatTimeTo12Hour(todayRecord.end_break)}</div>
                     ) : (
-                      <div style={{ color: theme.palette.success.main }}>
+                      <div style={{ color: '#4caf50', fontWeight: '500' }}>
                         Break in progress
                       </div>
                     )}
                   </>
-                ) : ''}
-              </td>
-                  <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {todayRecord.end_break ? (
-                  formatBreakDuration(todayRecord.break_duration)
-                ) : ''}
-              </td>
-             <td
-                style={{
-                  padding: '12px 16px',
-                  whiteSpace: 'nowrap',
-                  color: todayRecord.break_status?.startsWith('Overbreak') ? 'red' : 'inherit'
-                }}
-              >
-                {todayRecord.break_status || ''}
+                ) : '--'}
               </td>
               
-              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {formatTimeTo12Hour(todayRecord.time_out) || ''}
+              <td style={{ 
+                padding: '16px', 
+                whiteSpace: 'nowrap', 
+                fontWeight: '500'
+              }}>
+                {todayRecord.end_break ? (
+                  formatBreakDuration(todayRecord.break_duration)
+                ) : '--'}
               </td>
-              <td style={{ padding: '12px 16px', color: 
-                todayRecord.time_out_status?.includes('Absent') ? 'red' :
-                todayRecord.time_out_status?.includes('Undertime') ? 'red' :
-                todayRecord.time_out_status?.includes('Overtime') ? '#ed6c02' : 'inherit' }}>
-                {todayRecord.time_out ? todayRecord.time_out_status : ''}
+             
+              <td style={{
+                padding: '16px',
+                whiteSpace: 'nowrap',
+                color: todayRecord.break_status?.startsWith('Overbreak') ? '#d32f2f' : '#2e7d32',
+                fontWeight: '500'
+              }}>
+                {todayRecord.break_status || '--'}
               </td>
-              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                {todayRecord.work_hours ? `${todayRecord.work_hours.toFixed(2)} hrs` : ''}
+              
+              <td style={{ 
+                padding: '16px', 
+                whiteSpace: 'nowrap', 
+                fontWeight: '500'
+              }}>
+                {formatTimeTo12Hour(todayRecord.time_out) || '--'}
+              </td>
+              
+              <td style={{ 
+                padding: '16px', 
+                color: 
+                  todayRecord.time_out_status?.includes('Absent') ? '#d32f2f' :
+                  todayRecord.time_out_status?.includes('Undertime') ? '#d32f2f' :
+                  todayRecord.time_out_status?.includes('Overtime') ? '#ed6c02' : '#2e7d32',
+                fontWeight: '500'
+              }}>
+                {todayRecord.time_out ? todayRecord.time_out_status : '--'}
+              </td>
+              
+              <td style={{ 
+                padding: '16px', 
+                whiteSpace: 'nowrap', 
+                fontWeight: 'bold',
+                color: '#1976d2'
+              }}>
+                {todayRecord.work_hours ? `${todayRecord.work_hours.toFixed(2)} hrs` : '--'}
               </td>
             </tr>
           </tbody>
@@ -677,14 +1101,19 @@ const EmployeeAttendanceDashboard = () => {
       maxWidth="xs"
       fullWidth
     >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <DialogTitle sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 2,
+        fontFamily: '"Roboto", sans-serif'
+      }}>
         {confirmDialog.icon}
         <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
           {confirmDialog.title}
         </Typography>
       </DialogTitle>
       <DialogContent dividers>
-        <Typography variant="body1" sx={{ mb: 2 }}>
+        <Typography variant="body1" sx={{ mb: 2, fontFamily: '"Roboto", sans-serif' }}>
           {confirmDialog.content}
         </Typography>
       </DialogContent>
@@ -692,6 +1121,7 @@ const EmployeeAttendanceDashboard = () => {
         <Button 
           onClick={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
           color="inherit"
+          sx={{ fontFamily: '"Roboto", sans-serif' }}
         >
           Cancel
         </Button>
@@ -700,6 +1130,7 @@ const EmployeeAttendanceDashboard = () => {
           color={confirmDialog.color}
           variant="contained"
           disabled={loading}
+          sx={{ fontFamily: '"Roboto", sans-serif' }}
         >
           {loading ? <CircularProgress size={24} /> : 'Confirm'}
         </Button>
@@ -709,9 +1140,9 @@ const EmployeeAttendanceDashboard = () => {
 
   return (
     <SideNavBar>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: isMobile ? 1 : 3 }}>
         {renderEmployeeInfo()}
-        {renderActionButton()}
+        {renderClockAndActionBox()}
         {renderAttendanceTable()}
 
         <Snackbar
@@ -719,7 +1150,7 @@ const EmployeeAttendanceDashboard = () => {
           autoHideDuration={6000}
           onClose={() => setError(null)}
         >
-          <Alert onClose={() => setError(null)} severity="error">
+          <Alert onClose={() => setError(null)} severity="error" sx={{ fontFamily: '"Roboto", sans-serif' }}>
             {error}
           </Alert>
         </Snackbar>
@@ -729,7 +1160,7 @@ const EmployeeAttendanceDashboard = () => {
           autoHideDuration={3000}
           onClose={() => setSuccess(null)}
         >
-          <Alert onClose={() => setSuccess(null)} severity="success">
+          <Alert onClose={() => setSuccess(null)} severity="success" sx={{ fontFamily: '"Roboto", sans-serif' }}>
             {success}
           </Alert>
         </Snackbar>

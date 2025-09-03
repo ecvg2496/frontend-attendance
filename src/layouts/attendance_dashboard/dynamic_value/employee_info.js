@@ -79,16 +79,17 @@ const employeeFormConfig = [
     //     helperText: 'Upload a photo (JPEG, PNG, GIF) max 2MB',
     //     fullWidth: true
     // },
-    {
+     {
         name: "employment_type",
         label: "Employment Type",
         type: "select",
         options: [
-            { value: "Regular", label: "Regular" },
-            { value: "Probationary", label: "Probationary" },
-            { value: "Contractual", label: "Contractual" },
-            { value: "Independent Contractor", label: "Independent Contractor" },
+            { value: "REGULAR", label: "Regular" },
+            { value: "PROBATIONARY", label: "Probationary" },
+            { value: "CONTRACTUAL", label: "Contractual" },
+            { value: "TRAINING", label: "Training" }
         ],
+        defaultValue: "REGULAR"
     },
     {
         name: "type",
@@ -99,16 +100,17 @@ const employeeFormConfig = [
             { value: "Part Time", label: "Part Time" },
         ],
     },
-    {
-        name: "work_arrangement",
-        label: "Work Arrangement",
-        type: "select",
-        options: [
-            { value: "Home-based", label: "Home-based" },
-            { value: "Office-based", label: "Office-based" },
-            { value: "Hybrid", label: "Hybrid" },
-        ],
-    },
+   {
+    name: "work_arrangement",
+    label: "Work Arrangement",
+    type: "select",
+    options: [
+        { value: "OFFICE", label: "Office" },
+        { value: "REMOTE", label: "Remote" },
+        { value: "HYBRID", label: "Hybrid" }
+    ],
+    defaultValue: "OFFICE"
+},
     {
         name: "department",
         label: "Department",
@@ -140,8 +142,16 @@ const employeeFormConfig = [
     },
     {
         name: "contract_hours",
-        label: "Contract Hours",
-        type: "text",
+        label: "Total Work Hours",
+        type: "number",
+        min: 0,
+        max: 9,
+        step: 0.5,
+        defaultValue: 9,
+        readOnly: (values) => values.type === 'Full Time',
+        helperText: (values) => values.type === 'Full Time' ? 
+            "Full-time employees have fixed 9 hours" : 
+            "Set the total work hours per day"
     },
     {
         name: "status",
@@ -158,16 +168,51 @@ const employeeFormConfig = [
             { value: "Terminated", label: "Terminated Contract" },
         ],
     },
+     {
+        name: "shift_type",
+        label: "Shift Type",
+        type: "select",
+        options: [
+            { value: "regular", label: "Regular (Single Shift)" },
+            { value: "split", label: "Split Shift" },
+            { value: "graveyard", label: "Graveyard Shift" }
+        ],
+        defaultValue: "regular"
+    },
     {
         name: "time_in",
-        label: "Time-In",
+        label: "Primary Shift Start",
         type: "time-picker",
+        required: true
     },
     {
         name: "time_out",
-        label: "Time-Out",
+        label: "Primary Shift End",
         type: "time-picker",
-        readOnly: true,
+        required: true
+    },
+    {
+        name: "time_in_2",
+        label: "Second Shift Start",
+        type: "time-picker",
+        showIf: (values) => values.shift_type === 'split',
+        required: (values) => values.shift_type === 'split'
+    },
+     {
+        name: "time_out_2",
+        label: "Second Shift End",
+        type: "time-picker",
+        showIf: (values) => values.shift_type === 'split',
+        required: (values) => values.shift_type === 'split',
+        readOnly: true
+    },
+    {
+        name: "break_duration",
+        label: "Break Duration (minutes)",
+        type: "number",
+        min: 0,
+        max: 240,
+        defaultValue: 60
     },
     {
         name: "hourly_rate",
@@ -188,4 +233,28 @@ const employeeFormConfig = [
     },
 ];
 
-export default employeeFormConfig;
+function applyConditionalLogic(config) {
+    return config.map(field => {
+        const fieldCopy = {...field};
+        
+        // Apply visibility conditions
+        if (field.showIf) {
+            fieldCopy.hidden = (values) => !field.showIf(values);
+        }
+        
+        // Apply readonly conditions
+        if (typeof field.readOnly === 'function') {
+            fieldCopy.readOnly = field.readOnly;
+        }
+        
+        // Apply required conditions
+        if (typeof field.required === 'function') {
+            fieldCopy.required = field.required;
+        }
+        
+        return fieldCopy;
+    });
+}
+
+
+export default applyConditionalLogic(employeeFormConfig);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Card,
   Snackbar,
@@ -29,13 +29,17 @@ import {
   DialogContent,
   DialogActions,
   Avatar,
+  ArrowUpward,
+  ArrowDownward,
   List,
   ListItem,
   ListItemAvatar,
   ListItemText,
   Autocomplete,
   Fab, 
-  CircularProgress
+  CircularProgress,
+  ToggleButton,
+  ToggleButtonGroup
 } from '@mui/material';
 import { format } from 'date-fns';
 import { CheckCircle } from '@mui/icons-material';
@@ -95,7 +99,66 @@ const ClientTable = ({
   onUnassignClick
 }) => {
   const navigate = useNavigate();
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [filterText, setFilterText] = useState('');
+  const [azFilter, setAzFilter] = useState('all');
   
+  const filteredAndSortedClients = useMemo(() => {
+    let filteredClients = clients;
+    
+    // Apply A-Z filter
+    if (azFilter !== 'all') {
+      filteredClients = filteredClients.filter(client => 
+        client.name.charAt(0).toUpperCase() === azFilter
+      );
+    }
+    
+    // Apply text filter
+    if (filterText) {
+      filteredClients = filteredClients.filter(client => 
+        client.name.toLowerCase().includes(filterText.toLowerCase()) ||
+        client.email.toLowerCase().includes(filterText.toLowerCase()) ||
+        client.client_type.toLowerCase().includes(filterText.toLowerCase()) ||
+        client.timezone.toLowerCase().includes(filterText.toLowerCase())
+      );
+    }
+    
+    // Apply sorting
+    if (sortConfig.key) {
+      filteredClients = [...filteredClients].sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    
+    return filteredClients;
+  }, [clients, azFilter, filterText, sortConfig]);
+  
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+  
+  const handleFilterChange = (e) => {
+    setFilterText(e.target.value);
+  };
+
+  const clearFilter = () => {
+    setFilterText('');
+  };
+
+  const handleAzFilterChange = (event, newFilter) => {
+    setAzFilter(newFilter);
+  };
+
   if (loading) {
     return <Box display="flex" justifyContent="center" p={2}><CircularProgress size={24} /></Box>;
   }
@@ -110,6 +173,107 @@ const ClientTable = ({
 
   return (
     <Box width="100%" overflow="auto" position="relative">
+      {/* A-Z Filter and Search */}
+      <Box sx={{ 
+        mb: 2, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: 1 
+      }}>
+        {/* A-Z Filter Row */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 0.5,
+          flexWrap: 'wrap',
+          backgroundColor: '#f5f5f5',
+          p: 1,
+          borderRadius: 1
+        }}>
+          <Typography variant="body2" sx={{ fontWeight: 'bold', mr: 1 }}>
+            Filter:
+          </Typography>
+          <ToggleButtonGroup
+            value={azFilter}
+            exclusive
+            onChange={handleAzFilterChange}
+            aria-label="A-Z filter"
+            size="small"
+            sx={{ gap: 0.5 }}
+          >
+            <ToggleButton 
+              value="all" 
+              aria-label="Show all"
+              sx={{ 
+                minWidth: '32px', 
+                height: '32px',
+                padding: '0 8px',
+                fontSize: '0.75rem',
+                fontWeight: 'bold',
+                border: '1px solid #ddd !important'
+              }}
+            >
+              ALL
+            </ToggleButton>
+            {[...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(letter => (
+              <ToggleButton 
+                key={letter} 
+                value={letter} 
+                aria-label={`Show ${letter}`}
+                sx={{ 
+                  minWidth: '24px', 
+                  height: '24px',
+                  padding: '0 4px',
+                  fontSize: '0.7rem',
+                  border: '1px solid #ddd !important'
+                }}
+              >
+                {letter}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        </Box>
+
+        {/* Search and Counter Row */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 2,
+          justifyContent: 'space-between'
+        }}>
+          <TextField
+            placeholder="Search employees..."
+            value={filterText}
+            onChange={handleFilterChange}
+            size="small"
+            sx={{ minWidth: '250px' }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <PersonAdd fontSize="small" />
+                </InputAdornment>
+              ),
+              endAdornment: filterText && (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="Clear search"
+                    onClick={clearFilter}
+                    edge="end"
+                    size="small"
+                  >
+                    <Close fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+          
+          <Typography variant="body2" color="textSecondary">
+            Showing {filteredAndSortedClients.length} of {clients.length} clients
+          </Typography>
+        </Box>
+      </Box>
+
       <table style={{ 
         width: '100%',
         minWidth: '1200px',
@@ -130,7 +294,7 @@ const ClientTable = ({
           </tr>
         </thead>
         <tbody>
-          {clients.map((client) => (
+          {filteredAndSortedClients.map((client) => (
             <tr key={client.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 <IconButton 
@@ -355,36 +519,21 @@ const AttendanceAdminClient = () => {
     console.error('Error fetching employees:', error);
   }
 };
-  useEffect(() => {
-  if (selectedEmployee?.time_in) {
-    const [hours, minutes] = selectedEmployee.time_in.split(':');
-    const date = new Date();
-    date.setHours(hours, minutes);
-    setTimeIn(date);
-  } else {
-    setTimeIn(null);
-  }
-
-  if (selectedEmployee?.time_out) {
-    const [hours, minutes] = selectedEmployee.time_out.split(':');
-    const date = new Date();
-    date.setHours(hours, minutes);
-    setTimeOut(date);
-  } else {
-    setTimeOut(null);
-  }
-}, [selectedEmployee]);
-
 
   const calculateEndTime = (start_time, client_type, lunch_break) => {
     if (!start_time) return '17:00';
     
     const [hours, minutes] = start_time.split(':').map(Number);
-    let totalHours = client_type === 'part-time' ? 4 : 8;
-    if (lunch_break && client_type !== 'part-time') totalHours += 1;
+    let totalHours = client_type === 'Part-time' ? 4 : 8;
     
+    // Calculate end time
     let endHour = hours + totalHours;
     const endMinute = minutes;
+    
+    // Add lunch break if applicable
+    if (lunch_break && client_type !== 'Part-time') {
+      endHour += 1;
+    }
     
     if (endHour >= 24) endHour -= 24;
     
@@ -402,7 +551,7 @@ const AttendanceAdminClient = () => {
       setClientFormData(prev => ({
         ...prev,
         end_time: newEndTime,
-        working_hours: prev.client_type === 'part-time' ? 4 : 8
+        working_hours: prev.client_type === 'Part-time' ? 4 : 8
       }));
     }
   }, [clientFormData.start_time, clientFormData.client_type, clientFormData.lunch_break]);
@@ -481,31 +630,34 @@ const AttendanceAdminClient = () => {
   };
 
  const handleAssignEmployees = async (e) => {
-  e.preventDefault();
-  if (!selectedClient || !selectedEmployee) return;
-  
-  try {
-    const response = await dataServicePrivate(
-      'POST', 
-      `attendance/clients/${selectedClient.id}/assign-employee/`,
-      {
-        employee_ids: [selectedEmployee.id],
-        require_active_track: clientFormData.requireActiveTrack
+    e.preventDefault();
+    if (!selectedClient || !selectedEmployee) return;
+    
+    try {
+      const response = await dataServicePrivate(
+        'POST', 
+        `attendance/clients/${selectedClient.id}/assign-employee/`,
+        {
+          employee_ids: [selectedEmployee.id],
+          require_active_track: clientFormData.requireActiveTrack,
+          // Use client's time_in and time_out instead of employee's
+          time_in: selectedClient.start_time,
+          time_out: selectedClient.end_time
+        }
+      );
+      
+      if (response.data.already_assigned) {
+        alert(`${selectedEmployee.first_name} ${selectedEmployee.last_name} is already assigned to this client`);
+        return;
       }
-    );
-    
-    if (response.data.already_assigned) {
-      alert(`${selectedEmployee.first_name} ${selectedEmployee.last_name} is already assigned to this client`);
-      return;
+      
+      console.log('Assignment successful:', response.data.message);
+      setAssignDialogOpen(false);
+      fetchClients();
+    } catch (error) {
+      console.error('Error assigning employees:', error);
+      alert(`Error: ${error.response?.data?.message || error.message}`);
     }
-    
-    console.log('Assignment successful:', response.data.message);
-    setAssignDialogOpen(false);
-    fetchClients();
-  } catch (error) {
-    console.error('Error assigning employees:', error);
-    alert(`Error: ${error.response?.data?.message || error.message}`);
-  }
   };
 
   const handleUnassignClick = (employee, client) => {
@@ -606,7 +758,7 @@ const AttendanceAdminClient = () => {
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <SideNavBar>
         <Card sx={{ p: 3, position: 'relative', minHeight: 'calc(104vh - 64px)', mt: -10 }}>
-          <Typography variant="h5" gutterBottom color="primary" sx={{ mb: 3, fontWeight: 'bold' }}>
+          <Typography variant="h4" gutterBottom color="primary" sx={{ mb: 3, fontWeight: 'bold' }}>
             Client and Employee Assignment
           </Typography>
 
@@ -857,176 +1009,82 @@ const AttendanceAdminClient = () => {
                     </Grid>
                     {selectedEmployee && (
                     <>
-                    <LocalizationProvider dateAdapter={AdapterDateFns}>
-
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          label="Department"
-                          value={selectedEmployee.department || ''}
-                          onChange={(e) => setSelectedEmployee({
-                            ...selectedEmployee,
-                            department: e.target.value
-                          })}
-                          fullWidth
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <Category />
-                              </InputAdornment>
-                            ),
-                          }}
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          label="Team"
-                          value={selectedEmployee.team || ''}
-                          onChange={(e) => setSelectedEmployee({
-                            ...selectedEmployee,
-                            team: e.target.value
-                          })}
-                          fullWidth
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <Groups />
-                              </InputAdornment>
-                            ),
-                          }}
-                        />
-                      </Grid>
-                       <Grid item xs={12}>
-                        <FormControl fullWidth>
-                          <InputLabel>Timezone</InputLabel>
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              width: '100%'
-                            }}
-                          >
-                            <Select
-                              name="timezone"
-                              value={clientFormData.timezone}
-                              onChange={handleClientFormChange}
-                              label="Timezone"
-                              size="medium"
-                              sx={{
-                                flex: 1,
-                                '& .MuiSelect-select': {
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  height: '56px !important',
-                                  minHeight: '56px !important',
-                                  paddingLeft: '16px'
-                                },
-                                '& .MuiOutlinedInput-root': {
-                                  height: '56px'
-                                }
-                              }}
-                              renderValue={(selected) => (
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Language fontSize="medium" sx={{ mr: 1 }} />
-                                  {selected}
-                                </Box>
-                              )}
-                            >
-                              {availableTimezones.map((tz) => (
-                                <MenuItem key={tz} value={tz}>
-                                  <Box display="flex" alignItems="center">
-                                    <Language fontSize="medium" sx={{ mr: 1 }} />
-                                    {tz}
-                                  </Box>
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </Box>
-                        </FormControl>   
+                      <Grid item xs={12}>
+                        <Typography variant="h6" gutterBottom>
+                          Schedule Details
+                        </Typography>
+                        <Paper variant="outlined" sx={{ p: 2 }}>
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} md={6}>
+                              <TextField
+                                label="Time In"
+                                value={formatTimeToAMPM(selectedClient.start_time)}
+                                fullWidth
+                                InputProps={{
+                                  readOnly: true,
+                                  startAdornment: (
+                                    <InputAdornment position="start">
+                                      <AccessTime />
+                                    </InputAdornment>
+                                  ),
+                                }}
+                              />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                              <TextField
+                                label="Time Out"
+                                value={formatTimeToAMPM(selectedClient.end_time)}
+                                fullWidth
+                                InputProps={{
+                                  readOnly: true,
+                                  startAdornment: (
+                                    <InputAdornment position="start">
+                                      <AccessTime />
+                                    </InputAdornment>
+                                  ),
+                                }}
+                              />
+                            </Grid>
+                            <Grid item xs={12}>
+                              <TextField
+                                label="Working Hours"
+                                value={`${selectedClient.client_type === 'Part-time' ? 4 : 8} hours/day`}
+                                fullWidth
+                                InputProps={{
+                                  readOnly: true,
+                                }}
+                              />
+                            </Grid>
+                            {selectedClient.lunch_break && selectedClient.client_type !== 'Part-time' && (
+                              <Grid item xs={12}>
+                                <Chip 
+                                  label="Includes 1-hour lunch break" 
+                                  color="primary" 
+                                  variant="outlined"
+                                />
+                              </Grid>
+                            )}
+                          </Grid>
+                        </Paper>
                       </Grid>
                       
-                      <Grid item xs={12} md={6}>
-                        <MobileTimePicker
-                          label="Time In"
-                          value={timeIn}
-                          onChange={(newValue) => {
-                            setTimeIn(newValue);
-                            setSelectedEmployee({
-                              ...selectedEmployee,
-                              time_in: newValue ? format(newValue, 'HH:mm') : ''
-                            });
-                          }}
-                          renderInput={(params) => (
-                            <TextField
-                              {...params}
-                              fullWidth
-                              InputProps={{
-                                ...params.InputProps,
-                                startAdornment: (
-                                  <InputAdornment position="start">
-                                    <AccessTime />
-                                  </InputAdornment>
-                                ),
+                      <Grid item xs={12}>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={clientFormData.requireActiveTrack || false}
+                              onChange={(e) => {
+                                setClientFormData({
+                                  ...clientFormData,
+                                  requireActiveTrack: e.target.checked
+                                });
                               }}
+                              color="primary"
                             />
-                          )}
-                          
+                          }
+                          label="Require Active Track for this employee"
                         />
                       </Grid>
-                      <Grid item xs={12} md={6}>
-                        <MobileTimePicker
-                          label="Time Out"
-                          value={timeOut}
-                          onChange={(newValue) => {
-                            setTimeOut(newValue);
-                            setSelectedEmployee({
-                              ...selectedEmployee,
-                              time_out: newValue ? format(newValue, 'HH:mm') : ''
-                            });
-                          }}
-                          renderInput={(params) => (
-                            <TextField
-                              {...params}
-                              fullWidth
-                              InputProps={{
-                                ...params.InputProps,
-                                startAdornment: (
-                                  <InputAdornment position="start">
-                                    <AccessTime />
-                                  </InputAdornment>
-                                ),
-                              }}
-                            />
-                          )}
-                        />
-                      </Grid>
-
-                 <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={selectedEmployee.include_break || false}
-                        onChange={(e) => {
-                          const includeBreak = e.target.checked;
-                          setSelectedEmployee({
-                            ...selectedEmployee,
-                            include_break: includeBreak,
-                            time_out: selectedEmployee.time_in ? 
-                              calculateEndTime(
-                                selectedEmployee.time_in, 
-                                selectedEmployee.working_hours, 
-                                includeBreak
-                              ) : ''
-                          });
-                        }}
-                        color="primary"
-                        sx={{color:'black !important'}}
-                      />
-                    }
-                    label="Include 1-hour break (automatically adjusts end time)"
-                  />
-                </Grid>
-
-                  </LocalizationProvider>
                     </>
                   )}
                   </Grid>
@@ -1416,7 +1474,7 @@ const AttendanceAdminClient = () => {
                         <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: theme.palette.text.primary }}>
                           Working Hours
                         </Typography>
-                        {clientFormData.client_type !== 'project' && (
+                        {clientFormData.client_type !== 'Project' && (
                           <LocalizationProvider dateAdapter={AdapterDateFns}>
                             <Grid container spacing={2}>
                               <Grid item xs={6}>
@@ -1492,7 +1550,7 @@ const AttendanceAdminClient = () => {
                               <Grid item xs={12}>
                                 <TextField
                                   fullWidth
-                                  label={`Total Working Hours (${clientFormData.client_type === 'part-time' ? '4' : '8'} hrs/day)`}
+                                  label={`Total Working Hours (${clientFormData.client_type === 'Part-time' ? '4' : '8'} hrs/day)`}
                                   type="number"
                                   name="working_hours"
                                   value={clientFormData.working_hours}
@@ -1516,7 +1574,7 @@ const AttendanceAdminClient = () => {
                             </Grid>
                           </LocalizationProvider>
                         )}
-                        {clientFormData.client_type === 'project' && (
+                        {clientFormData.client_type === 'Project' && (
                           <Typography variant="body2" color="textSecondary">
                             Project clients don't have specific working hour requirements.
                           </Typography>

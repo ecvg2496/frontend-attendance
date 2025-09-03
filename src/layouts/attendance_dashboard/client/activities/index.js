@@ -68,14 +68,15 @@ const StatusBadge = ({ status, isDuration, duration }) => {
     if (isDuration) {
       return duration > 60 ? statusStyles.Overbreak : statusStyles.Break;
     }
-    if (statusText.includes("Early")) return statusStyles.Early;
-    if (statusText.includes("Late")) return statusStyles.Late;
-    if (statusText.includes("Undertime")) return statusStyles.Undertime;
-    if (statusText.includes("Overtime")) return statusStyles.Overtime;
-    if (statusText.includes("Overbreak")) return statusStyles.Overbreak;
-    if (statusText.includes("On Time")) return statusStyles.OnTime;
-    if (statusText.includes("Paid Leave")) return statusStyles.paidLeave;
-    if (statusText.includes("Completed")) return statusStyles.Completed;
+    if (statusText.includes("Early") || statusText.includes("early")) return statusStyles.Early;
+    if (statusText.includes("Late") || statusText.includes("late")) return statusStyles.Late;
+    if (statusText.includes("Undertime") || statusText.includes("undertime")) return statusStyles.Undertime;
+    if (statusText.includes("Overtime") || statusText.includes("overtime")) return statusStyles.Overtime;
+    if (statusText.includes("Overbreak") || statusText.includes("overbreak")) return statusStyles.Overbreak;
+    if (statusText.includes("On Time") || statusText.includes("on time")) return statusStyles.OnTime;
+    if (statusText.includes("Paid Leave") || statusText.includes("paid leave")) return statusStyles.paidLeave;
+    if (statusText.includes("Completed") || statusText.includes("completed")) return statusStyles.Completed;
+    if(statusText.includes("Present") || statusText.includes("present")) return statusStyles.Present;
     return statusStyles[statusText];
   };
 

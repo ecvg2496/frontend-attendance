@@ -75,6 +75,7 @@ const StatusBadge = ({ status, isDuration, duration }) => {
     if (statusText.includes("Overbreak")) return statusStyles.Overbreak;
     if (statusText.includes("On Time")) return statusStyles.OnTime;
     if (statusText.includes("Paid Leave")) return statusStyles.paidLeave;
+    if (statusText.includes("Present") || statusText.includes("present")) return statusStyles.Present;
     return statusStyles[statusText];
   };
 

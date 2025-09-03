@@ -20,7 +20,12 @@ import {
   Chip,
   Autocomplete,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Tooltip
 } from '@mui/material';
 import {
   Add,
@@ -30,7 +35,10 @@ import {
   CheckCircle,
   Cancel,
   Event,
-  CalendarToday
+  CalendarToday,
+  Delete,
+  PersonRemove,
+  Assignment
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -54,7 +62,7 @@ const ErrorDisplay = ({ message }) => (
 
 const EmptyState = ({ type }) => (
   <Box p={4} textAlign="center" color="text.secondary">
-    <Typography variant="subtitle1">No {type} holidays found</Typography>
+    <Typography variant="subtitle1">No {type} found</Typography>
   </Box>
 );
 
@@ -64,11 +72,9 @@ const StatusBadge = ({ status, count }) => {
     regular: { color: 'primary', icon: <Event fontSize="small" /> },
     special: { color: 'secondary', icon: <CalendarToday fontSize="small" /> },
     company: { color: 'info', icon: <Event fontSize="small" /> },
-    // Add a default configuration for unknown statuses
     default: { color: 'default', icon: <Event fontSize="small" /> }
   };
 
-  // Use the status config or fall back to default if status is unknown
   const config = statusConfig[status] || statusConfig.default;
 
   return (
@@ -87,9 +93,14 @@ const StatusBadge = ({ status, count }) => {
 const formatDate = (dateString) => {
   try {
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      console.error('Invalid date string:', dateString);
+      return 'Invalid Date';
+    }
     return date.toLocaleDateString('en-US', {
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      year: 'numeric'
     });
   } catch (e) {
     console.error("Error formatting date:", e);
@@ -97,18 +108,20 @@ const formatDate = (dateString) => {
   }
 };
 
-//Label Holiday based on current day
+// Holiday Banner Component
 const HolidayBanner = ({ holidays }) => {
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   
-  // Find holidays that match today's date
   const todaysHolidays = holidays.filter(holiday => {
-    const holidayDate = new Date(holiday.date);
-    return (
-      holidayDate.getDate() === today.getDate() &&
-      holidayDate.getMonth() === today.getMonth() &&
-      holidayDate.getFullYear() === today.getFullYear()
-    );
+    try {
+      const holidayDate = new Date(holiday.date);
+      holidayDate.setHours(0, 0, 0, 0);
+      return holidayDate.getTime() === today.getTime();
+    } catch (e) {
+      console.error('Error parsing holiday date:', e);
+      return false;
+    }
   });
 
   if (todaysHolidays.length === 0) return null;
@@ -121,30 +134,42 @@ const HolidayBanner = ({ holidays }) => {
       gap: 2,
       flexWrap: 'wrap'
     }}>
-      {todaysHolidays.map(holiday => (
-        <Alert 
-          key={holiday.id}
-          severity="info"
-          icon={<Event />}
-          sx={{ 
-            width: '100%',
-            maxWidth: '800px',
-            alignItems: 'center'
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h6" component="span">
-              Today is a {holiday.type} holiday:
-            </Typography>
-            <Typography variant="h6" component="span" fontWeight="bold">
-              {holiday.name}
-            </Typography>
-            <Typography variant="body1" component="span" sx={{ ml: 1 }}>
-              ({format(holiday.date, 'MMMM d, yyyy')})
-            </Typography>
-          </Box>
-        </Alert>
-      ))}
+      {todaysHolidays.map(holiday => {
+        let formattedDate = 'Invalid Date';
+        try {
+          const date = new Date(holiday.date);
+          if (!isNaN(date.getTime())) {
+            formattedDate = format(date, 'MMMM d, yyyy');
+          }
+        } catch (e) {
+          console.error('Error formatting date:', e);
+        }
+        
+        return (
+          <Alert 
+            key={holiday.id}
+            severity="info"
+            icon={<Event />}
+            sx={{ 
+              width: '100%',
+              maxWidth: '800px',
+              alignItems: 'center'
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Typography variant="body1" component="span">
+                Today is a {holiday.type} holiday:
+              </Typography>
+              <Typography variant="body2" component="span" fontWeight="bold">
+                {holiday.name}
+              </Typography>
+              <Typography variant="body2" component="span">
+                ({formattedDate})
+              </Typography>
+            </Box>
+          </Alert>
+        );
+      })}
     </Box>
   );
 };
@@ -205,6 +230,7 @@ const HolidayListTable = ({ data, loading, error, onEdit, onAssign }) => {
                     size="small" 
                     variant="outlined" 
                     onClick={() => onEdit(holiday)}
+                    startIcon={<CalendarToday />}
                   >
                     Edit
                   </Button>
@@ -213,6 +239,7 @@ const HolidayListTable = ({ data, loading, error, onEdit, onAssign }) => {
                     variant="contained" 
                     onClick={() => onAssign(holiday)}
                     sx={{color: 'white !important'}}
+                    startIcon={<Assignment />}
                   >
                     Assign
                   </Button>
@@ -225,8 +252,11 @@ const HolidayListTable = ({ data, loading, error, onEdit, onAssign }) => {
     </Box>
   );
 };
-
-const EmployeeHolidayTable = ({ data, loading, error }) => {
+const capitalizeFirst = (word) => {
+  if (!word) return "";
+  return word.charAt(0).toUpperCase() + word.slice(1);
+};
+const EmployeeHolidayTable = ({ data, loading, error, onUnassign }) => {
   if (loading) return <LoadingIndicator />;
   if (error) return <ErrorDisplay message={error.message} />;
   if (!data?.length) return <EmptyState type="employee holiday assignments" />;
@@ -248,50 +278,60 @@ const EmployeeHolidayTable = ({ data, loading, error }) => {
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Holiday</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Date</th>
             <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Processed By</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {data.map((assignment) => {
-            // Add null checks
-            const employee = assignment.employee || {};
-            const holiday = assignment.holiday || {};
-            
-            return (
-              <tr key={assignment.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
-                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                  {employee.first_name} {employee.last_name}
-                  {employee.email && (
-                    <Typography variant="caption" display="block" color="text.secondary">
-                      {employee.email}
-                    </Typography>
-                  )}
-                </td>
-                <td style={{ padding: '12px 16px' }}>
-                  {employee.position || 'N/A'} 
-                </td>
-                <td style={{ padding: '12px 16px' }}>
-                  {employee.work_arrangement || 'N/A'} 
-                </td>
-                <td style={{ padding: '12px 16px' }}>
-                  {employee.status || 'N/A'} 
-                </td>
-                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                  {holiday.name || 'N/A'}
-                  {holiday.type && (
-                    <Typography variant="caption" display="block" color="text.secondary">
-                      {holiday.type}
-                    </Typography>
-                  )}
-                </td>
-                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                  {holiday.date ? formatDate(holiday.date) : 'N/A'}
-                </td>
-                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                  {assignment.processed_by || 'System'}
-                </td>
-              </tr>
-            );
-          })}
+          {data.map((assignment) => (
+            <tr key={assignment.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
+              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                {assignment.employee_name}
+                {assignment.employee_email && (
+                  <Typography variant="caption" display="block" color="text.secondary">
+                    {assignment.employee_email}
+                  </Typography>
+                )}
+              </td>
+              <td style={{ padding: '12px 16px' }}>
+                {assignment.employee_position || 'N/A'} 
+              </td>
+             <td style={{ padding: '12px 16px' }}>
+                {assignment.employee_work_arrangement 
+                  ? capitalizeFirst(assignment.employee_work_arrangement) 
+                  : 'N/A'}
+              </td>
+              <td style={{ padding: '12px 16px' }}>
+                <Chip 
+                  label={assignment.employee_status || 'N/A'} 
+                  color={assignment.employee_status === 'Active' ? 'success' : 'default'}
+                  size="small"
+                />
+              </td>
+              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                {assignment.holiday_details.name}
+                <Typography variant="caption" display="block" color="text.secondary">
+                  {assignment.holiday_details.type}
+                </Typography>
+              </td>
+              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                {assignment.holiday_details.date}
+              </td>
+              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                {assignment.processed_by || 'System'}
+              </td>
+              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                <Tooltip title="Unassign Holiday">
+                  <IconButton 
+                    size="small" 
+                    color="error"
+                    onClick={() => onUnassign(assignment)}
+                  >
+                    <PersonRemove />
+                  </IconButton>
+                </Tooltip>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </Box>
@@ -303,6 +343,7 @@ const HolidayManagement = () => {
   const [activeTab, setActiveTab] = useState("holidays");
   const [showModal, setShowModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+  const [showUnassignDialog, setShowUnassignDialog] = useState(false);
   const [holidays, setHolidays] = useState([]);
   const [employeeHolidays, setEmployeeHolidays] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -311,6 +352,7 @@ const HolidayManagement = () => {
   const [responseMsg, setResponseMsg] = useState("");
   const [selectedHoliday, setSelectedHoliday] = useState(null);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
+  const [assignmentToUnassign, setAssignmentToUnassign] = useState(null);
   const [assignmentData, setAssignmentData] = useState({
     is_paid: true,
     pay_multiplier: 1.0
@@ -344,18 +386,33 @@ const HolidayManagement = () => {
   };
 
   const fetchEmployeeHolidays = async () => {
-  try {
-    setLoading(true);
-    const response = await api.get("/attendance/employee-holidays/");
-    console.log("Employee holidays response:", response.data); 
-    setEmployeeHolidays(response.data);
-  } catch (err) {
-    console.error("Error details:", err.response?.data); 
-    setError(err);
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      setLoading(true);
+      const response = await api.get("/attendance/employee-holidays/");
+      
+      // Enhance employee holiday data with employee information
+      const enhancedData = response.data.map(assignment => {
+        // Find the employee in the employees list
+        const employee = employees.find(emp => emp.id === assignment.employee);
+        
+        return {
+          ...assignment,
+          employee_name: assignment.employee_name,
+          employee_email: employee ? employee.email : 'N/A',
+          employee_position: employee ? employee.position : 'N/A',
+          employee_work_arrangement: employee ? employee.work_arrangement : 'N/A',
+          employee_status: employee ? employee.status : 'N/A'
+        };
+      });
+      
+      setEmployeeHolidays(enhancedData);
+    } catch (err) {
+      console.error("Error details:", err.response?.data); 
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchEmployees = async () => {
     try {
@@ -365,6 +422,13 @@ const HolidayManagement = () => {
       console.error("Error fetching employees:", err);
     }
   };
+
+  // Update employee holidays when employees data changes
+  useEffect(() => {
+    if (employees.length > 0 && employeeHolidays.length > 0) {
+      fetchEmployeeHolidays();
+    }
+  }, [employees]);
 
   const handleFormChange = (field, value) => {
     setFormData(prev => ({
@@ -404,11 +468,9 @@ const HolidayManagement = () => {
       };
 
       if (selectedHoliday) {
-        // Update existing holiday
         await api.put(`/attendance/holidays/${selectedHoliday.id}/`, payload);
         setResponseMsg("Holiday updated successfully!");
       } else {
-        // Create new holiday
         await api.post("/attendance/holidays/", payload);
         setResponseMsg("Holiday created successfully!");
       }
@@ -440,59 +502,80 @@ const HolidayManagement = () => {
   };
 
   const handleAssignSubmit = async () => {
-  if (!selectedEmployees.length) {
-    setResponseMsg("Please select at least one employee");
-    return;
-  }
+    if (!selectedEmployees.length) {
+      setResponseMsg("Please select at least one employee");
+      return;
+    }
 
-  try {
-    setLoading(true);
-    
-    // Transform payload to match backend expectations
-    const payload = {
-      employee_ids: selectedEmployees.map(e => e.id),
-      is_paid: assignmentData.is_paid,
-      pay_multiplier: parseFloat(assignmentData.pay_multiplier) 
-    };
+    try {
+      setLoading(true);
+      
+      const payload = {
+        employee_ids: selectedEmployees.map(e => e.id),
+        is_paid: assignmentData.is_paid,
+        pay_multiplier: parseFloat(assignmentData.pay_multiplier) 
+      };
 
-    const response = await api.post(
-      `/attendance/holidays/${selectedHoliday.id}/assign/`, 
-      payload,
-      {
-        headers: {
-          'Content-Type': 'application/json'
+      await api.post(
+        `/attendance/holidays/${selectedHoliday.id}/assign/`, 
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      setResponseMsg("Holiday assigned successfully!");
+      fetchEmployeeHolidays();
+      
+      setTimeout(() => {
+        setShowAssignmentModal(false);
+        setResponseMsg("");
+        setSelectedHoliday(null);
+        setSelectedEmployees([]);
+      }, 1500);
+      
+    } catch (err) {
+      let errorMsg = "Error assigning holiday";
+      
+      if (err.response) {
+        if (err.response.data?.existing_assignments) {
+          errorMsg = `Some employees already have this holiday assigned`;
+        } else if (err.response.data?.error) {
+          errorMsg = err.response.data.error;
+        } else if (err.response.data?.message) {
+          errorMsg = err.response.data.message;
         }
       }
-    );
-
-    setResponseMsg("Holiday assigned successfully!");
-    fetchEmployeeHolidays();
-    
-    setTimeout(() => {
-      setShowAssignmentModal(false);
-      setResponseMsg("");
-      setSelectedHoliday(null);
-      setSelectedEmployees([]);
-    }, 1500);
-    
-  } catch (err) {
-    let errorMsg = "Error assigning holiday";
-    
-    if (err.response) {
-      // Handle specific error cases
-      if (err.response.data?.existing_assignments) {
-        errorMsg = `Some employees already have this holiday assigned`;
-      } else if (err.response.data?.error) {
-        errorMsg = err.response.data.error;
-      } else if (err.response.data?.message) {
-        errorMsg = err.response.data.message;
-      }
+      
+      setResponseMsg(errorMsg);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleUnassign = async () => {
+    if (!assignmentToUnassign) return;
     
-    setResponseMsg(errorMsg);
-  } finally {
-    setLoading(false);
-  }
+    try {
+      setLoading(true);
+      // Fixed API endpoint - use the correct URL format
+      await api.delete(`/attendance/employee-holidays/${assignmentToUnassign.id}/`);
+      setResponseMsg("Holiday unassigned successfully!");
+      fetchEmployeeHolidays();
+      
+      setTimeout(() => {
+        setShowUnassignDialog(false);
+        setResponseMsg("");
+        setAssignmentToUnassign(null);
+      }, 1500);
+      
+    } catch (err) {
+      setResponseMsg(err.response?.data?.message || "Error unassigning holiday");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const openEditModal = (holiday) => {
@@ -515,6 +598,11 @@ const HolidayManagement = () => {
     });
     setSelectedEmployees([]);
     setShowAssignmentModal(true);
+  };
+
+  const openUnassignDialog = (assignment) => {
+    setAssignmentToUnassign(assignment);
+    setShowUnassignDialog(true);
   };
 
   const holidayCounts = {
@@ -578,9 +666,10 @@ const HolidayManagement = () => {
             <Tab
               value="assignments"
               label={
-                <Badge badgeContent={employeeHolidays.length} color="primary">
-                  <Typography variant="body2">Assignments</Typography>
-                </Badge>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography variant="body2" sx={{ mr: 2 }}>Assignments</Typography>
+                  <Badge badgeContent={employeeHolidays.length} color="primary" />
+                </Box>
               }
               sx={{ textTransform: 'none' }}
             />
@@ -624,6 +713,7 @@ const HolidayManagement = () => {
                 data={employeeHolidays}
                 loading={loading}
                 error={error}
+                onUnassign={openUnassignDialog}
               />
             )}
           </Box>
@@ -788,6 +878,7 @@ const HolidayManagement = () => {
                       onClick={() => handleDelete(selectedHoliday.id)}
                       disabled={loading}
                       sx={{ mr: 'auto' }}
+                      startIcon={<Delete />}
                     >
                       Delete
                     </Button>
@@ -800,6 +891,7 @@ const HolidayManagement = () => {
                       setSelectedHoliday(null);
                     }}
                     disabled={loading}
+                    startIcon={<Close />}
                   >
                     Cancel
                   </Button>
@@ -809,8 +901,9 @@ const HolidayManagement = () => {
                     type="submit"
                     disabled={loading}
                     sx={{ color: 'white !important' }}
+                    startIcon={loading ? <CircularProgress size={24} /> : <CheckCircle />}
                   >
-                    {loading ? <CircularProgress size={24} /> : 'Save'}
+                    {loading ? 'Saving...' : 'Save'}
                   </Button>
                 </Box>
               </Box>
@@ -886,7 +979,7 @@ const HolidayManagement = () => {
                 <Autocomplete
                   multiple
                   options={employees}
-                  getOptionLabel={(option) => `${option.first_name} ${option.last_name}`}
+                  getOptionLabel={(option) => `${option.first_name} ${option.last_name} (${option.position})`}
                   value={selectedEmployees}
                   onChange={(event, newValue) => {
                     setSelectedEmployees(newValue);
@@ -900,7 +993,7 @@ const HolidayManagement = () => {
                   )}
                   renderOption={(props, option) => (
                     <li {...props} key={option.id}>
-                      {option.first_name} {option.last_name} ({option.department})
+                      {option.first_name} {option.last_name} ({option.position} - {option.department})
                     </li>
                   )}
                   renderTags={(value, getTagProps) =>
@@ -957,6 +1050,7 @@ const HolidayManagement = () => {
                     setSelectedHoliday(null);
                   }}
                   disabled={loading}
+                  startIcon={<Close />}
                 >
                   Cancel
                 </Button>
@@ -966,12 +1060,61 @@ const HolidayManagement = () => {
                   onClick={handleAssignSubmit}
                   disabled={loading || !selectedEmployees.length}
                   sx={{ color: 'white !important' }}
+                  startIcon={loading ? <CircularProgress size={24} /> : <Assignment />}
                 >
-                  {loading ? <CircularProgress size={24} /> : 'Assign Holiday'}
+                  {loading ? 'Assigning...' : 'Assign Holiday'}
                 </Button>
               </Box>
             </Paper>
           </Modal>
+
+          {/* Unassign Confirmation Dialog */}
+          <Dialog
+            open={showUnassignDialog}
+            onClose={() => setShowUnassignDialog(false)}
+            PaperProps={{
+              sx: {
+                borderRadius: 2,
+                boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)'
+              }
+            }}
+          >
+            <DialogTitle sx={{ 
+              backgroundColor: 'primary.main', 
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1
+            }}>
+              <PersonRemove /> Unassign Holiday
+            </DialogTitle>
+            <DialogContent sx={{ mt: 2 }}>
+              {assignmentToUnassign && (
+                <Typography>
+                  Are you sure you want to unassign <strong>{assignmentToUnassign.holiday_details.name}</strong> from <strong>{assignmentToUnassign.employee_name}</strong>?
+                </Typography>
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button 
+                onClick={() => setShowUnassignDialog(false)} 
+                disabled={loading}
+                startIcon={<Close />}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleUnassign} 
+                color="error" 
+                disabled={loading}
+                variant="contained"
+                startIcon={loading ? <CircularProgress size={16} /> : <Delete />}
+                sx={{ color: 'white !important' }}
+              >
+                {loading ? 'Unassigning...' : 'Unassign'}
+              </Button>
+            </DialogActions>
+          </Dialog>
         </LocalizationProvider>
       </Card>
     </SideNavBar>

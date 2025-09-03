@@ -38,7 +38,6 @@ import { format, parse, isValid } from 'date-fns';
 import SideNavBar from "../content_page/nav_bar";
 import '../content_page/css/admintable.css';
 
-// Helper Components
 const LoadingIndicator = () => (
   <Box display="flex" justifyContent="center" p={4}>
     <CircularProgress />
@@ -57,7 +56,6 @@ const EmptyState = ({ type }) => (
   </Box>
 );
 
-// Status Badge Component
 const StatusBadge = ({ status, count }) => {
   const statusConfig = {
     pending: { color: 'warning', icon: <PendingActions fontSize="small" /> },
@@ -65,7 +63,7 @@ const StatusBadge = ({ status, count }) => {
     rejected: { color: 'error', icon: <Cancel fontSize="small" /> }
   };
 
-  return (
+return (
     <Badge badgeContent={count} color={statusConfig[status].color} sx={{ '& .MuiBadge-badge': { right: -15, mt: 1.5 } }}>
       <Stack direction="row" alignItems="center" spacing={1}>
         {statusConfig[status].icon}
@@ -77,7 +75,6 @@ const StatusBadge = ({ status, count }) => {
   );
 };
 
-// Date/Time Formatting Functions
 const formatDate = (dateString) => {
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
@@ -118,7 +115,6 @@ const formatDateTime = (dateString) => {
   });
 };
 
-// Table Components
 const PendingRequestsTable = ({ data, loading, error }) => {
   const flattenRequests = (requests) => {
     if (!requests || !Array.isArray(requests)) return [];
@@ -259,7 +255,7 @@ const ApprovedRequestsTable = ({ data, loading, error }) => {
                 {request?.processed_by || 'System'}
               </td>
               <td style={{ padding: '12px 16px' }}>
-                {request?.admin_remarks || '-'}
+                {request?.admin_remarks || 'No remarks provided'}
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 {formatDate(request?.updated_at) || '-'}
