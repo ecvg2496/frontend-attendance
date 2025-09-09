@@ -398,43 +398,82 @@ const EmployeeAttendanceDashboard = () => {
     return 'timeIn'; // After time out, show time in again for next day
   };
 
+    const calculateTimeDifference = (timeInTime, currentTime) => {
+    if (!timeInTime) return Infinity;
+    
+    try {
+      const timeIn = new Date(`2000-01-01T${timeInTime}`);
+      const current = new Date(`2000-01-01T${currentTime}`);
+      
+      const diffMs = current - timeIn;
+      const diffMinutes = diffMs / (1000 * 60);
+      
+      return diffMinutes;
+    } catch (e) {
+      console.error('Error calculating time difference:', e);
+      return Infinity;
+    }
+  };
+
+
   // Get button config based on next action
   const getButtonConfig = () => {
-    const nextAction = getNextAction();
+  const nextAction = getNextAction();
+  
+  // Calculate if break start should be disabled
+  const isBreakStartDisabled = nextAction === 'breakStart' && todayRecord?.time_in;
+  let disableBreakStart = false;
+  let breakStartTooltip = 'Start your break period';
+  
+  if (isBreakStartDisabled) {
+    const timeInTime = todayRecord.time_in;
+    const currentManilaTime = currentTime.manila.time24; // HH:MM:SS format
+    const timeDiffMinutes = calculateTimeDifference(timeInTime, currentManilaTime);
     
-    const configs = {
-      timeIn: {
-        label: 'Time In',
-        icon: <AccessTimeIcon />,
-        color: 'success',
-        tooltip: 'Record your start time',
-        action: 'timeIn'
-      },
-      breakStart: {
-        label: 'Start Break',
-        icon: <FreeBreakfastIcon />,
-        color: 'info',
-        tooltip: 'Start your break period',
-        action: 'breakStart'
-      },
-      breakEnd: {
-        label: 'End Break',
-        icon: <LunchDiningIcon />,
-        color: 'warning',
-        tooltip: 'End your break period',
-        action: 'breakEnd'
-      },
-      timeOut: {
-        label: 'Time Out',
-        icon: <ExitToAppIcon />,
-        color: 'error',
-        tooltip: 'Record your end time',
-        action: 'timeOut'
-      }
-    };
+    if (timeDiffMinutes < 60) {
+      disableBreakStart = true;
+      const remainingMinutes = Math.ceil(60 - timeDiffMinutes);
+      breakStartTooltip = `Break available in ${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}`;
+    }
+  }
 
-    return configs[nextAction];
+  const configs = {
+    timeIn: {
+      label: 'Time In',
+      icon: <AccessTimeIcon />,
+      color: 'success',
+      tooltip: 'Record your start time',
+      action: 'timeIn',
+      disabled: false
+    },
+    breakStart: {
+      label: 'Start Break',
+      icon: <FreeBreakfastIcon />,
+      color: 'info',
+      tooltip: breakStartTooltip,
+      action: 'breakStart',
+      disabled: disableBreakStart
+    },
+    breakEnd: {
+      label: 'End Break',
+      icon: <LunchDiningIcon />,
+      color: 'warning',
+      tooltip: 'End your break period',
+      action: 'breakEnd',
+      disabled: false
+    },
+    timeOut: {
+      label: 'Time Out',
+      icon: <ExitToAppIcon />,
+      color: 'error',
+      tooltip: 'Record your end time',
+      action: 'timeOut',
+      disabled: false
+    }
   };
+
+  return configs[nextAction];
+};
 
   // Show confirmation dialog
   const showConfirmationDialog = (actionType) => {
@@ -535,40 +574,41 @@ const EmployeeAttendanceDashboard = () => {
 
           {/* Action Button */}
           <Tooltip title={buttonConfig.tooltip} arrow>
-            <Button
-              variant="contained"
-              color={buttonConfig.color}
-              startIcon={buttonConfig.icon}
-              onClick={() => showConfirmationDialog(buttonConfig.action)}
-              disabled={isLoading}
-              sx={{
-                minWidth: 200,
-                height: 50,
-                fontSize: '1.1rem',
-                fontWeight: 'bold',
-                textTransform: 'none',
-                borderRadius: 2,
-                boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-                fontFamily: '"Roboto", sans-serif',
-                '&:hover': {
-                  boxShadow: '0 6px 20px rgba(0,0,0,0.3)',
-                  transform: 'translateY(-1px)'
-                },
-                transition: 'all 0.2s ease-in-out'
-              }}
-            >
-              {buttonConfig.label}
-              {isLoading && (
-                <CircularProgress 
-                  size={24} 
-                  sx={{ 
-                    position: 'absolute',
-                    right: 12,
-                    color: 'inherit'
-                  }} 
-                />
-              )}
-            </Button>
+          <Button
+            variant="contained"
+            color={buttonConfig.color}
+            startIcon={buttonConfig.icon}
+            onClick={() => showConfirmationDialog(buttonConfig.action)}
+            disabled={isLoading || buttonConfig.disabled}
+            sx={{
+              minWidth: 200,
+              height: 50,
+              fontSize: '1.1rem',
+              fontWeight: 'bold',
+              textTransform: 'none',
+              borderRadius: 2,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+              fontFamily: '"Roboto", sans-serif',
+              '&:hover': {
+                boxShadow: buttonConfig.disabled ? '0 4px 16px rgba(0,0,0,0.2)' : '0 6px 20px rgba(0,0,0,0.3)',
+                transform: buttonConfig.disabled ? 'none' : 'translateY(-1px)'
+              },
+              transition: 'all 0.2s ease-in-out',
+              opacity: buttonConfig.disabled ? 0.6 : 1
+            }}
+          >
+            {buttonConfig.label}
+            {isLoading && (
+              <CircularProgress 
+                size={24} 
+                sx={{ 
+                  position: 'absolute',
+                  right: 12,
+                  color: 'inherit'
+                }} 
+              />
+            )}
+          </Button>
           </Tooltip>
         </CardContent>
       </Card>
@@ -1101,12 +1141,12 @@ const EmployeeAttendanceDashboard = () => {
       maxWidth="xs"
       fullWidth
     >
-      <DialogTitle sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: 2,
-        fontFamily: '"Roboto", sans-serif'
-      }}>
+    <DialogTitle sx={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: 2,
+      fontFamily: '"Roboto", sans-serif'
+    }}>
         {confirmDialog.icon}
         <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
           {confirmDialog.title}
@@ -1137,6 +1177,7 @@ const EmployeeAttendanceDashboard = () => {
       </DialogActions>
     </Dialog>
   );
+  
 
   return (
     <SideNavBar>

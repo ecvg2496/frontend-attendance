@@ -213,24 +213,7 @@ const employeeFormConfig = [
         min: 0,
         max: 240,
         defaultValue: 60
-    },
-    {
-        name: "hourly_rate",
-        label: "Hourly Rate",
-        type: "text",
-        inputProps: {
-            pattern: "[0-9]*",
-        },
-    },
-    {
-        name: "daily_rate",
-        label: "Daily Rate",
-        type: "number",
-        inputProps: {
-            pattern: "[0-9]*",
-            readOnly: true,
-        },
-    },
+    }
 ];
 
 function applyConditionalLogic(config) {

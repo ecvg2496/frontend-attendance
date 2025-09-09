@@ -97,10 +97,6 @@ function AttendanceDashboard() {
     switch(tabIndex) {
       case 0: filtered = employees; break;
       case 1: filtered = employees.filter(emp => emp.status === "Newly Hired"); break;
-      case 2: filtered = employees.filter(emp => emp.status === "Probation"); break;
-      case 3: filtered = employees.filter(emp => emp.status === "Resigned"); break;
-      case 4: filtered = employees.filter(emp => emp.status === "Training"); break;
-      case 5: filtered = employees.filter(emp => emp.status === "Floating"); break;
       default: filtered = employees;
     }
     setFilteredEmployees(filtered);
@@ -653,10 +649,6 @@ function AttendanceDashboard() {
                 >
                   <Tab label="Employee" />
                   <Tab label="Newly Hired" />
-                  <Tab label= "Probation" />
-                  <Tab label="Resigned" />
-                  <Tab label="Training" />
-                  <Tab label="Floating" />
                 </Tabs>
   
                 <Box>
@@ -705,126 +697,6 @@ function AttendanceDashboard() {
                       </Box>
                     </TabPanel>
                   )}
-                  {selectedTab === 2 && (
-                    <TabPanel>
-                      <Typography variant="h4" color="primary" gutterBottom sx={{ fontWeight: 600 }}>
-                       Probation Employees
-                      </Typography>
-                      <Box sx={{
-                        width: '100%',
-                        overflowX: 'auto',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        '& .container': {
-                          minWidth: '100%',
-                          margin: 0,  
-                          padding: 0
-                        },
-                        '& .responsive-table': {
-                          minWidth: '100%',
-                          width: '100%'
-                        }
-                      }}>
-                        <ProbationEmployeeTable 
-                          employees={filteredEmployees} 
-                          loading={loading} 
-                          error={error} 
-                          onEditClick={handleEditClick}
-                          onStatusChange={handleStatusChange}
-                          onEmploymentTypeChange={handleEmploymentTypeChange} />
-                      </Box>
-                    </TabPanel>
-                  )}
-                  {selectedTab === 3 && (
-                    <TabPanel>
-                      <Typography variant="h4" color="primary" gutterBottom sx={{ fontWeight: 600 }}>
-                        Resigned Employees
-                      </Typography>
-                      <Box sx={{
-                        width: '100%',
-                        overflowX: 'auto',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        '& .container': {
-                          minWidth: '100%',
-                          margin: 0,
-                          padding: 0
-                        },
-                        '& .responsive-table': {
-                          minWidth: '100%',
-                          width: '100%'
-                        }
-                      }}>
-                        <ResignedEmployeeTable
-                         employees={filteredEmployees}
-                         loading={loading}     
-                         error={error}         
-                         onEditClick={handleEditClick}
-                         onStatusChange={handleStatusChange}
-                         onEmploymentTypeChange={handleEmploymentTypeChange}  />
-                      </Box>
-                    </TabPanel>
-                  )}
-                  {selectedTab === 4 && ( <TabPanel>
-                      <Typography variant="h4" color="primary" gutterBottom sx={{ fontWeight: 600 }}>
-                        Training Employees
-                      </Typography>
-                      <Box sx={{
-                        width: '100%',
-                        overflowX: 'auto',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        '& .container': {
-                          minWidth: '100%',
-                          margin: 0,
-                          padding: 0
-                        },
-                        '& .responsive-table': {
-                          minWidth: '100%',
-                          width: '100%'
-                        }
-                      }}>
-                        <TrainingEmployeeTable
-                         employees={filteredEmployees}
-                         loading={loading}     
-                         error={error}         
-                         onEditClick={handleEditClick}
-                         onStatusChange = {handleStatusChange}
-                         onEmploymentTypeChange={handleEmploymentTypeChange} />
-                      </Box>
-                    </TabPanel>)}
-                  {selectedTab === 5 && ( <TabPanel>
-                    <Typography variant="h4" color="primary" gutterBottom sx={{ fontWeight: 600 }}>
-                        Floating Employees
-                      </Typography>
-                      <Box sx={{
-                        width: '100%',
-                        overflowX: 'auto',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        '& .container': {
-                          minWidth: '100%',
-                          margin: 0,
-                          padding: 0
-                        },
-                        '& .responsive-table': {
-                          minWidth: '100%',
-                          width: '100%'
-                        }
-                      }}>
-                        <FloatingEmployeeTable
-                         employees={filteredEmployees}
-                         loading={loading}     
-                         error={error}         
-                         onEditClick={handleEditClick}
-                         onStatusChange={handleStatusChange}
-                        onEmploymentTypeChange={handleEmploymentTypeChange} />
-                      </Box>
-                  </TabPanel>)}
                 </Box>
               </MDBox>
             </Card>

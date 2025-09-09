@@ -131,6 +131,11 @@ const StatusBadge = ({ status, clickable = false, isClient = false }) => {
   );
 };
 
+const capitalizeFirstLetter = (str) => {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
 // Employee Table Component
 const EmployeeTable = ({ employees, loading, error, onEditClick, onStatusChange }) => {
   // ... (keep existing state and handlers)
@@ -214,7 +219,7 @@ const EmployeeTable = ({ employees, loading, error, onEditClick, onStatusChange 
                 {/* <StatusBadge status={employee.type} /> */}
                 {employee.type}
                  <div>
-                      {employee.work_arrangement}
+                      {capitalizeFirstLetter(employee.work_arrangement)}
                  </div>
               </td>
               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>

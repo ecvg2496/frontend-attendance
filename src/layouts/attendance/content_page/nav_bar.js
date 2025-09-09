@@ -706,7 +706,7 @@ const SideNavBar = ({ children }) => {
   const drawerItems = useMemo(() => [
     { 
       icon: <ColoredPersonIcon fontSize="large" />, 
-      text: 'Edit Profile', 
+      text: 'Profile', 
       route: '/attendance/user/profile' 
     },
     { 
@@ -743,20 +743,15 @@ const SideNavBar = ({ children }) => {
       text: 'Timesheet', 
       route: '/attendance/user/timesheet' 
     },
-    {
-      icon: <TuneIcon style={{ color: '#00B4D8' }} fontSize="large" />,
-      text: 'Schedule Request',
-      route: '/attendance/user/schedule-request'
-    },
     { 
       icon: <ColoredTimeToLeaveIcon fontSize="large" />, 
       text: 'Leave Request', 
       route: '/attendance/user/leave' 
     },
     {
-      icon: <BuildIcon style={{ color: '#ff9800' }} fontSize="large" />,
-      text: 'Diagnostic',
-      route: '/attendance/user/diagnostic'
+      icon: <TuneIcon style={{ color: '#00B4D8' }} fontSize="large" />,
+      text: 'Schedule Request',
+      route: '/attendance/user/schedule-request'
     },
   ], [pendingCounts.total, holidayDetails.total, collapsed]);
 
@@ -1048,7 +1043,7 @@ const SideNavBar = ({ children }) => {
                   
                   {/* Recent Notifications Section */}
                   <Box px={3} py={2}>
-                    <Typography variant="h6" color="primary" gutterBottom>
+                    <Typography variant="h5" color="primary" gutterBottom>
                       Recent Notifications
                     </Typography>
                     {notifications.length > 0 ? (
@@ -1238,7 +1233,7 @@ const SideNavBar = ({ children }) => {
                   {/* Recent Holiday Notifications Section */}
                   <Box px={3} py={2}>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
-                      <Typography variant="h6" color="primary" gutterBottom>
+                      <Typography variant="h5" color="primary" gutterBottom>
                         Holiday Schedule
                       </Typography>
                       <IconButton 

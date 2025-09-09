@@ -826,41 +826,7 @@ const AttendanceAdminActivities = () => {
                     </Button>
                   </Box>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                  <Chip 
-                    label={`${stats.totalLogs} Records`}
-                    color="info" 
-                    variant="outlined" 
-                    icon={<PersonIcon fontSize="small" />} 
-                    size="small"
-                    sx={{ fontSize: '1.2rem' }}
-                  />
-                  <Chip 
-                    label={`${stats.present} Present`}
-                    color="success" 
-                    variant="outlined" 
-                    icon={<PresentIcon fontSize="small" />} 
-                    size="small"
-                    sx={{ fontSize: '1.2rem' }}
-                  />
-                  <Chip 
-                    label={`${stats.late} Late`}
-                    color="warning" 
-                    variant="outlined" 
-                    icon={<LateIcon fontSize="small" />} 
-                    size="small"
-                    sx={{ fontSize: '1.2rem' }}
-                  />
-                  <Chip 
-                    label={`${stats.absent} Absent`}
-                    color="error" 
-                    variant="outlined" 
-                    icon={<AbsentIcon fontSize="small" />} 
-                    size="small"
-                    sx={{ fontSize: '1.2rem' }}
-                  />
-                </Box>
-
+               
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
                   <Button
                     variant="contained"
@@ -930,90 +896,6 @@ const AttendanceAdminActivities = () => {
                       Export Excel
                     </Button>
                   </Box>
-                </Box>
-                
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
-                  <Card sx={{ p: 2 }}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Attendance Overview</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Records:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{stats.totalLogs}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Present:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#4CAF50' }}>
-                          {stats.present} ({stats.presentPercentage}%)
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Leaves:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.leave} ({stats.leavePercentage}%)
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Floating Holidays:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.floating} ({stats.floatingPercentage}%)
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Absent:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#F44336' }}>
-                          {stats.absent} ({stats.absentPercentage}%)
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Card>
-                  
-                  <Card sx={{ p: 2 }}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Time Compliance</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Late Arrivals:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.late}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Undertime Days:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.undertime}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Undertime:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-                          {stats.totalUndertimeHours} hours
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Make Up Hours:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-                          {stats.totalMakeupHours} hours
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Card>
-                  
-                  <Card sx={{ p: 2 }}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Overtime</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Overtime Days:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#4CAF50' }}>
-                          {stats.overtime}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Overtime:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-                          {stats.totalOvertimeHours} hours
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Card>
                 </Box>
                 
                 <Box sx={{

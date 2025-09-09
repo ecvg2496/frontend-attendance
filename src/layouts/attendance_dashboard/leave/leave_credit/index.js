@@ -29,13 +29,16 @@ import {
   Grid,
   Radio, RadioGroup,
   FormControlLabel,
-  InputAdornment 
+  InputAdornment,
+  Switch 
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Person as PersonIcon,
   Clear as ClearIcon,
   Business as BusinessIcon,
+  Visibility as ViewIcon,
+  Add as AddIcon,
   CheckCircle,
   MoreVert,
   Check,
@@ -932,6 +935,386 @@ const LeaveCreditTable = ({
   );
 };
 
+const LeaveTypesManagement = ({ loading, error, refreshData }) => {
+  const [leaveTypes, setLeaveTypes] = useState([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingType, setEditingType] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    max_days_per_year: 0,
+    is_paid: true,
+    requires_approval: true,
+    is_active: true
+  });
+  const [processing, setProcessing] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  const fetchLeaveTypes = async () => {
+    try {
+      const response = await axiosPrivate.get('attendance/leave-types/');
+      setLeaveTypes(response.data);
+    } catch (error) {
+      console.error('Error fetching leave types:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch leave types',
+        severity: 'error'
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchLeaveTypes();
+  }, []);
+
+  const handleOpenDialog = (type = null) => {
+    if (type) {
+      setEditingType(type);
+      setFormData({
+        name: type.name,
+        description: type.description || '',
+        max_days_per_year: type.max_days_per_year,
+        is_paid: type.is_paid,
+        requires_approval: type.requires_approval,
+        is_active: type.is_active
+      });
+    } else {
+      setEditingType(null);
+      setFormData({
+        name: '',
+        description: '',
+        max_days_per_year: 0,
+        is_paid: true,
+        requires_approval: true,
+        is_active: true
+      });
+    }
+    setDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    setEditingType(null);
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSubmit = async () => {
+    try {
+      setProcessing(true);
+      
+      if (editingType) {
+        await axiosPrivate.put(`attendance/leave-types/${editingType.id}/`, formData);
+        setSnackbar({
+          open: true,
+          message: 'Leave type updated successfully',
+          severity: 'success'
+        });
+      } else {
+        await axiosPrivate.post('attendance/leave-types/', formData);
+        setSnackbar({
+          open: true,
+          message: 'Leave type created successfully',
+          severity: 'success'
+        });
+      }
+      
+      await fetchLeaveTypes();
+      handleCloseDialog();
+    } catch (error) {
+      console.error('Error saving leave type:', error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'Failed to save leave type',
+        severity: 'error'
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      setProcessing(true);
+      await axiosPrivate.delete(`attendance/leave-types/${id}/`);
+      setSnackbar({
+        open: true,
+        message: 'Leave type deleted successfully',
+        severity: 'success'
+      });
+      await fetchLeaveTypes();
+    } catch (error) {
+      console.error('Error deleting leave type:', error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'Failed to delete leave type',
+        severity: 'error'
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleToggleActive = async (id, currentStatus) => {
+    try {
+      setProcessing(true);
+      await axiosPrivate.post(`attendance/leave-types/${id}/toggle_active/`);
+      setSnackbar({
+        open: true,
+        message: `Leave type ${currentStatus ? 'deactivated' : 'activated'} successfully`,
+        severity: 'success'
+      });
+      await fetchLeaveTypes();
+    } catch (error) {
+      console.error('Error toggling leave type status:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to toggle leave type status',
+        severity: 'error'
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (loading) return <Box display="flex" justifyContent="center" p={2}><CircularProgress size={24} /></Box>;
+  if (error) return <Box p={1}><Alert severity="error">{error}</Alert></Box>;
+
+  return (
+    <Box>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h5">Leave Types Management</Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => handleOpenDialog()}
+          sx={{ color: 'white !important' }}
+        >
+          Add Leave Type
+        </Button>
+      </Box>
+
+      <Box width="100%" overflow="auto">
+        <table style={{ 
+          width: '100%',
+          minWidth: '1000px',
+          borderCollapse: 'collapse',
+          fontSize: '0.875rem'
+        }}>
+          <thead>
+            <tr style={{ backgroundColor: '#00B4D8', color: 'white', textAlign: 'left' }}>
+              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Name</th>
+              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Description</th>
+              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Max Days/Year</th>
+              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Paid</th>
+              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Requires Approval</th>
+              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Status</th>
+              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Created By</th>
+              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Date Modified</th>
+              <th style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {leaveTypes.length === 0 ? (
+              <tr>
+                <td colSpan={9} style={{ padding: '20px', textAlign: 'center' }}>
+                  <Alert severity="info">No leave types found</Alert>
+                </td>
+              </tr>
+            ) : (
+              leaveTypes.map((type) => (
+                <tr key={type.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                  <td style={{ padding: '12px 16px' }}>{type.name}</td>
+                  <td style={{ padding: '12px 16px' }}>{type.description || '-'}</td>
+                  <td style={{ padding: '12px 16px', textAlign: 'center' }}>{type.max_days_per_year}</td>
+                  <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                    <Chip
+                      label={type.is_paid ? 'Yes' : 'No'}
+                      color={type.is_paid ? 'success' : 'default'}
+                      size="small"
+                    />
+                  </td>
+                  <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                    <Chip
+                      label={type.requires_approval ? 'Yes' : 'No'}
+                      color={type.requires_approval ? 'primary' : 'default'}
+                      size="small"
+                    />
+                  </td>
+                  <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                    <Chip
+                      label={type.is_active ? 'Active' : 'Inactive'}
+                      color={type.is_active ? 'success' : 'error'}
+                      size="small"
+                    />
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>{type.created_by || 'System'}</td>
+                  <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                    {formatDate(type.updated_at)}
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <Box display="flex" gap={1}>
+                      <Tooltip title="Edit">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpenDialog(type)}
+                          disabled={processing}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title={type.is_active ? 'Deactivate' : 'Activate'}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleToggleActive(type.id, type.is_active)}
+                          disabled={processing}
+                          color={type.is_active ? 'warning' : 'success'}
+                        >
+                          <Switch
+                            size="small"
+                            checked={type.is_active}
+                            onChange={() => handleToggleActive(type.id, type.is_active)}
+                          />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDelete(type.id)}
+                          disabled={processing}
+                          color="error"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </Box>
+
+      {/* Add/Edit Dialog */}
+      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+        <DialogTitle>
+          {editingType ? 'Edit Leave Type' : 'Add New Leave Type'}
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Name"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Description"
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Maximum Days per Year"
+                value={formData.max_days_per_year}
+                onChange={(e) => handleInputChange('max_days_per_year', parseInt(e.target.value) || 0)}
+                inputProps={{ min: 0 }}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.is_paid}
+                    onChange={(e) => handleInputChange('is_paid', e.target.checked)}
+                  />
+                }
+                label="Paid Leave"
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.requires_approval}
+                    onChange={(e) => handleInputChange('requires_approval', e.target.checked)}
+                  />
+                }
+                label="Requires Approval"
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.is_active}
+                    onChange={(e) => handleInputChange('is_active', e.target.checked)}
+                  />
+                }
+                label="Active"
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog} disabled={processing}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
+            disabled={processing || !formData.name.trim()}
+            startIcon={processing ? <CircularProgress size={20} /> : null}
+          >
+            {processing ? 'Processing...' : editingType ? 'Update' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+          severity={snackbar.severity}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
+  );
+};
+
 
  const LeaveApplications = ({ clients, loading, error, refreshData }) => { 
   const [selectedLeave, setSelectedLeave] = useState(null);
@@ -1011,10 +1394,9 @@ const LeaveCreditTable = ({
         const payload = {
             status: 'approved',
             remarks: remarks,
-            is_paid: isBirthdayLeave ? true : isPaid,  // Birthday leave is always paid
+            is_paid: isBirthdayLeave ? true : isPaid,  
             approval_date: processedAt,
             processed_by: processedBy,
-            // Include these additional fields to help with log creation
             start_date: selectedLeave.start_date,
             end_date: selectedLeave.end_date,
             leave_type: selectedLeave.leave_type,
@@ -1354,13 +1736,6 @@ const LeaveCreditTable = ({
                     </Box>
                   </td>
 
-                   {/* <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                       <Box>
-                        <Box fontWeight={500}> {formatTimeProfessional(client?.) || ""}</Box> to
-                        <Box fontWeight={500}> {formatTimeProfessional(client?.time_out) || ""}</Box>
-                      </Box>   
-                  </td> */}
-
                   <td style={{ padding: '12px 16px' }}>{client.leave_type}</td>
                   <td style={{ padding: '12px 16px'}}>
                     {formatDisplayDate(client.start_date)} to {formatDisplayDate(client.end_date)}
@@ -1479,7 +1854,7 @@ export default function BrowserUsersTable() {
   const [previousBalances, setPreviousBalances] = useState({});
   const navigate = useNavigate();
   const isAdmin = () => {
-        const employeeData = localStorage.getItem("employee");
+  const employeeData = localStorage.getItem("employee");
         if (employeeData) {
           const employee = JSON.parse(employeeData);
           return employee.is_admin === 1 || employee.is_admin === true || employee.is_admin === "1";
@@ -1492,9 +1867,19 @@ export default function BrowserUsersTable() {
         if (!isAdmin()) {
           navigate('/authentication/sign-in/');
         } 
-  }, [navigate]);
+      }, [navigate]);
   
-      const fetchData = async () => {
+  //automatically stores new URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    
+    if (tabParam === 'requests') {
+      setActiveTab(1); // Set to Leave Requests tab
+    }
+  }, []);  
+
+  const fetchData = async () => {
     try {
       setLoading(true);
       if (activeTab === 0) {
@@ -1652,6 +2037,15 @@ useEffect(() => {
     setSearchTerm('');
     setActiveLetter(null);
     setSelectedEmployees([]);
+    
+    // Update URL with tab parameter
+    const newUrl = new URL(window.location);
+    if (newValue === 1) {
+      newUrl.searchParams.set('tab', 'requests');
+    } else {
+      newUrl.searchParams.delete('tab');
+    }
+    window.history.replaceState({}, '', newUrl);
   };
 
   return (
@@ -1662,7 +2056,7 @@ useEffect(() => {
             Leave Management
           </Typography>
           
-          <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2 }}>
+            <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2 }}>
             <Tab label="Leave Credits" icon={<PersonIcon fontSize="small" />} iconPosition="start" />
             <Tab label="Leave Requests" icon={<BusinessIcon fontSize="small" />} iconPosition="start" />
           </Tabs>
@@ -1702,7 +2096,6 @@ useEffect(() => {
             </Box>
           </Box>
           
-          <Divider sx={{ my: 2 }} />
           
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2, justifyContent: 'center' }}>
             {alphabet.map(letter => (
@@ -1726,7 +2119,6 @@ useEffect(() => {
             ))}
           </Box>
           
-          <Divider sx={{ my: 2 }} />
           
           {activeTab === 0 ? (
             <LeaveCreditTable
@@ -1747,6 +2139,13 @@ useEffect(() => {
               refreshData={fetchData}
             />
           )}
+            {activeTab === 2 && (
+              <LeaveTypesManagement
+                loading={loading}
+                error={error}
+                refreshData={fetchData}
+              />
+            )}
         </Box>
       </Card>
 

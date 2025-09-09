@@ -801,17 +801,21 @@ const GlobalSideNav = ({ children }) => {
   }, [navigate, isMobile]);
 
   const handleNotificationClick = useCallback((type, requestId) => {
-    // Navigate to appropriate page based on notification type
+    // Navigate to appropriate page based on notification type with tab parameter
     switch(type) {
+      
       case 'leave':
-        navigate(`/attendance/admin/leave-credit/${requestId}`);
+        navigate('/attendance/admin/leave-credit?tab=requests');
         break;
+
       case 'schedule':
-        navigate(`/attendance/admin/schedule/${requestId}`);
+        navigate('/attendance/admin/schedule?tab=requests');
         break;
+
       case 'makeup':
-        navigate(`/attendance/admin/makeup-requests/${requestId}`);
+        navigate('/attendance/admin/client?tab=makeup');
         break;
+
       default:
         break;
     }
@@ -819,8 +823,7 @@ const GlobalSideNav = ({ children }) => {
   }, [navigate]);
 
   const handleHolidayNotificationClick = useCallback((type, holidayId) => {
-    // Navigate to holiday management page
-    navigate(`/attendance/admin/holiday-management/${type}`);
+    navigate('/attendance/admin/holiday-assignment?tab=holidays');
     setNotificationOpen(false);
   }, [navigate]);
 
@@ -847,9 +850,9 @@ const GlobalSideNav = ({ children }) => {
   const clientSubMenuItems = useMemo(() => [
     { icon: <ColoredDashboardIcon />, text: 'Dashboard', route: '/attendance/admin/client' },
     { icon: <ColoredHistoryIcon />, text: 'Activities History', route: '/attendance/admin/activities-history' },
-    { icon: <ColoredPersonAddIcon />, text: 'Create User', route: '/attendance/admin/employee' },
-    { icon: <ColoredPeopleIcon />, text: 'Browse Users', route: '/attendance/admin/dashboard/browse' },
-    { icon: <ColoredPeopleIcon />, text: 'Assign Users', route: '/attendance/admin/assign-users' },
+    { icon: <ColoredPersonAddIcon />, text: 'Employee', route: '/attendance/admin/employee' },
+    { icon: <ColoredPeopleIcon />, text: 'Browse Employee', route: '/attendance/admin/dashboard/browse' },
+    { icon: <ColoredPeopleIcon />, text: 'Assign Employee', route: '/attendance/admin/assign-users' },
     { icon: <EventBusyIcon color="error" />, text: 'Absences & Late', route: '/attendance/admin/calendar' },
     { icon: <ColoredTimeToLeaveIcon />, text: 'Leave', route: '/attendance/admin/leave-credit'},
     { icon: <ColoredSyncIcon />, text: 'Schedule Request', route: '/attendance/admin/schedule' },
