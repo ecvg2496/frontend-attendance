@@ -191,7 +191,30 @@ const formatBreakDuration = (durationMinutes) => {
 };
 
 // Status Filter Modal Component
-const StatusFilterModal = ({ open, onClose, statusFilters, onFilterChange }) => {
+const StatusFilterModal = ({ open, onClose, statusFilters, onFilterChange, onApplyFilters }) => {
+  const [tempFilters, setTempFilters] = useState(statusFilters);
+
+  useEffect(() => {
+    setTempFilters(statusFilters);
+  }, [statusFilters, open]);
+
+  const handleFilterChange = (status) => {
+    setTempFilters(prev => ({
+      ...prev,
+      [status]: !prev[status]
+    }));
+  };
+
+  const handleApply = () => {
+    onApplyFilters(tempFilters);
+    onClose();
+  };
+
+  const handleClose = () => {
+    setTempFilters(statusFilters);
+    onClose();
+  };
+
   const statusOptions = [
     { value: 'Present', label: 'Present' },
     { value: 'Late', label: 'Late' },
@@ -203,27 +226,40 @@ const StatusFilterModal = ({ open, onClose, statusFilters, onFilterChange }) => 
   ];
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Filter by Status</DialogTitle>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <DialogTitle variant="h5" color="primary" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        Filter by Status
+        <IconButton onClick={handleClose} size="small">
+          <ClearIcon />
+        </IconButton>
+      </DialogTitle>
       <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2}}>
           {statusOptions.map((option) => (
             <FormControlLabel
               key={option.value}
               control={
                 <Checkbox
-                  checked={statusFilters[option.value] || false}
-                  onChange={() => onFilterChange(option.value)}
+                  checked={tempFilters[option.value] || false}
+                  onChange={() => handleFilterChange(option.value)}
                   color="primary"
                 />
               }
               label={option.label}
+               sx={{ 
+                color: 'black !important',
+                '& .MuiFormControlLabel-label': {
+                  color: 'black !important'
+              }}}
             />
           ))}
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} color="primary">
+        <Button onClick={handleClose} color="primary">
+          Cancel
+        </Button>
+        <Button onClick={handleApply} variant="contained" color="primary" sx={{color: 'white !important'}}>
           Apply Filters
         </Button>
       </DialogActions>
@@ -368,8 +404,8 @@ const DailyAttendanceTable = ({
               const client = clientData[log.employee] || {};
               const clientInitials = getInitialClientName(client.name);
               const clientName = client.name || 'Not assigned';
-              const clientEmail = employee?.time_in && employee?.time_out 
-                ? `${formatTimeToAMPM(employee?.time_in)} - ${formatTimeToAMPM(employee?.time_out)}` 
+              const clientEmail = client?.start_time && client?.end_time 
+                ? `${formatTimeToAMPM(client?.start_time)} - ${formatTimeToAMPM(client?.end_time)}` 
                 : '';
 
               return (
@@ -528,7 +564,16 @@ const AttendanceAdminLogs = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const itemsPerPage = 5;
-  const [statusFilters, setStatusFilters] = useState({
+  const [tempStatusFilters, setTempStatusFilters] = useState({
+    Present: true,
+    Late: true,
+    Absent: true,
+    Leave: true,
+    Floating: true,
+    Undertime: true,
+    Overtime: true,
+  });
+  const [appliedStatusFilters, setAppliedStatusFilters] = useState({
     Present: true,
     Late: true,
     Absent: true,
@@ -567,25 +612,25 @@ const AttendanceAdminLogs = () => {
       filtered = filtered.filter(log => log.employee === selectedEmployee.id);
     }
     
-    // Apply status filters
+    // Apply status filters - use appliedStatusFilters instead of tempStatusFilters
     filtered = filtered.filter(log => {
       if (!log.status) return false;
       
-      if (log.status === 'Present' && !statusFilters.Present) return false;
-      if (log.status === 'Leave' && !statusFilters.Leave) return false;
-      if (log.status === 'Floating' && !statusFilters.Floating) return false;
-      if (log.status === 'Absent' && !statusFilters.Absent) return false;
+      const status = log.status.toLowerCase();
       
-      // Check time statuses
-      if (log.time_in_status === 'Late' && !statusFilters.Late) return false;
-      if (log.time_out_status === 'Undertime' && !statusFilters.Undertime) return false;
-      if (log.overtime && log.overtime > 0 && !statusFilters.Overtime) return false;
+      if (status.includes('present') && !appliedStatusFilters.Present) return false;
+      if (status.includes('leave') && !appliedStatusFilters.Leave) return false;
+      if (status.includes('floating') && !appliedStatusFilters.Floating) return false;
+      if (status.includes('absent') && !appliedStatusFilters.Absent) return false;
+      if (status.includes('late') && !appliedStatusFilters.Late) return false;
+      if (status.includes('undertime') && !appliedStatusFilters.Undertime) return false;
+      if (status.includes('overtime') && !appliedStatusFilters.Overtime) return false;
       
       return true;
     });
     
     return filtered;
-  }, [logsData, selectedEmployee, statusFilters]);
+  }, [logsData, selectedEmployee, appliedStatusFilters]);
 
   // For Daily Logs tab - show only today's records with filtering
   const dailyLogsData = useMemo(() => {
@@ -649,7 +694,7 @@ const AttendanceAdminLogs = () => {
   useEffect(() => {
     setCurrentPage(1);
     setOverviewPage(1);
-  }, [selectedEmployee, statusFilters]);
+  }, [selectedEmployee, appliedStatusFilters]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -771,155 +816,166 @@ const AttendanceAdminLogs = () => {
     };
   };
 
+  const capitalizeFirstLetter = (str) => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+
   const exportToExcel = (dataToExport) => {
-  if (!dataToExport.length) return;
+    if (!dataToExport.length) return;
 
-  // Group logs by employee
-  const logsByEmployee = {};
-  dataToExport.forEach(log => {
-    const employeeId = log.employee;
-    if (!logsByEmployee[employeeId]) {
-      logsByEmployee[employeeId] = [];
-    }
-    logsByEmployee[employeeId].push(log);
-  });
+    // Group logs by employee
+    const logsByEmployee = {};
+    dataToExport.forEach(log => {
+      const employeeId = log.employee;
+      if (!logsByEmployee[employeeId]) {
+        logsByEmployee[employeeId] = [];
+      }
+      logsByEmployee[employeeId].push(log);
+    });
 
-  // Create workbook
-  const wb = XLSX.utils.book_new();
+    // Create workbook
+    const wb = XLSX.utils.book_new();
 
-  // Define common headers for all sheets - UPDATED HEADERS
-  const headers = [
-    'Date',
-    'Employee Name',
-    'Department / Team', // Combined Department and Team
-    'Time In',
-    'Time In Status',
-    'Break Start',
-    'Break End',
-    'Break Status',
-    'Break Duration',
-    'Time Out',
-    'Time Out Status',
-    'Status',
-    'Undertime Hours',
-    'Overtime Hours',
-    'Make up Hours'
-  ];
-
-  // Create a worksheet for each employee
-  Object.entries(logsByEmployee).forEach(([employeeId, employeeLogs]) => {
-    const employee = employeeLogs[0]?.employee_details;
-    const employeeName = employee ? `${employee.first_name} ${employee.last_name}` : 'Unknown Employee';
-    
-    // Calculate total work hours for this employee's logs
-    const totalWorkHours = employeeLogs.reduce((total, log) => {
-      return total + (parseFloat(log.work_hours) || 0);
-    }, 0);
-    
-    const excelData = employeeLogs.map(log => [
-      formatDisplayDate(log.date),
-      employeeName, // Employee Name
-      employee?.department && employee?.team 
-        ? `${employee.department} / ${employee.team}` 
-        : employee?.department || employee?.team || '', 
-      formatTimeProfessional(log.time_in),
-      log.time_in_status || '',
-      formatTimeProfessional(log.start_break),
-      formatTimeProfessional(log.end_break),
-      log.start_break ? 'Taken' : 'Missed',
-      `${log.break_duration || 0} mins`,
-      formatTimeProfessional(log.time_out),
-      log.time_out_status || '',
-      log.status || 'Absent',
-      log.undertime_hours || '0',
-      formatMinutesToHours(log.overtime) || '0',
-      log.make_up_hours || "0"
-    ]);
-
-    // Combine employee info, column headers, and data
-    const worksheetData = [
-      [`Employee: ${employeeName}`], // Employee name header
-      [`Employment Type: ${employee?.employment_type || ''}`],
-      [`Total Work Hours: ${totalWorkHours.toFixed(2)}`], // Total work hours from logs
-      [], 
-      headers, 
-      ...excelData 
+    // Define common headers for all sheets - UPDATED HEADERS
+    const headers = [
+      'Date',
+      'Employee Name',
+      'Department / Team',
+      'Time In',
+      'Time In Status',
+      'Break Start',
+      'Break End',
+      'Break Status',
+      'Break Duration',
+      'Time Out',
+      'Time Out Status',
+      'Status',
+      'Undertime Hours',
+      'Overtime Hours',
+      'Make up Hours'
     ];
 
-    const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+    // Create a worksheet for each employee
+    Object.entries(logsByEmployee).forEach(([employeeId, employeeLogs]) => {
+      const employee = employeeLogs[0]?.employee_details;
+      const employeeName = employee ? `${employee.first_name} ${employee.last_name}` : 'Unknown Employee';
+      
+      // Calculate total work hours for this employee's logs
+      const totalWorkHours = employeeLogs.reduce((total, log) => {
+        return total + (parseFloat(log.work_hours) || 0);
+      }, 0);
+      
+      const excelData = employeeLogs.map(log => [
+        formatDisplayDate(log.date),
+        employeeName, // Employee Name
+        employee?.department && employee?.team 
+          ? `${employee.department} / ${employee.team}` 
+          : employee?.department || employee?.team || '', 
+        formatTimeProfessional(log.time_in),
+        log.time_in_status || '',
+        formatTimeProfessional(log.start_break),
+        formatTimeProfessional(log.end_break),
+        log.start_break ? 'Taken' : 'Missed',
+        `${log.break_duration || 0} mins`,
+        formatTimeProfessional(log.time_out),
+        log.time_out_status || '',
+        log.status || 'Absent',
+        log.undertime_hours || '0',
+        formatMinutesToHours(log.overtime) || '0',
+        log.make_up_hours || "0"
+      ]);
+
+      // Combine employee info, column headers, and data
+      const worksheetData = [
+        [`Employee: ${employeeName}`], 
+        [`Employment Type: ${capitalizeFirstLetter(employee?.employment_type || '')}`],
+        [`Schedule: ${formatTimeProfessional(employee?.time_in || "N/A")} - ${formatTimeProfessional(employee?.time_out)}`]
+        [`Total Work Hours: ${totalWorkHours.toFixed(2)}`], 
+        [], 
+        headers, 
+        ...excelData 
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+      
+      // Merge cells for the employee info headers
+      if (!ws['!merges']) ws['!merges'] = [];
+      ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 14 } }); 
+      ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 14 } }); 
+      ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 14 } }); 
+      ws['!merges'].push({ s: { r: 2, c: 0 }, e: { r: 2, c: 14 } }); 
+      
+      // Set column widths
+      const colWidths = [
+        { wch: 25 }, { wch: 25 }, { wch: 20 }, // Date, Name, Dept/Team
+        { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, // Time In, Status, Break Start/End
+        { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, // Break Status, Duration, Time Out, Status
+        { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }  // Status, Undertime, Overtime, Makeup
+      ];
+      ws['!cols'] = colWidths;
+
+      // Add worksheet to workbook with employee name as sheet name
+      const sheetName = employeeName.substring(0, 31);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+
+    // Create a summary sheet with all employees
+    const summaryData = dataToExport.map(log => {
+      const employee = log.employee_details;
+      const employeeName = employee ? `${employee.first_name} ${employee.last_name}` : 'Unknown';
+      
+      return [
+        formatDisplayDate(log.date),
+        employeeName,
+        employee?.department && employee?.team 
+          ? `${employee.department} / ${employee.team}` 
+          : employee?.department || employee?.team || '',
+        formatTimeProfessional(log.time_in),
+        log.time_in_status || '',
+        formatTimeProfessional(log.start_break),
+        formatTimeProfessional(log.end_break),
+        log.start_break ? 'Taken' : 'Missed',
+        `${log.break_duration || 0} mins`,
+        formatTimeProfessional(log.time_out),
+        log.time_out_status || '',
+        capitalizeFirstLetter(log.status || 'Absent'),
+        log.undertime_hours || '0',
+        formatMinutesToHours(log.overtime) || '0',
+        log.make_up_hours || "0"
+      ];
+    });
+
+    const summaryWorksheetData = [headers, ...summaryData];
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryWorksheetData);
     
-    // Merge cells for the employee info headers
-    if (!ws['!merges']) ws['!merges'] = [];
-    ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 14 } }); // Employee name
-    ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 14 } }); // Employment Type
-    ws['!merges'].push({ s: { r: 2, c: 0 }, e: { r: 2, c: 14 } }); // Work Hours
-    
-    // Set column widths
-    const colWidths = [
-      { wch: 25 }, { wch: 25 }, { wch: 20 }, // Date, Name, Dept/Team
-      { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, // Time In, Status, Break Start/End
+    const summaryColWidths = [
+      { wch: 26 }, { wch: 27 }, { wch: 25 }, // Date, Name, Dept/Team
+      { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, // Time In, Status, Break Start/End
       { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, // Break Status, Duration, Time Out, Status
       { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }  // Status, Undertime, Overtime, Makeup
     ];
-    ws['!cols'] = colWidths;
+    summaryWs['!cols'] = summaryColWidths;
 
-    // Add worksheet to workbook with employee name as sheet name
-    const sheetName = employeeName.substring(0, 31);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  });
+    XLSX.utils.book_append_sheet(wb, summaryWs, "All Employees Summary");
 
-  // Create a summary sheet with all employees
-  const summaryData = dataToExport.map(log => {
-    const employee = log.employee_details;
-    const employeeName = employee ? `${employee.first_name} ${employee.last_name}` : 'Unknown';
-    
-    return [
-      formatDisplayDate(log.date),
-      employeeName,
-      employee?.department && employee?.team 
-        ? `${employee.department} / ${employee.team}` 
-        : employee?.department || employee?.team || '',
-      formatTimeProfessional(log.time_in),
-      log.time_in_status || '',
-      formatTimeProfessional(log.start_break),
-      formatTimeProfessional(log.end_break),
-      log.start_break ? 'Taken' : 'Missed',
-      `${log.break_duration || 0} mins`,
-      formatTimeProfessional(log.time_out),
-      log.time_out_status || '',
-      log.status || 'Absent',
-      log.undertime_hours || '0',
-      formatMinutesToHours(log.overtime) || '0',
-      log.make_up_hours || "0"
-    ];
-  });
+    // Generate file name
+    const fileName = selectedEmployee 
+      ? `${selectedEmployee.first_name}_${selectedEmployee.last_name}_Attendance.xlsx`
+      : "All_Employees_Attendance.xlsx";
 
-  const summaryWorksheetData = [headers, ...summaryData];
-  const summaryWs = XLSX.utils.aoa_to_sheet(summaryWorksheetData);
-  
-  const summaryColWidths = [
-    { wch: 26 }, { wch: 27 }, { wch: 25 }, // Date, Name, Dept/Team
-    { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, // Time In, Status, Break Start/End
-    { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, // Break Status, Duration, Time Out, Status
-    { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }  // Status, Undertime, Overtime, Makeup
-  ];
-  summaryWs['!cols'] = summaryColWidths;
-
-  XLSX.utils.book_append_sheet(wb, summaryWs, "All Employees Summary");
-
-  // Generate file name
-  const fileName = selectedEmployee 
-    ? `${selectedEmployee.first_name}_${selectedEmployee.last_name}_Attendance.xlsx`
-    : "All_Employees_Attendance.xlsx";
-
-  XLSX.writeFile(wb, fileName);
-};
+    XLSX.writeFile(wb, fileName);
+  };
 
   const handleStatusFilterChange = (status) => {
-    setStatusFilters(prev => ({
+    setTempStatusFilters(prev => ({
       ...prev,
       [status]: !prev[status]
     }));
+  };
+
+  const handleApplyFilters = (filters) => {
+    setAppliedStatusFilters(filters);
   };
 
   const handleEmployeeSelect = (event, newValue) => {
@@ -927,6 +983,21 @@ const AttendanceAdminLogs = () => {
   };
 
   const clearEmployeeFilter = () => {
+    setSelectedEmployee(null);
+  };
+
+  const clearAllFilters = () => {
+    const allTrueFilters = {
+      Present: true,
+      Late: true,
+      Absent: true,
+      Leave: true,
+      Floating: true,
+      Undertime: true,
+      Overtime: true,
+    };
+    setAppliedStatusFilters(allTrueFilters);
+    setTempStatusFilters(allTrueFilters);
     setSelectedEmployee(null);
   };
 
@@ -1027,6 +1098,14 @@ const AttendanceAdminLogs = () => {
                     >
                       Filter
                     </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<ClearIcon />}
+                      onClick={clearAllFilters}
+                      size="small"
+                    >
+                      Clear Filters
+                    </Button>
                   </Box>
                 </Box>
          
@@ -1119,6 +1198,14 @@ const AttendanceAdminLogs = () => {
                     >
                       Filter
                     </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<ClearIcon />}
+                      onClick={clearAllFilters}
+                      size="small"
+                    >
+                      Clear Filters
+                    </Button>
                   </Box>
                 </Box>
 
@@ -1180,8 +1267,9 @@ const AttendanceAdminLogs = () => {
         <StatusFilterModal
           open={filterModalOpen}
           onClose={() => setFilterModalOpen(false)}
-          statusFilters={statusFilters}
+          statusFilters={tempStatusFilters}
           onFilterChange={handleStatusFilterChange}
+          onApplyFilters={handleApplyFilters}
         />
 
         {/* Log Details Modal */}

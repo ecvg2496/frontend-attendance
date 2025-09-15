@@ -383,7 +383,6 @@ function AttendanceDashboard() {
       [!formData.first_name, "Please fill out first name."],
       [formData.first_name?.trim().length < 2, "First name should have at least 2 letters."],
       [!formData.middle_name, "Please fill out middle name."],
-      [formData.middle_name?.trim().length < 2, "Middle Name name should have at least 2 letters."],
       [!formData.email, "Please fill out email."],
       [!emailPattern.test(formData.email), "Invalid email address."],
       [!formData.contact_number, "Please fill out contact number."],

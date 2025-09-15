@@ -518,7 +518,7 @@ const AdminProfile = ({ onClose }) => {
           </Grid>
         ) : (
           <Typography variant="h5" color="black">
-            Do not forget to change your password.
+            Do not forget to change your password frequently.
           </Typography>
         )}
       </Box>

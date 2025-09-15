@@ -173,107 +173,7 @@ const ClientTable = ({
 
   return (
     <Box width="100%" overflow="auto" position="relative">
-      {/* A-Z Filter and Search */}
-      <Box sx={{ 
-        mb: 2, 
-        display: 'flex', 
-        flexDirection: 'column', 
-        gap: 1 
-      }}>
-        {/* A-Z Filter Row */}
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: 0.5,
-          flexWrap: 'wrap',
-          backgroundColor: '#f5f5f5',
-          p: 1,
-          borderRadius: 1
-        }}>
-          <Typography variant="body2" sx={{ fontWeight: 'bold', mr: 1 }}>
-            Filter:
-          </Typography>
-          <ToggleButtonGroup
-            value={azFilter}
-            exclusive
-            onChange={handleAzFilterChange}
-            aria-label="A-Z filter"
-            size="small"
-            sx={{ gap: 0.5 }}
-          >
-            <ToggleButton 
-              value="all" 
-              aria-label="Show all"
-              sx={{ 
-                minWidth: '32px', 
-                height: '32px',
-                padding: '0 8px',
-                fontSize: '0.75rem',
-                fontWeight: 'bold',
-                border: '1px solid #ddd !important'
-              }}
-            >
-              ALL
-            </ToggleButton>
-            {[...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(letter => (
-              <ToggleButton 
-                key={letter} 
-                value={letter} 
-                aria-label={`Show ${letter}`}
-                sx={{ 
-                  minWidth: '24px', 
-                  height: '24px',
-                  padding: '0 4px',
-                  fontSize: '0.7rem',
-                  border: '1px solid #ddd !important'
-                }}
-              >
-                {letter}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
-        </Box>
-
-        {/* Search and Counter Row */}
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: 2,
-          justifyContent: 'space-between'
-        }}>
-          <TextField
-            placeholder="Search employees..."
-            value={filterText}
-            onChange={handleFilterChange}
-            size="small"
-            sx={{ minWidth: '250px' }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <PersonAdd fontSize="small" />
-                </InputAdornment>
-              ),
-              endAdornment: filterText && (
-                <InputAdornment position="end">
-                  <IconButton
-                    aria-label="Clear search"
-                    onClick={clearFilter}
-                    edge="end"
-                    size="small"
-                  >
-                    <Close fontSize="small" />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-          
-          <Typography variant="body2" color="textSecondary">
-            Showing {filteredAndSortedClients.length} of {clients.length} clients
-          </Typography>
-        </Box>
-      </Box>
-
+     
       <table style={{ 
         width: '100%',
         minWidth: '1200px',
@@ -1010,7 +910,7 @@ const AttendanceAdminClient = () => {
                     {selectedEmployee && (
                     <>
                       <Grid item xs={12}>
-                        <Typography variant="h6" gutterBottom>
+                        <Typography variant="h6" color="primary" gutterBottom>
                           Schedule Details
                         </Typography>
                         <Paper variant="outlined" sx={{ p: 2 }}>
@@ -1471,7 +1371,7 @@ const AttendanceAdminClient = () => {
                   {activeTab === 1 && (
                     <Grid container spacing={3}>
                       <Grid item xs={12}>
-                        <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: theme.palette.text.primary }}>
+                        <Typography variant="subtitle1" color="primary" gutterBottom sx={{ fontWeight: 'bold'}}>
                           Working Hours
                         </Typography>
                         {clientFormData.client_type !== 'Project' && (

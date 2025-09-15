@@ -56,6 +56,7 @@ import LocalActivityIcon from '@mui/icons-material/LocalActivity';
 import CloseIcon from '@mui/icons-material/Close';
 import EventBusyIcon from '@mui/icons-material/EventBusy';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import QueryBuilderIcon from "@mui/icons-material/QueryBuilder";
 import { dataService } from "global/function";
 import Pusher from 'pusher-js';
 import { formatDistanceToNow } from 'date-fns';
@@ -850,12 +851,13 @@ const GlobalSideNav = ({ children }) => {
   const clientSubMenuItems = useMemo(() => [
     { icon: <ColoredDashboardIcon />, text: 'Dashboard', route: '/attendance/admin/client' },
     { icon: <ColoredHistoryIcon />, text: 'Activities History', route: '/attendance/admin/activities-history' },
-    { icon: <ColoredPersonAddIcon />, text: 'Employee', route: '/attendance/admin/employee' },
+    // { icon: <QueryBuilderIcon color="primary" />, text: 'Timesheet', route: '/attendance/admin/timesheet' },
+    { icon: <ColoredPersonAddIcon />, text: 'Employee Info', route: '/attendance/admin/employee' },
     { icon: <ColoredPeopleIcon />, text: 'Browse Employee', route: '/attendance/admin/dashboard/browse' },
-    { icon: <ColoredPeopleIcon />, text: 'Assign Employee', route: '/attendance/admin/assign-users' },
+    { icon: <ColoredPeopleIcon />, text: 'Clients', route: '/attendance/admin/assign-users' },
     { icon: <EventBusyIcon color="error" />, text: 'Absences & Late', route: '/attendance/admin/calendar' },
     { icon: <ColoredTimeToLeaveIcon />, text: 'Leave', route: '/attendance/admin/leave-credit'},
-    { icon: <ColoredSyncIcon />, text: 'Schedule Request', route: '/attendance/admin/schedule' },
+    { icon: <ColoredSyncIcon />, text: 'Schedule', route: '/attendance/admin/schedule' },
     { icon: <ColoredEventAvailableIcon />, text: 'Assign Holiday', route: '/attendance/admin/holiday-assignment' },
     { icon: <ColoredEventAvailableIcon />, text: 'Manage PTO', route: '/attendance/admin/pto' },
   ], []);

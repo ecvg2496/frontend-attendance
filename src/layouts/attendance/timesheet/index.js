@@ -48,35 +48,29 @@ const isWeekend = (date) => {
   return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
 };
 
-const getLastBusinessDayOfMonth = (year, month) => {
-  const lastDay = new Date(year, month + 1, 0);
-  let currentDate = new Date(lastDay);
-  while (isWeekend(currentDate)) {
-    currentDate.setDate(currentDate.getDate() - 1);
-  }
-  return currentDate;
-};
-
 const getTwoWeekPeriods = (currentDate = new Date()) => {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   
+  // First period: 1st to 15th (inclusive)
   const firstPeriodStart = new Date(year, month, 1);
-  let firstPeriodEnd = new Date(year, month, 15);
+  const firstPeriodEnd = new Date(year, month, 15);
   
-  if (isWeekend(firstPeriodEnd)) {
-    firstPeriodEnd = new Date(firstPeriodEnd);
-    while (isWeekend(firstPeriodEnd)) {
-      firstPeriodEnd.setDate(firstPeriodEnd.getDate() - 1);
-    }
-  }
-  
+  // Second period: 16th to last day of month
   const secondPeriodStart = new Date(year, month, 16);
-  const secondPeriodEnd = getLastBusinessDayOfMonth(year, month);
+  const secondPeriodEnd = new Date(year, month + 1, 0); // Last day of month
   
   return [
-    { start: firstPeriodStart, end: firstPeriodEnd, label: `1-${firstPeriodEnd.getDate()}` },
-    { start: secondPeriodStart, end: secondPeriodEnd, label: `16-${secondPeriodEnd.getDate()}` }
+    { 
+      start: firstPeriodStart, 
+      end: firstPeriodEnd, 
+      label: `1-15`
+    },
+    { 
+      start: secondPeriodStart, 
+      end: secondPeriodEnd, 
+      label: `16-${secondPeriodEnd.getDate()}` 
+    }
   ];
 };
 
@@ -267,7 +261,15 @@ const AttendanceUserTimesheet = () => {
     if (!currentPeriodRange) return data;
     return data.filter(log => {
       const logDate = new Date(log.date);
-      return logDate >= currentPeriodRange.start && logDate <= currentPeriodRange.end;
+      logDate.setHours(0, 0, 0, 0); // Normalize time for comparison
+      
+      const startDate = new Date(currentPeriodRange.start);
+      startDate.setHours(0, 0, 0, 0);
+      
+      const endDate = new Date(currentPeriodRange.end);
+      endDate.setHours(23, 59, 59, 999); // Include the entire end date
+      
+      return logDate >= startDate && logDate <= endDate;
     });
   };
 
@@ -386,7 +388,7 @@ const AttendanceUserTimesheet = () => {
         
         setEmployeeData(emp);
         
-        const logsRes = await axios.get(`attendance/logs/?employee_id=${emp.id}`);
+        const logsRes = await axios.get(`attendance/timesheet/?employee_id=${emp.id}`);
         
         if (!logsRes.data?.logs) {
           throw new Error('Invalid logs data format');
@@ -452,17 +454,6 @@ const AttendanceUserTimesheet = () => {
       month: "long",
       day: "numeric",
     });
-  };
-  const getModalIcon = (type) => {
-    switch(type) {
-      case 'Present': return <PresentIconModal sx={{ fontSize: 40, color: '#2ecc71' }} />;
-      case 'Absent': return <AbsentIconModal sx={{ fontSize: 40, color: '#e74c3c' }} />;
-      case 'Late': return <LateIconModal sx={{ fontSize: 40, color: '#f39c12' }} />;
-      case 'Overtime': return <OvertimeIconModal sx={{ fontSize: 40, color: '#9b59b6' }} />;
-      case 'Undertime': return <UndertimeIconModal sx={{ fontSize: 40, color: '#95a5a6' }} />;
-      case 'Leave': return <LeaveIconModal sx={{ fontSize: 40, color: '#3498db' }} />;
-      default: return <PresentIconModal sx={{ fontSize: 40, color: '#2ecc71' }} />;
-    }
   };
   
   return (
@@ -659,7 +650,7 @@ const AttendanceUserTimesheet = () => {
         
 
         {/* Summary Modal */}
-            <Dialog 
+        <Dialog 
           open={summaryModalOpen} 
           onClose={() => setSummaryModalOpen(false)} 
           maxWidth="sm" 
@@ -681,8 +672,7 @@ const AttendanceUserTimesheet = () => {
             justifyContent: 'space-between'
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              {getModalIcon(summaryModalData.type)}
-              <Typography variant="h6" sx={{ ml: 2, fontWeight: 'bold' }}>
+              <Typography variant="h5" color="white" sx={{ ml: 2, fontWeight: 'bold' }}>
                 {summaryModalData.type} Dates
               </Typography>
             </Box>
@@ -702,7 +692,8 @@ const AttendanceUserTimesheet = () => {
                   textAlign: 'center',
                   py: 1,
                   borderRadius: 2,
-                  fontWeight: 'medium'
+                  fontWeight: 'small',
+                  color: 'black !important'
                 }}>
                   Total of <Box component="span" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
                     {summaryModalData.dates.length}
@@ -771,7 +762,8 @@ const AttendanceUserTimesheet = () => {
                 borderRadius: 2,
                 px: 3,
                 textTransform: 'none',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                color: 'white !important'
               }}
             >
               Close
