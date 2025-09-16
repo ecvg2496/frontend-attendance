@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { 
   Avatar,
@@ -26,7 +26,12 @@ import {
   TextField,
   InputAdornment,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  Autocomplete,
+  Popper,
+  ListItem,
+  ListItemText,
+  ListItemAvatar
 } from '@mui/material';
 import { 
   Today as TodayIcon,
@@ -44,7 +49,8 @@ import {
   WorkOff as LeaveIcon,
   Error as ErrorIcon,
   Search as SearchIcon,
-  FilterList as FilterListIcon
+  FilterList as FilterListIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -75,8 +81,11 @@ const StatusBadge = ({ status, isDuration, duration }) => {
     if (statusText.includes("Overbreak")) return statusStyles.Overbreak;
     if (statusText.includes("On Time")) return statusStyles.OnTime;
     if (statusText.includes("Paid Leave")) return statusStyles.paidLeave;
+    if (statusText.includes("Completed") || statusText.includes("completed")) return statusStyles.Completed;
+    if (statusText.includes("Absent") || statusText.includes("absent")) return statusStyles.Absent;
+    if (statusText.includes("Present") || statusText.includes("present")) return statusStyles.Present;
     return statusStyles[statusText];
-  };
+    };
 
   const statusStyles = {
     Active: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
@@ -84,8 +93,9 @@ const StatusBadge = ({ status, isDuration, duration }) => {
     Leave: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
     Floating: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
     Present: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
+    Completed: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
     Working: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
-    Overtime: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
+    Overtime: { background: 'linear-gradient(to right, #4CAF50, 81C784)', color: 'white' },
     Late: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
     Undertime: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
     Absent: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
@@ -114,7 +124,7 @@ const StatusBadge = ({ status, isDuration, duration }) => {
 
 // Time Formatter Component
 const formatTimeProfessional = (timeString) => {
-  if (!timeString) return '--:--';
+  if (!timeString) return '';
   
   try {
     const time = new Date(`2000-01-01T${timeString}`);
@@ -144,7 +154,7 @@ const formatDisplayDate = (dateString) => {
 
 //Convert time to AM / PM
 const formatTimeToAMPM = (timeString) => {
-  if (!timeString) return '--:--';
+  if (!timeString) return '';
   
   try {
     const [hours, minutes] = timeString.split(':');
@@ -181,7 +191,30 @@ const formatBreakDuration = (durationMinutes) => {
 };
 
 // Status Filter Modal Component
-const StatusFilterModal = ({ open, onClose, statusFilters, onFilterChange }) => {
+const StatusFilterModal = ({ open, onClose, statusFilters, onFilterChange, onApplyFilters }) => {
+  const [tempFilters, setTempFilters] = useState(statusFilters);
+
+  useEffect(() => {
+    setTempFilters(statusFilters);
+  }, [statusFilters, open]);
+
+  const handleFilterChange = (status) => {
+    setTempFilters(prev => ({
+      ...prev,
+      [status]: !prev[status]
+    }));
+  };
+
+  const handleApply = () => {
+    onApplyFilters(tempFilters);
+    onClose();
+  };
+
+  const handleClose = () => {
+    setTempFilters(statusFilters);
+    onClose();
+  };
+
   const statusOptions = [
     { value: 'Present', label: 'Present' },
     { value: 'Late', label: 'Late' },
@@ -193,31 +226,79 @@ const StatusFilterModal = ({ open, onClose, statusFilters, onFilterChange }) => 
   ];
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Filter by Status</DialogTitle>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <DialogTitle variant="h5" color="primary" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        Filter by Status
+        <IconButton onClick={handleClose} size="small">
+          <ClearIcon />
+        </IconButton>
+      </DialogTitle>
       <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2}}>
           {statusOptions.map((option) => (
             <FormControlLabel
               key={option.value}
               control={
                 <Checkbox
-                  checked={statusFilters[option.value] || false}
-                  onChange={() => onFilterChange(option.value)}
+                  checked={tempFilters[option.value] || false}
+                  onChange={() => handleFilterChange(option.value)}
                   color="primary"
                 />
               }
               label={option.label}
+               sx={{ 
+                color: 'black !important',
+                '& .MuiFormControlLabel-label': {
+                  color: 'black !important'
+              }}}
             />
           ))}
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} color="primary">
+        <Button onClick={handleClose} color="primary">
+          Cancel
+        </Button>
+        <Button onClick={handleApply} variant="contained" color="primary" sx={{color: 'white !important'}}>
           Apply Filters
         </Button>
       </DialogActions>
     </Dialog>
+  );
+};
+
+// Custom Popper for Autocomplete
+const CustomPopper = (props) => {
+  return <Popper {...props} placement="bottom-start" style={{ zIndex: 9999 }} />;
+};
+
+// Employee Option Component for Autocomplete
+const EmployeeOption = ({ employee }) => {
+  const fullName = `${employee.first_name} ${employee.last_name}`;
+  const departmentTeam = `${employee.department || ''} ${employee.department && employee.team ? '-' : ''} ${employee.team || ''}`.trim();
+
+  return (
+    <ListItem component="div" sx={{ py: 1 }}>
+      <ListItemAvatar>
+        <Avatar 
+          sx={{ 
+            bgcolor: '#1976d2', 
+            width: 32, 
+            height: 32, 
+            fontSize: 14,
+            color: 'white'
+          }}
+        >
+          {employee.first_name?.charAt(0)}{employee.last_name?.charAt(0)}
+        </Avatar>
+      </ListItemAvatar>
+      <ListItemText
+        primary={fullName}
+        secondary={departmentTeam}
+        primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 500 }}
+        secondaryTypographyProps={{ fontSize: '0.8rem', color: 'text.secondary' }}
+      />
+    </ListItem>
   );
 };
 
@@ -307,6 +388,7 @@ const DailyAttendanceTable = ({
             <th scope="col" style={{ padding: '8px 12px', textAlign: 'left', fontSize: '1.1rem' }}>Client</th>
             <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Time In/Out</th>
             <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Break</th>
+            <th scope="col" style={{ padding: '8px 12px', fontSize: '1.1rem'}}>Work Hours</th>
           </tr>
         </thead>
         <tbody>
@@ -322,8 +404,8 @@ const DailyAttendanceTable = ({
               const client = clientData[log.employee] || {};
               const clientInitials = getInitialClientName(client.name);
               const clientName = client.name || 'Not assigned';
-              const clientEmail = employee?.time_in && employee?.time_out 
-                ? `${formatTimeToAMPM(employee?.time_in)} - ${formatTimeToAMPM(employee?.time_out)}` 
+              const clientEmail = client?.start_time && client?.end_time 
+                ? `${formatTimeToAMPM(client?.start_time)} - ${formatTimeToAMPM(client?.end_time)}` 
                 : '';
 
               return (
@@ -420,18 +502,12 @@ const DailyAttendanceTable = ({
                         <span style={{ fontSize: '1rem' }}>
                           {log.time_in ? formatTimeProfessional(log.time_in) : ''}
                         </span>
-                        {/* {log.time_in_status && (
-                          <StatusBadge status={log.time_in_status} />
-                        )} */}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <OvertimeIcon fontSize="medium" color="action" />
                         <span style={{ fontSize: '1rem' }}>
                           {log.time_out ? formatTimeProfessional(log.time_out) : ''}
                         </span>
-                        {log.time_out_status && (
-                          <StatusBadge status={log?.time_out_status} />
-                        )}
                       </div>
                     </div>
                   </td>
@@ -449,12 +525,22 @@ const DailyAttendanceTable = ({
                         <span style={{ fontSize: '1rem' }}>
                           {log.end_break ? formatTimeProfessional(log.end_break) : ''}
                         </span>
-                        {log.end_break && (
-                          <StatusBadge status={log.break_status} />
-                        )}
+                  
                       </div>
                     </div> 
                   </td>
+
+                  <td data-title="Work Hours" style={{ padding: '8px 12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <ClockIcon fontSize="medium" color="action" />
+                        <span style={{ fontSize: '1rem' }}>
+                          {log.work_hours} hrs
+                        </span>
+                      </div>
+                    </div> 
+                  </td>
+
                 </tr>
               );
             })}
@@ -476,8 +562,18 @@ const AttendanceAdminLogs = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [overviewPage, setOverviewPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
   const itemsPerPage = 5;
-  const [statusFilters, setStatusFilters] = useState({
+  const [tempStatusFilters, setTempStatusFilters] = useState({
+    Present: true,
+    Late: true,
+    Absent: true,
+    Leave: true,
+    Floating: true,
+    Undertime: true,
+    Overtime: true,
+  });
+  const [appliedStatusFilters, setAppliedStatusFilters] = useState({
     Present: true,
     Late: true,
     Absent: true,
@@ -505,9 +601,40 @@ const AttendanceAdminLogs = () => {
     } 
   }, [navigate]);
 
-  // Filter data based on current Philippine time, search term, and status filters
-  const filterData = (data) => {
-    let filtered = [...data];
+  // Memoized filtered data for better performance
+  const filteredData = useMemo(() => {
+    if (!logsData.length) return [];
+    
+    let filtered = [...logsData];
+    
+    // Apply employee filter if selected
+    if (selectedEmployee) {
+      filtered = filtered.filter(log => log.employee === selectedEmployee.id);
+    }
+    
+    // Apply status filters - use appliedStatusFilters instead of tempStatusFilters
+    filtered = filtered.filter(log => {
+      if (!log.status) return false;
+      
+      const status = log.status.toLowerCase();
+      
+      if (status.includes('present') && !appliedStatusFilters.Present) return false;
+      if (status.includes('leave') && !appliedStatusFilters.Leave) return false;
+      if (status.includes('floating') && !appliedStatusFilters.Floating) return false;
+      if (status.includes('absent') && !appliedStatusFilters.Absent) return false;
+      if (status.includes('late') && !appliedStatusFilters.Late) return false;
+      if (status.includes('undertime') && !appliedStatusFilters.Undertime) return false;
+      if (status.includes('overtime') && !appliedStatusFilters.Overtime) return false;
+      
+      return true;
+    });
+    
+    return filtered;
+  }, [logsData, selectedEmployee, appliedStatusFilters]);
+
+  // For Daily Logs tab - show only today's records with filtering
+  const dailyLogsData = useMemo(() => {
+    if (!filteredData.length) return [];
     
     // Get current Philippine date
     const currentDate = getCurrentPhilippineDate();
@@ -515,7 +642,7 @@ const AttendanceAdminLogs = () => {
     // Group logs by employee and keep only the latest log for each
     const employeeLogsMap = {};
     
-    filtered.forEach(log => {
+    filteredData.forEach(log => {
       const logDate = new Date(log.date);
       const employeeId = log.employee;
       
@@ -527,10 +654,10 @@ const AttendanceAdminLogs = () => {
     });
     
     // Convert back to array
-    filtered = Object.values(employeeLogsMap);
+    const latestLogs = Object.values(employeeLogsMap);
     
     // Filter to show only logs from today or incomplete logs from yesterday
-    filtered = filtered.filter(log => {
+    return latestLogs.filter(log => {
       const logDate = new Date(log.date);
       const isToday = logDate.toDateString() === currentDate.toDateString();
       const isYesterday = new Date(logDate.getTime() + 86400000).toDateString() === currentDate.toDateString();
@@ -540,73 +667,34 @@ const AttendanceAdminLogs = () => {
       // 2. It's from yesterday and has time_in but no time_out
       return isToday || (isYesterday && log.time_in && !log.time_out);
     });
-    
-    // Apply search term filter if needed
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(log => {
-        if (!log.employee_details) return false;
-        
-        const firstName = log.employee_details.first_name?.toLowerCase() || '';
-        const lastName = log.employee_details.last_name?.toLowerCase() || '';
-        const email = log.employee_details.email?.toLowerCase() || '';
-        
-        return (
-          firstName.includes(searchLower) ||
-          lastName.includes(searchLower) ||
-          email.includes(searchLower) ||
-          `${firstName} ${lastName}`.includes(searchLower) ||
-          `${lastName} ${firstName}`.includes(searchLower)
-        );
-      });
-    }
-    
-    // Apply status filters
-    filtered = filtered.filter(log => {
-      if (!log.status) return false;
-      
-      if (log.status === 'Present' && !statusFilters.Present) return false;
-      if (log.status === 'Leave' && !statusFilters.Leave) return false;
-      if (log.status === 'Floating' && !statusFilters.Floating) return false;
-      if (log.status === 'Absent' && !statusFilters.Absent) return false;
-      
-      // Check time statuses
-      if (log.time_in_status === 'Late' && !statusFilters.Late) return false;
-      if (log.time_out_status === 'Undertime' && !statusFilters.Undertime) return false;
-      if (log.overtime && log.overtime > 0 && !statusFilters.Overtime) return false;
-      
-      return true;
-    });
-    
-    return filtered;
-  };
+  }, [filteredData]);
 
-  const handleStatusFilterChange = (status) => {
-    setStatusFilters(prev => ({
-      ...prev,
-      [status]: !prev[status]
-    }));
-  };
-
-  const filteredData = filterData(logsData);
+  // For Overview tab - show all records with filtering
+  const overviewData = useMemo(() => {
+    return [...filteredData].sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [filteredData]);
 
   // Paginate the data for Attendance Logs tab
-  const paginatedData = filteredData.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const paginatedDailyData = useMemo(() => {
+    return dailyLogsData.slice(
+      (currentPage - 1) * itemsPerPage,
+      currentPage * itemsPerPage
+    );
+  }, [dailyLogsData, currentPage, itemsPerPage]);
 
   // Paginate the data for Overview tab
-  const paginatedOverviewData = filteredData.slice(
-    (overviewPage - 1) * itemsPerPage,
-    overviewPage * itemsPerPage
-  );
+  const paginatedOverviewData = useMemo(() => {
+    return overviewData.slice(
+      (overviewPage - 1) * itemsPerPage,
+      overviewPage * itemsPerPage
+    );
+  }, [overviewData, overviewPage, itemsPerPage]);
 
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
     setOverviewPage(1);
-  }, [searchTerm, statusFilters]);
+  }, [selectedEmployee, appliedStatusFilters]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -728,45 +816,189 @@ const AttendanceAdminLogs = () => {
     };
   };
 
-  const exportToExcel = () => {
-    const dataToExport = filteredData;
+  const capitalizeFirstLetter = (str) => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+
+  const exportToExcel = (dataToExport) => {
     if (!dataToExport.length) return;
-  
-    const excelData = dataToExport.map(log => ({
-      'Date': formatDisplayDate(log.date),
-      'Employee Name': log.employee_details ? `${log.employee_details.first_name} ${log.employee_details.last_name}` : 'Unknown',
-      'Time In': formatTimeProfessional(log.time_in),
-      'Time In Status': log.time_in_status || '',
-      'Break Start': formatTimeProfessional(log.start_break),
-      'Break End': formatTimeProfessional(log.end_break),
-      'Break Status': log.start_break ? 'Taken' : 'Missed',
-      'Break Duration': `${log.break_duration || 0} mins`,
-      'Time Out': formatTimeProfessional(log.time_out),
-      'Time Out Status': log.time_out_status || '',
-      'Status': log.status || 'Absent',
-      'Undertime Hours': log.undertime_hours || '0',
-      'Overtime Hours': formatMinutesToHours(log.overtime) || '0',
-      'Make up Hours': log.make_up_hours || "0"
-    }));
-  
-    const ws = XLSX.utils.json_to_sheet(excelData);
-    
-    const colWidths = [
-      { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, 
-      { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, 
-      { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, 
-      { wch: 25 }
-    ];
-    ws['!cols'] = colWidths;
-    
+
+    // Group logs by employee
+    const logsByEmployee = {};
+    dataToExport.forEach(log => {
+      const employeeId = log.employee;
+      if (!logsByEmployee[employeeId]) {
+        logsByEmployee[employeeId] = [];
+      }
+      logsByEmployee[employeeId].push(log);
+    });
+
+    // Create workbook
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Attendance Logs");
+
+    // Define common headers for all sheets - UPDATED HEADERS
+    const headers = [
+      'Date',
+      'Employee Name',
+      'Department / Team',
+      'Time In',
+      'Time In Status',
+      'Break Start',
+      'Break End',
+      'Break Status',
+      'Break Duration',
+      'Time Out',
+      'Time Out Status',
+      'Status',
+      'Undertime Hours',
+      'Overtime Hours',
+      'Make up Hours'
+    ];
+
+    // Create a worksheet for each employee
+    Object.entries(logsByEmployee).forEach(([employeeId, employeeLogs]) => {
+      const employee = employeeLogs[0]?.employee_details;
+      const employeeName = employee ? `${employee.first_name} ${employee.last_name}` : 'Unknown Employee';
+      
+      // Calculate total work hours for this employee's logs
+      const totalWorkHours = employeeLogs.reduce((total, log) => {
+        return total + (parseFloat(log.work_hours) || 0);
+      }, 0);
+      
+      const excelData = employeeLogs.map(log => [
+        formatDisplayDate(log.date),
+        employeeName, // Employee Name
+        employee?.department && employee?.team 
+          ? `${employee.department} / ${employee.team}` 
+          : employee?.department || employee?.team || '', 
+        formatTimeProfessional(log.time_in),
+        log.time_in_status || '',
+        formatTimeProfessional(log.start_break),
+        formatTimeProfessional(log.end_break),
+        log.start_break ? 'Taken' : 'Missed',
+        `${log.break_duration || 0} mins`,
+        formatTimeProfessional(log.time_out),
+        log.time_out_status || '',
+        log.status || 'Absent',
+        log.undertime_hours || '0',
+        formatMinutesToHours(log.overtime) || '0',
+        log.make_up_hours || "0"
+      ]);
+
+      // Combine employee info, column headers, and data
+      const worksheetData = [
+        [`Employee: ${employeeName}`], 
+        [`Employment Type: ${capitalizeFirstLetter(employee?.employment_type || '')}`],
+        [`Schedule: ${formatTimeProfessional(employee?.time_in || "N/A")} - ${formatTimeProfessional(employee?.time_out)}`]
+        [`Total Work Hours: ${totalWorkHours.toFixed(2)}`], 
+        [], 
+        headers, 
+        ...excelData 
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+      
+      // Merge cells for the employee info headers
+      if (!ws['!merges']) ws['!merges'] = [];
+      ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 14 } }); 
+      ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 14 } }); 
+      ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 14 } }); 
+      ws['!merges'].push({ s: { r: 2, c: 0 }, e: { r: 2, c: 14 } }); 
+      
+      // Set column widths
+      const colWidths = [
+        { wch: 25 }, { wch: 25 }, { wch: 20 }, // Date, Name, Dept/Team
+        { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, // Time In, Status, Break Start/End
+        { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, // Break Status, Duration, Time Out, Status
+        { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }  // Status, Undertime, Overtime, Makeup
+      ];
+      ws['!cols'] = colWidths;
+
+      // Add worksheet to workbook with employee name as sheet name
+      const sheetName = employeeName.substring(0, 31);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+
+    // Create a summary sheet with all employees
+    const summaryData = dataToExport.map(log => {
+      const employee = log.employee_details;
+      const employeeName = employee ? `${employee.first_name} ${employee.last_name}` : 'Unknown';
+      
+      return [
+        formatDisplayDate(log.date),
+        employeeName,
+        employee?.department && employee?.team 
+          ? `${employee.department} / ${employee.team}` 
+          : employee?.department || employee?.team || '',
+        formatTimeProfessional(log.time_in),
+        log.time_in_status || '',
+        formatTimeProfessional(log.start_break),
+        formatTimeProfessional(log.end_break),
+        log.start_break ? 'Taken' : 'Missed',
+        `${log.break_duration || 0} mins`,
+        formatTimeProfessional(log.time_out),
+        log.time_out_status || '',
+        capitalizeFirstLetter(log.status || 'Absent'),
+        log.undertime_hours || '0',
+        formatMinutesToHours(log.overtime) || '0',
+        log.make_up_hours || "0"
+      ];
+    });
+
+    const summaryWorksheetData = [headers, ...summaryData];
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryWorksheetData);
     
-    const fileName = employeeData ? 
-      `${employeeData.first_name}_${employeeData.last_name}_Attendance.xlsx` : 
-      "Employee_Attendance.xlsx";
-    
+    const summaryColWidths = [
+      { wch: 26 }, { wch: 27 }, { wch: 25 }, // Date, Name, Dept/Team
+      { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, // Time In, Status, Break Start/End
+      { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, // Break Status, Duration, Time Out, Status
+      { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }  // Status, Undertime, Overtime, Makeup
+    ];
+    summaryWs['!cols'] = summaryColWidths;
+
+    XLSX.utils.book_append_sheet(wb, summaryWs, "All Employees Summary");
+
+    // Generate file name
+    const fileName = selectedEmployee 
+      ? `${selectedEmployee.first_name}_${selectedEmployee.last_name}_Attendance.xlsx`
+      : "All_Employees_Attendance.xlsx";
+
     XLSX.writeFile(wb, fileName);
+  };
+
+  const handleStatusFilterChange = (status) => {
+    setTempStatusFilters(prev => ({
+      ...prev,
+      [status]: !prev[status]
+    }));
+  };
+
+  const handleApplyFilters = (filters) => {
+    setAppliedStatusFilters(filters);
+  };
+
+  const handleEmployeeSelect = (event, newValue) => {
+    setSelectedEmployee(newValue);
+  };
+
+  const clearEmployeeFilter = () => {
+    setSelectedEmployee(null);
+  };
+
+  const clearAllFilters = () => {
+    const allTrueFilters = {
+      Present: true,
+      Late: true,
+      Absent: true,
+      Leave: true,
+      Floating: true,
+      Undertime: true,
+      Overtime: true,
+    };
+    setAppliedStatusFilters(allTrueFilters);
+    setTempStatusFilters(allTrueFilters);
+    setSelectedEmployee(null);
   };
 
   if (!employeeData) {
@@ -795,7 +1027,7 @@ const AttendanceAdminLogs = () => {
             }}
           >
             <Tab label={
-              <Typography sx={{ fontSize: '1.5rem', fontWeight: 400 }}>Attendance Logs</Typography>
+              <Typography sx={{ fontSize: '1.5rem', fontWeight: 400 }}>Daily Logs</Typography>
             }
             icon={<TodayIcon fontSize="medium" />}
             iconPosition="start"
@@ -817,23 +1049,47 @@ const AttendanceAdminLogs = () => {
                   <Typography variant="h3" color="primary">
                     Employee Logs
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <TextField
-                      variant="outlined"
-                      size="small"
-                      placeholder="Search by name..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <SearchIcon fontSize="small" />
-                          </InputAdornment>
-                        ),
-                        sx: { fontSize: '0.8rem' }
-                      }}
-                      sx={{ width: '250px' }}
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Autocomplete
+                      value={selectedEmployee}
+                      onChange={handleEmployeeSelect}
+                      options={allEmployees}
+                      getOptionLabel={(option) => `${option.first_name} ${option.last_name}`}
+                      renderOption={(props, option) => (
+                        <li {...props}>
+                          <EmployeeOption employee={option} />
+                        </li>
+                      )}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          variant="outlined"
+                          size="small"
+                          placeholder="Search employee"
+                          InputProps={{
+                            ...params.InputProps,
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <SearchIcon fontSize="small" />
+                              </InputAdornment>
+                            ),
+                            sx: { fontSize: '0.8rem' }
+                          }}
+                          sx={{ width: '300px' }}
+                        />
+                      )}
+                      PopperComponent={CustomPopper}
+                      clearOnBlur={false}
                     />
+                    {selectedEmployee && (
+                      <IconButton
+                        size="small"
+                        onClick={clearEmployeeFilter}
+                        sx={{ ml: -1 }}
+                      >
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    )}
                     <Button
                       variant="outlined"
                       startIcon={<FilterListIcon />}
@@ -842,50 +1098,24 @@ const AttendanceAdminLogs = () => {
                     >
                       Filter
                     </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<ClearIcon />}
+                      onClick={clearAllFilters}
+                      size="small"
+                    >
+                      Clear Filters
+                    </Button>
                   </Box>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                  <Chip 
-                    label={`${stats.totalLogs} Records`}
-                    color="info" 
-                    variant="outlined" 
-                    icon={<PersonIcon fontSize="small" />} 
-                    size="small"
-                    sx={{ fontSize: '1.2rem' }}
-                  />
-                  <Chip 
-                    label={`${stats.present} Present`}
-                    color="success" 
-                    variant="outlined" 
-                    icon={<PresentIcon fontSize="small" />} 
-                    size="small"
-                    sx={{ fontSize: '1.2rem' }}
-                  />
-                  <Chip 
-                    label={`${stats.late} Late`}
-                    color="warning" 
-                    variant="outlined" 
-                    icon={<LateIcon fontSize="small" />} 
-                    size="small"
-                    sx={{ fontSize: '1.2rem' }}
-                  />
-                  <Chip 
-                    label={`${stats.absent} Absent`}
-                    color="error" 
-                    variant="outlined" 
-                    icon={<AbsentIcon fontSize="small" />} 
-                    size="small"
-                    sx={{ fontSize: '1.2rem' }}
-                  />
-                </Box>
-
+         
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
                   <Button
                     variant="contained"
                     color="success"
                     startIcon={<DownloadIcon fontSize="small" />}
-                    onClick={exportToExcel}
-                    disabled={!logsData.length}
+                    onClick={() => exportToExcel(dailyLogsData)}
+                    disabled={!dailyLogsData.length}
                     size="small"
                     sx={{ fontSize: '0.7rem' }}
                   >
@@ -895,7 +1125,7 @@ const AttendanceAdminLogs = () => {
                    
                 <DailyAttendanceTable 
                   employeeData={employeeData}
-                  logsData={paginatedData}
+                  logsData={paginatedDailyData}
                   loading={loading}
                   error={error}
                   onViewClick={handleViewClick}
@@ -903,7 +1133,7 @@ const AttendanceAdminLogs = () => {
               
                 <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                   <Pagination
-                    count={Math.ceil(filteredData.length / itemsPerPage)}
+                    count={Math.ceil(dailyLogsData.length / itemsPerPage)}
                     page={currentPage}
                     onChange={(event, page) => setCurrentPage(page)}
                     color="primary"
@@ -919,121 +1149,80 @@ const AttendanceAdminLogs = () => {
                   <Typography variant="h3" color="primary">
                     Overview Logs
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <TextField
-                      variant="outlined"
-                      size="small"
-                      placeholder="Search by name..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <SearchIcon fontSize="small" />
-                          </InputAdornment>
-                        ),
-                        sx: { fontSize: '0.8rem' }
-                      }}
-                      sx={{ width: '250px' }}
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Autocomplete
+                      value={selectedEmployee}
+                      onChange={handleEmployeeSelect}
+                      options={allEmployees}
+                      getOptionLabel={(option) => `${option.first_name} ${option.last_name}`}
+                      renderOption={(props, option) => (
+                        <li {...props}>
+                          <EmployeeOption employee={option} />
+                        </li>
+                      )}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          variant="outlined"
+                          size="small"
+                          placeholder="Search employee"
+                          InputProps={{
+                            ...params.InputProps,
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <SearchIcon fontSize="small" />
+                              </InputAdornment>
+                            ),
+                            sx: { fontSize: '0.8rem' }
+                          }}
+                          sx={{ width: '300px' }}
+                        />
+                      )}
+                      PopperComponent={CustomPopper}
+                      clearOnBlur={false}
                     />
+                    {selectedEmployee && (
+                      <IconButton
+                        size="small"
+                        onClick={clearEmployeeFilter}
+                        sx={{ ml: -1 }}
+                      >
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    )}
                     <Button
-                      variant="contained"
-                      color="success"
-                      startIcon={<DownloadIcon fontSize="small" />}
-                      onClick={exportToExcel}
-                      disabled={!logsData.length}
+                      variant="outlined"
+                      startIcon={<FilterListIcon />}
+                      onClick={() => setFilterModalOpen(true)}
                       size="small"
-                      sx={{ fontSize: '0.7rem' }}
                     >
-                      Export Excel
+                      Filter
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<ClearIcon />}
+                      onClick={clearAllFilters}
+                      size="small"
+                    >
+                      Clear Filters
                     </Button>
                   </Box>
                 </Box>
-                
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
-                  <Card sx={{ p: 2 }}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Attendance Overview</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Records:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{stats.totalLogs}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Present:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#4CAF50' }}>
-                          {stats.present} ({stats.presentPercentage}%)
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Leaves:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.leave} ({stats.leavePercentage}%)
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Floating Holidays:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.floating} ({stats.floatingPercentage}%)
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Absent:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#F44336' }}>
-                          {stats.absent} ({stats.absentPercentage}%)
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Card>
-                  
-                  <Card sx={{ p: 2 }}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Time Compliance</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Late Arrivals:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.late}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Undertime Days:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.undertime}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Undertime:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-                          {stats.totalUndertimeHours} hours
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Make Up Hours:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-                          {stats.totalMakeupHours} hours
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Card>
-                  
-                  <Card sx={{ p: 2 }}>
-                    <Typography variant="subtitle2" sx={{ fontSize: '0.8rem', mb: 1 }}>Overtime</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Overtime Days:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#4CAF50' }}>
-                          {stats.overtime}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>Total Overtime:</Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-                          {stats.totalOvertimeHours} hours
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Card>
+
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    startIcon={<DownloadIcon fontSize="small" />}
+                    onClick={() => exportToExcel(overviewData)}
+                    disabled={!overviewData.length}
+                    size="small"
+                    sx={{ fontSize: '0.7rem' }}
+                  >
+                    Export Excel
+                  </Button>
                 </Box>
-                
+
                 <Box sx={{
                   width: '100%',
                   mt: 2,
@@ -1053,23 +1242,7 @@ const AttendanceAdminLogs = () => {
                 }}>
                   <DailyAttendanceTable 
                     employeeData={employeeData}
-                    logsData={searchTerm 
-                      ? logsData.filter(log => {
-                          if (!log.employee_details) return false;
-                          const searchLower = searchTerm.toLowerCase();
-                          const firstName = log.employee_details.first_name?.toLowerCase() || '';
-                          const lastName = log.employee_details.last_name?.toLowerCase() || '';
-                          const email = log.employee_details.email?.toLowerCase() || '';
-                          return (
-                            firstName.includes(searchLower) ||
-                            lastName.includes(searchLower) ||
-                            email.includes(searchLower) ||
-                            `${firstName} ${lastName}`.includes(searchLower) ||
-                            `${lastName} ${firstName}`.includes(searchLower)
-                          );
-                        })
-                      : logsData
-                    }
+                    logsData={paginatedOverviewData}
                     loading={loading}
                     error={error}
                     onViewClick={handleViewClick}
@@ -1077,24 +1250,7 @@ const AttendanceAdminLogs = () => {
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                   <Pagination
-                    count={Math.ceil(
-                      (searchTerm 
-                        ? logsData.filter(log => {
-                            if (!log.employee_details) return false;
-                            const searchLower = searchTerm.toLowerCase();
-                            const firstName = log.employee_details.first_name?.toLowerCase() || '';
-                            const lastName = log.employee_details.last_name?.toLowerCase() || '';
-                            const email = log.employee_details.email?.toLowerCase() || '';
-                            return (
-                              firstName.includes(searchLower) ||
-                              lastName.includes(searchLower) ||
-                              email.includes(searchLower) ||
-                              `${firstName} ${lastName}`.includes(searchLower) ||
-                              `${lastName} ${firstName}`.includes(searchLower)
-                            );
-                          }).length 
-                        : logsData.length) / itemsPerPage
-                    )}
+                    count={Math.ceil(overviewData.length / itemsPerPage)}
                     page={overviewPage}
                     onChange={(event, page) => setOverviewPage(page)}
                     color="primary"
@@ -1111,14 +1267,15 @@ const AttendanceAdminLogs = () => {
         <StatusFilterModal
           open={filterModalOpen}
           onClose={() => setFilterModalOpen(false)}
-          statusFilters={statusFilters}
+          statusFilters={tempStatusFilters}
           onFilterChange={handleStatusFilterChange}
+          onApplyFilters={handleApplyFilters}
         />
 
         {/* Log Details Modal */}
         <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="md" fullWidth>
           <DialogTitle sx={{ fontSize: '0.9rem' }}>
-            {selectedLog?.employee.first_name}'s Log Details
+            {selectedLog?.employee_details?.first_name}'s Log Details
           </DialogTitle>
           <DialogContent dividers sx={{ p: 1 }}>
             {selectedLog && (
@@ -1126,38 +1283,38 @@ const AttendanceAdminLogs = () => {
                 <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
                   <Box>
                     <Typography variant="subtitle1" fontWeight="bold" sx={{ fontSize: '0.8rem' }}>Employee Information</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Email: {selectedLog.employee.email}</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Department: {selectedLog.employee.department}</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Team: {selectedLog.employee.team}</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Status: <StatusBadge status={selectedLog.employee.status} /></Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Email: {selectedLog.employee_details?.email}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Department: {selectedLog.employee_details?.department}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Team: {selectedLog.employee_details?.team}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Status: <StatusBadge status={selectedLog.employee_details?.status} /></Typography>
                   </Box>
 
                   <Box>
                     <Typography variant="subtitle1" fontWeight="bold" sx={{ fontSize: '0.8rem' }}>Job Details</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Type: {selectedLog.employee.type}</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Work Arrangement: {selectedLog.employee.work_arrangement}</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Contract Hours: {selectedLog.employee.contract_hours}h</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Type: {selectedLog.employee_details?.type}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Work Arrangement: {selectedLog.employee_details?.work_arrangement}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Contract Hours: {selectedLog.employee_details?.contract_hours}h</Typography>
                     <Typography sx={{ fontSize: '0.75rem' }}>
-                      Schedule: {formatTimeProfessional(selectedLog.employee.time_in)} - {formatTimeProfessional(selectedLog.employee.time_out)}
+                      Schedule: {formatTimeProfessional(selectedLog.employee_details?.time_in)} - {formatTimeProfessional(selectedLog.employee_details?.time_out)}
                     </Typography>
                   </Box>
 
                   <Box sx={{ gridColumn: '1 / -1', mt: 1 }}>
                     <Typography variant="subtitle1" fontWeight="bold" sx={{ fontSize: '0.8rem' }}>Attendance Record</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Date: {formatDisplayDate(selectedLog.log.date)}</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Time In: {formatTimeProfessional(selectedLog.log.time_in)}</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Time Out: {formatTimeProfessional(selectedLog.log.time_out)}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Date: {formatDisplayDate(selectedLog.date)}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Time In: {formatTimeProfessional(selectedLog.time_in)}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Time Out: {formatTimeProfessional(selectedLog.time_out)}</Typography>
                     <Typography sx={{ fontSize: '0.75rem' }}>
-                      Break: {selectedLog.log.start_break ? 
-                        `${formatTimeProfessional(selectedLog.log.start_break)} - ${formatTimeProfessional(selectedLog.log.end_break)}` : 
+                      Break: {selectedLog.start_break ? 
+                        `${formatTimeProfessional(selectedLog.start_break)} - ${formatTimeProfessional(selectedLog.end_break)}` : 
                         'No break recorded'}
                     </Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Work Hours: {selectedLog.log.work_hours || '0'} hours</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Overtime: {formatMinutesToHours(selectedLog.log.overtime)}</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Undertime: {selectedLog.log.undertime_hours || '0'} hours</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Make Up Hours: {selectedLog.log.make_up_hours || '0'} hours</Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Status: <StatusBadge status={selectedLog.log.status} /></Typography>
-                    <Typography sx={{ fontSize: '0.75rem' }}>Break Status: <StatusBadge status={selectedLog.log.start_break ? 'Taken' : 'Missed'} /></Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Work Hours: {selectedLog.work_hours || '0'} hours</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Overtime: {formatMinutesToHours(selectedLog.overtime)}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Undertime: {selectedLog.undertime_hours || '0'} hours</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Make Up Hours: {selectedLog.make_up_hours || '0'} hours</Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Status: <StatusBadge status={selectedLog.status} /></Typography>
+                    <Typography sx={{ fontSize: '0.75rem' }}>Break Status: <StatusBadge status={selectedLog.start_break ? 'Taken' : 'Missed'} /></Typography>
                   </Box>
                 </Box>
               </Box>

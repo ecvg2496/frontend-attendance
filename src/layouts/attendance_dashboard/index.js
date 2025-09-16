@@ -1,19 +1,17 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  Grid, Icon, Button, Tabs, Tab, Modal, Box, Typography, Card, IconButton, Alert
+  Grid, Icon, Button, Tabs, Tab, Modal, Box, Typography, Card, IconButton, Alert,
+  CardHeader, Divider
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import axios from 'api/axios';
 import { axiosPrivate } from "api/axios";
 import { dataServicePrivate, dataService, formatDateTime } from "global/function";
-// Material Dashboard components
 import MDBox from "components/MDBox";
 import SideBar from "./content_page/sidebar";
 import DynamicForm from "./content_page/dynamicForm";
 import employeeFormConfig from "./dynamic_value/employee_info";
-import { Snackbar} from '@mui/material';
-
-// Import components
+import { Snackbar } from '@mui/material';
 import AllEmployeeTable from "./components/employees/AllEmployeeTable";
 import HiredCandidatesTable from "./components/employees/HiredCandidatesTable";
 import ProbationEmployeeTable from "./components/employees/ProbationEmployeeTable";
@@ -21,8 +19,6 @@ import ResignedEmployeeTable from "./components/employees/ResignedEmployeeTable"
 import TrainingEmployeeTable from "./components/employees/TrainingEmployeeTable";
 import FloatingEmployeeTable from "./components/employees/FloatingEmployeeTable";
 import TabPanel from "./components/employees/TabPanel";
-
-// Import utils
 import {
   getInitialFormData,
   formatTimeForDisplay,
@@ -60,22 +56,16 @@ function AttendanceDashboard() {
   const alertRef = useRef(null);
   const timeoutRef = useRef(null);
   const [employee, setEmployee] = useState(null);
+
   const isAdmin = () => {
-      const employeeData = localStorage.getItem("employee");
-      if (employeeData) {
-        const employee = JSON.parse(employeeData);
-        return employee.is_admin === 1 || employee.is_admin === true || employee.is_admin === "1";
-      }
-      return false;
-    };
-  
-    // Redirect if not admin
-    // useEffect(() => {
-    //   if (!isAdmin()) {
-    //     navigate('/authentication/sign-in/');
-    //   } 
-    // }, [navigate]);
-    
+    const employeeData = localStorage.getItem("employee");
+    if (employeeData) {
+      const employee = JSON.parse(employeeData);
+      return employee.is_admin === 1 || employee.is_admin === true || employee.is_admin === "1";
+    }
+    return false;
+  };
+
   // Fetch employees
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -94,13 +84,12 @@ function AttendanceDashboard() {
   }, []);
 
   useEffect(() => {
-      const storedEmployee = localStorage.getItem('employee');
-      if (storedEmployee) {
-        const emp = JSON.parse(storedEmployee);
-        setEmployee(emp);
-        console.log(setEmployee(emp));
-      }
-    }, []);
+    const storedEmployee = localStorage.getItem('employee');
+    if (storedEmployee) {
+      const emp = JSON.parse(storedEmployee);
+      setEmployee(emp);
+    }
+  }, []);
 
   // Filter employees based on selected tab
   const filterEmployees = (tabIndex, employees = allEmployees) => {
@@ -108,10 +97,6 @@ function AttendanceDashboard() {
     switch(tabIndex) {
       case 0: filtered = employees; break;
       case 1: filtered = employees.filter(emp => emp.status === "Newly Hired"); break;
-      case 2: filtered = employees.filter(emp => emp.status === "Probation"); break;
-      case 3: filtered = employees.filter(emp => emp.status === "Resigned"); break;
-      case 4: filtered = employees.filter(emp => emp.status === "Training"); break;
-      case 5: filtered = employees.filter(emp => emp.status === "Floating"); break;
       default: filtered = employees;
     }
     setFilteredEmployees(filtered);
@@ -128,6 +113,7 @@ function AttendanceDashboard() {
     setCurrentEmployeeId(null);
     setOpenModal(true);
   };
+
   const getPhilippineTime = () => {
     const options = {
       timeZone: 'Asia/Manila',
@@ -155,7 +141,6 @@ function AttendanceDashboard() {
         first_name: firstName || '',
         last_name: lastName || '',
         email: candidate.entity?.email || '',
-        // All other fields empty
         middle_name: '',
         birthdate: '',
         type: '',
@@ -171,7 +156,11 @@ function AttendanceDashboard() {
         hourly_rate: '',
         daily_rate: '',
         password: "temp_password",
-        processed_by:''
+        processed_by: '',
+        shift_type: 'regular',
+        time_in_2: '',
+        time_out_2: '',
+        break_duration: 60
       });
       setIsEditing(false);
       setCurrentEmployeeId(null);
@@ -180,7 +169,10 @@ function AttendanceDashboard() {
       const formattedEmployee = {
         ...employeeOrCandidate,
         time_in: formatTimeForDisplay(employeeOrCandidate.time_in),
-        time_out: formatTimeForDisplay(employeeOrCandidate.time_out)
+        time_out: formatTimeForDisplay(employeeOrCandidate.time_out),
+        time_in_2: formatTimeForDisplay(employeeOrCandidate.time_in_2),
+        time_out_2: formatTimeForDisplay(employeeOrCandidate.time_out_2),
+        break_duration: employeeOrCandidate.break_duration || 60
       };
       setFormData(getInitialFormData(formattedEmployee));
       setCurrentEmployeeId(employeeOrCandidate.id);
@@ -212,36 +204,83 @@ function AttendanceDashboard() {
       return;
     }
 
-    if (["hourly_rate", "daily_rate", "contract_hours"].includes(name)) {
+    if (["hourly_rate", "daily_rate", "contract_hours", "break_duration"].includes(name)) {
       if (!/^\d*(\.\d{0,2})?$/.test(value)) return;
     }
 
     setFormData(prev => ({ ...prev, [name]: value }));
   };
-  
+
   function getManilaTimeISOString() {
-  const now = new Date();
-  const manilaOffset = 8 * 60 * 60 * 1000; // Manila is UTC+8
-  return new Date(now.getTime() + (now.getTimezoneOffset() * 60 * 1000) + manilaOffset).toISOString();
+    const now = new Date();
+    const manilaOffset = 8 * 60 * 60 * 1000; // Manila is UTC+8
+    return new Date(now.getTime() + (now.getTimezoneOffset() * 60 * 1000) + manilaOffset).toISOString();
   }
+
+  // Calculate shift times based on contract hours
+  useEffect(() => {
+    const calculateShiftTimes = () => {
+      if (!formData.time_in || !formData.contract_hours) return;
+
+      const contractHours = parseFloat(formData.contract_hours);
+      if (isNaN(contractHours)) return;
+
+      const calculateEndTime = (startTime, hours) => {
+        const [hoursStr, minutesStr] = startTime.split(':');
+        const startDate = new Date();
+        startDate.setHours(parseInt(hoursStr), parseInt(minutesStr));
+        
+        const endDate = new Date(startDate.getTime() + (hours * 60 * 60 * 1000));
+        return `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
+      };
+
+      // For regular shifts
+      if (formData.shift_type === 'regular') {
+        setFormData(prev => ({
+          ...prev,
+          time_out: calculateEndTime(formData.time_in, contractHours),
+          time_in_2: '',
+          time_out_2: ''
+        }));
+      }
+      // For split shifts
+      else if (formData.shift_type === 'split') {
+        const firstShiftHours = contractHours / 2;
+        setFormData(prev => ({
+          ...prev,
+          time_out: calculateEndTime(formData.time_in, firstShiftHours)
+        }));
+
+        if (formData.time_in_2) {
+          setFormData(prev => ({
+            ...prev,
+            time_out_2: calculateEndTime(formData.time_in_2, firstShiftHours)
+          }));
+        }
+      }
+      // For graveyard shifts
+      else if (formData.shift_type === 'graveyard') {
+        setFormData(prev => ({
+          ...prev,
+          time_out: calculateEndTime(formData.time_in, contractHours),
+          time_in_2: '',
+          time_out_2: ''
+        }));
+      }
+    };
+
+    calculateShiftTimes();
+  }, [formData.time_in, formData.time_in_2, formData.contract_hours, formData.shift_type]);
+
+  // Set default contract hours for full-time employees
   useEffect(() => {
     if (formData.type === "Full Time") {
-      setFormData(prev => ({ ...prev, contract_hours: "9" }));
+      setFormData(prev => ({
+        ...prev,
+        contract_hours: "9"
+      }));
     }
   }, [formData.type]);
-
-  useEffect(() => {
-    if (formData.time_in && formData.contract_hours) {
-      const timeIn = new Date(`1970-01-01T${formData.time_in}:00`);
-      const contractHours = parseFloat(formData.contract_hours);
-
-      if (!isNaN(contractHours)) {
-        const timeOut = new Date(timeIn.getTime() + contractHours * 60 * 60 * 1000);
-        const timeOutString = timeOut.toTimeString().slice(0, 5);
-        setFormData(prev => ({ ...prev, time_out: timeOutString }));
-      }
-    }
-  }, [formData.time_in, formData.contract_hours]);
 
   // Auto-calculate daily rate
   useEffect(() => {
@@ -256,154 +295,9 @@ function AttendanceDashboard() {
     } else {
       setFormData(prev => ({ ...prev, daily_rate: "" }));
     }
-    }, [formData.contract_hours, formData.hourly_rate]);
+  }, [formData.contract_hours, formData.hourly_rate]);
 
-    const handleStatusChange = async (employeeId, newStatus) => {
-      try {
-        setLoading(true);
-        
-        const currentEmployee = JSON.parse(localStorage.getItem('employee'));
-        if (!currentEmployee) {
-          throw new Error('No employee data found');
-        }
-
-        const processedBy = `${currentEmployee.first_name} ${currentEmployee.last_name}`;
-        const processedAt = getManilaTimeISOString();
-        
-        const updateData = {
-          status: newStatus,
-          processed_by: processedBy,
-          processed_at: processedAt,
-          ...(newStatus === 'Resigned' && { date_resignation: processedAt }),
-        };
-
-        const response = await dataServicePrivate(
-          'PATCH', 
-          `attendance/employees/${employeeId}/`, 
-          updateData,
-          { headers: { "Content-Type": "application/json" } }
-        );
-        
-        // Update local state
-        setAllEmployees(prev => prev.map(emp => 
-          emp.id === employeeId ? { 
-            ...emp, 
-            status: newStatus,
-            processed_by: processedBy,
-            processed_at: processedAt,
-            ...(newStatus === 'Resigned' && { 
-              date_resignation: processedAt,
-              formatted_date_resignation: new Date(processedAt).toLocaleString('en-US', {
-                timeZone: 'Asia/Manila',
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-              })
-            }),
-            formatted_processed_at: new Date(processedAt).toLocaleString('en-US', {
-              timeZone: 'Asia/Manila',
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit',
-              hour12: true
-            })
-          } : emp
-        ));
-        
-        filterEmployees(selectedTab);
-        
-        showAlert('Status updated successfully!', 'success');
-        
-
-      } catch (error) {
-        console.error('Status update error:', error);
-        showAlert(error.response?.data?.message || 'Failed to update status', 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const handleEmploymentTypeChange = async (employeeId, newEmploymentType) => {
-      try {
-        setLoading(true);
-        
-        const currentEmployee = JSON.parse(localStorage.getItem('employee'));
-        if (!currentEmployee) {
-          throw new Error('No employee data found');
-        }
-
-        const processedBy = `${currentEmployee.first_name} ${currentEmployee.last_name}`;
-        const processedAt = getManilaTimeISOString();
-        
-        // Prepare update data
-        const updateData = {
-          employment_type: newEmploymentType,
-          processed_by: processedBy,
-          processed_at: processedAt,
-        };
-
-        // Add regular date if employment type is being changed to Regular
-        if (newEmploymentType === 'Regular') {
-          updateData.date_regular = processedAt;
-        }
-
-       const response = await dataServicePrivate(
-          'PATCH', 
-          `attendance/employees/${employeeId}/`, 
-          updateData,
-          { headers: { "Content-Type": "application/json" } } // or "multipart/form-data"
-        );
-        
-        // Update local state
-        setAllEmployees(prev => prev.map(emp => 
-          emp.id === employeeId ? { 
-            ...emp, 
-            employment_type: newEmploymentType,
-            processed_by: processedBy,
-            processed_at: processedAt,
-            // Add regular date if employment type is Regular
-            ...(newEmploymentType === 'Regular' && { 
-              date_regular: processedAt,
-              formatted_date_regular: new Date(processedAt).toLocaleString('en-US', {
-                timeZone: 'Asia/Manila',
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-              })
-            }),
-            // Add formatted processed_at for display
-            formatted_processed_at: new Date(processedAt).toLocaleString('en-US', {
-              timeZone: 'Asia/Manila',
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit',
-              hour12: true
-            })
-          } : emp
-        ));
-        
-        filterEmployees(selectedTab);
-        
-        showAlert('Employment type updated successfully!', 'success');
-      } catch (error) {
-        console.error('Employment type update error:', error);
-        showAlert(error.response?.data?.message || 'Failed to update employment type', 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    const handleEmployeeTypeChange = async (employeeId, newEmployeeType) => {
+  const handleStatusChange = async (employeeId, newStatus) => {
     try {
       setLoading(true);
       
@@ -415,26 +309,39 @@ function AttendanceDashboard() {
       const processedBy = `${currentEmployee.first_name} ${currentEmployee.last_name}`;
       const processedAt = getManilaTimeISOString();
       
-      // Prepare update data
       const updateData = {
-        type: newEmployeeType,
+        status: newStatus,
         processed_by: processedBy,
         processed_at: processedAt,
+        ...(newStatus === 'Resigned' && { date_resignation: processedAt }),
       };
 
-      const response = await axios.patch(
-        `/attendance/employees/${employeeId}/`,
-        updateData
+      const response = await dataServicePrivate(
+        'PATCH', 
+        `attendance/employees/${employeeId}/`, 
+        updateData,
+        { headers: { "Content-Type": "application/json" } }
       );
       
       // Update local state
       setAllEmployees(prev => prev.map(emp => 
         emp.id === employeeId ? { 
           ...emp, 
-          type: newEmployeeType,
+          status: newStatus,
           processed_by: processedBy,
           processed_at: processedAt,
-          // Add formatted processed_at for display
+          ...(newStatus === 'Resigned' && { 
+            date_resignation: processedAt,
+            formatted_date_resignation: new Date(processedAt).toLocaleString('en-US', {
+              timeZone: 'Asia/Manila',
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            })
+          }),
           formatted_processed_at: new Date(processedAt).toLocaleString('en-US', {
             timeZone: 'Asia/Manila',
             month: 'short',
@@ -448,28 +355,21 @@ function AttendanceDashboard() {
       ));
       
       filterEmployees(selectedTab);
-      
-      showAlert('Employee type updated successfully!', 'success');
+      showAlert('Status updated successfully!', 'success');
     } catch (error) {
-      console.error('Employee type update error:', error);
-      showAlert(error.response?.data?.message || 'Failed to update employee type', 'error');
+      console.error('Status update error:', error);
+      showAlert(error.response?.data?.message || 'Failed to update status', 'error');
     } finally {
       setLoading(false);
     }
-    };
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Get current employee data from localStorage
-    // const currentEmployee = JSON.parse(localStorage.getItem('employee'));
-    // if (!currentEmployee) {
-    //   showAlert('No employee data found. Please log in again.', 'error');
-    //   return;
-    // }
-
-    // const processedBy = `${currentEmployee.first_name} ${currentEmployee.last_name}`;
+ 
     const processedAt = getManilaTimeISOString();
+    const currentEmployee = JSON.parse(localStorage.getItem('employee'));
+    const processedBy = currentEmployee ? `${currentEmployee.first_name} ${currentEmployee.last_name}` : 'System';
 
     // Validation patterns
     const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -483,7 +383,6 @@ function AttendanceDashboard() {
       [!formData.first_name, "Please fill out first name."],
       [formData.first_name?.trim().length < 2, "First name should have at least 2 letters."],
       [!formData.middle_name, "Please fill out middle name."],
-      [formData.middle_name?.trim().length < 2, "Middle Name name should have at least 2 letters."],
       [!formData.email, "Please fill out email."],
       [!emailPattern.test(formData.email), "Invalid email address."],
       [!formData.contact_number, "Please fill out contact number."],
@@ -505,6 +404,8 @@ function AttendanceDashboard() {
       [!formData.status, "Please select an employment status."],
       [!formData.time_in, "Please select a time-in."],
       [!formData.time_out, "Please select a time-out."],
+      [formData.shift_type === 'split' && !formData.time_in_2, "Please select second shift start time for split shifts."],
+      [formData.shift_type === 'split' && !formData.time_out_2, "Please select second shift end time for split shifts."],
       [formData.user_photo instanceof File && formData.user_photo.size > 2 * 1024 * 1024, "User photo cannot exceed 2MB."],
       [formData.user_photo instanceof File && !imageTypes.includes(formData.user_photo.type), "User photo must be in JPEG, PNG, or GIF format."],
     ];
@@ -542,10 +443,14 @@ function AttendanceDashboard() {
         status: formData.status,
         time_in: formatTimeToHHMM(formData.time_in),
         time_out: formatTimeToHHMM(formData.time_out),
+        time_in_2: formData.time_in_2 ? formatTimeToHHMM(formData.time_in_2) : '',
+        time_out_2: formData.time_out_2 ? formatTimeToHHMM(formData.time_out_2) : '',
+        break_duration: Number(formData.break_duration) || 60,
+        shift_type: formData.shift_type || 'regular',
         hourly_rate: Number(formData.hourly_rate),
         daily_rate: Number(formData.daily_rate),
-        // processed_by: processedBy, 
-        processed_at: processedAt, 
+        processed_by: processedBy,
+        processed_at: processedAt,
         date_regular: processedAt,
       };
   
@@ -560,8 +465,7 @@ function AttendanceDashboard() {
         if (formData.user_photo instanceof File) {
           formDataToSend.append('user_photo', formData.user_photo);
         } else if (typeof formData.user_photo === 'string') {
-          // If it's a string (existing photo URL), we might want to handle it differently
-          // or skip it if we don't want to modify the existing photo
+          // Keep existing photo if editing
         }
       }
   
@@ -609,7 +513,6 @@ function AttendanceDashboard() {
   
       await refreshData();
       handleModalClose();
-  
     } catch (error) {
       console.error("Submission error:", error);
       
@@ -658,7 +561,57 @@ function AttendanceDashboard() {
       }));
     }
   };
+  const handleEmploymentTypeChange = async (employeeId, newEmploymentType) => {
+  try {
+    setLoading(true);
+    
+    const currentEmployee = JSON.parse(localStorage.getItem('employee'));
+    if (!currentEmployee) {
+      throw new Error('No employee data found');
+    }
 
+    const processedBy = `${currentEmployee.first_name} ${currentEmployee.last_name}`;
+    const processedAt = getManilaTimeISOString();
+    
+    const updateData = {
+      employment_type: newEmploymentType,
+      processed_by: processedBy,
+      processed_at: processedAt,
+    };
+
+    const response = await axiosPrivate.patch(
+      `/attendance/employees/${employeeId}/`,
+      updateData
+    );
+    
+    // Update local state
+    setAllEmployees(prev => prev.map(emp => 
+      emp.id === employeeId ? { 
+        ...emp, 
+        employment_type: newEmploymentType,
+        processed_by: processedBy,
+        processed_at: processedAt,
+        formatted_processed_at: new Date(processedAt).toLocaleString('en-US', {
+          timeZone: 'Asia/Manila',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        })
+      } : emp
+    ));
+    
+    filterEmployees(selectedTab);
+    showAlert('Employment type updated successfully!', 'success');
+  } catch (error) {
+    console.error('Employment type update error:', error);
+    showAlert(error.response?.data?.message || 'Failed to update employment type', 'error');
+  } finally {
+    setLoading(false);
+  }
+};
   const showAlert = (message, severity = "warning") => {
     setAlert({ open: true, severity, message });
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -695,10 +648,6 @@ function AttendanceDashboard() {
                 >
                   <Tab label="Employee" />
                   <Tab label="Newly Hired" />
-                  <Tab label= "Probation" />
-                  <Tab label="Resigned" />
-                  <Tab label="Training" />
-                  <Tab label="Floating" />
                 </Tabs>
   
                 <Box>
@@ -718,7 +667,6 @@ function AttendanceDashboard() {
                         onEditClick={handleEditClick}
                         onStatusChange={handleStatusChange}
                         onEmploymentTypeChange={handleEmploymentTypeChange}
-                        onEmployeeTypeChange={handleEmployeeTypeChange} // Add this
                       />
                       </Box>
                     </TabPanel>
@@ -748,122 +696,6 @@ function AttendanceDashboard() {
                       </Box>
                     </TabPanel>
                   )}
-                  {selectedTab === 2 && (
-                    <TabPanel>
-                      <Typography variant="h4" color="primary" gutterBottom sx={{ fontWeight: 600 }}>
-                       Probation Employees
-                      </Typography>
-                      <Box sx={{
-                        width: '100%',
-                        overflowX: 'auto',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        '& .container': {
-                          minWidth: '100%',
-                          margin: 0,  
-                          padding: 0
-                        },
-                        '& .responsive-table': {
-                          minWidth: '100%',
-                          width: '100%'
-                        }
-                      }}>
-                        <ProbationEmployeeTable 
-                          employees={filteredEmployees} 
-                          loading={loading} 
-                          error={error} 
-                          onEditClick={handleEditClick}
-                          onStatusChange={handleStatusChange} />
-                      </Box>
-                    </TabPanel>
-                  )}
-                  {selectedTab === 3 && (
-                    <TabPanel>
-                      <Typography variant="h4" color="primary" gutterBottom sx={{ fontWeight: 600 }}>
-                        Resigned Employees
-                      </Typography>
-                      <Box sx={{
-                        width: '100%',
-                        overflowX: 'auto',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        '& .container': {
-                          minWidth: '100%',
-                          margin: 0,
-                          padding: 0
-                        },
-                        '& .responsive-table': {
-                          minWidth: '100%',
-                          width: '100%'
-                        }
-                      }}>
-                        <ResignedEmployeeTable
-                         employees={filteredEmployees}
-                         loading={loading}     
-                         error={error}         
-                         onEditClick={handleEditClick}
-                         onStatusChange={handleStatusChange}  />
-                      </Box>
-                    </TabPanel>
-                  )}
-                  {selectedTab === 4 && ( <TabPanel>
-                      <Typography variant="h4" color="primary" gutterBottom sx={{ fontWeight: 600 }}>
-                        Training Employees
-                      </Typography>
-                      <Box sx={{
-                        width: '100%',
-                        overflowX: 'auto',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        '& .container': {
-                          minWidth: '100%',
-                          margin: 0,
-                          padding: 0
-                        },
-                        '& .responsive-table': {
-                          minWidth: '100%',
-                          width: '100%'
-                        }
-                      }}>
-                        <TrainingEmployeeTable
-                         employees={filteredEmployees}
-                         loading={loading}     
-                         error={error}         
-                         onEditClick={handleEditClick}
-                         onStatusChange = {handleStatusChange} />
-                      </Box>
-                    </TabPanel>)}
-                  {selectedTab === 5 && ( <TabPanel>
-                    <Typography variant="h4" color="primary" gutterBottom sx={{ fontWeight: 600 }}>
-                        Floating Employees
-                      </Typography>
-                      <Box sx={{
-                        width: '100%',
-                        overflowX: 'auto',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        '& .container': {
-                          minWidth: '100%',
-                          margin: 0,
-                          padding: 0
-                        },
-                        '& .responsive-table': {
-                          minWidth: '100%',
-                          width: '100%'
-                        }
-                      }}>
-                        <FloatingEmployeeTable
-                         employees={filteredEmployees}
-                         loading={loading}     
-                         error={error}         
-                         onEditClick={handleEditClick}
-                         onStatusChange={handleStatusChange} />
-                      </Box>
-                  </TabPanel>)}
                 </Box>
               </MDBox>
             </Card>
@@ -986,20 +818,20 @@ function AttendanceDashboard() {
           />
         </Box>
       </Modal>
-         <Snackbar
-              open={alert.open}
-              autoHideDuration={6000}
-              onClose={() => setAlert(prev => ({ ...prev, open: false }))}
-              anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-         >
-              <Alert 
-                onClose={() => setAlert(prev => ({ ...prev, open: false }))} 
-                severity={alert.severity}
-                sx={{ width: '100%' }}
-              >
-                {alert.message}
-              </Alert>
-         </Snackbar>
+      <Snackbar
+        open={alert.open}
+        autoHideDuration={6000}
+        onClose={() => setAlert(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setAlert(prev => ({ ...prev, open: false }))} 
+          severity={alert.severity}
+          sx={{ width: '100%' }}
+        >
+          {alert.message}
+        </Alert>
+      </Snackbar>
     </SideBar>
   );
 }

@@ -1,153 +1,96 @@
 import React, { useState, useEffect } from 'react';
-import * as XLSX from 'xlsx';
 import { 
-  Avatar,
   Box, 
   Typography, 
-  Paper, 
-  Tab, 
-  Tabs, 
   Card, 
   CardContent,
-  IconButton,
   Chip,
   CircularProgress,
   Alert,
-  Tooltip,
   Dialog, 
   DialogTitle, 
   DialogContent, 
   DialogActions, 
   Button, 
   Pagination,
-  InputAdornment,
-  TextField,
-  useTheme,
-  useMediaQuery,
-  TableContainer
+  Grid,
+  Paper,
+  IconButton,
+  List,
+  ListItem,
+  ListItemText
 } from '@mui/material';
 import { 
-  Today as TodayIcon,
-  DateRange as DateRangeIcon,
-  Person as PersonIcon,
   CheckCircle as PresentIcon,
   Schedule as LateIcon,
   Cancel as AbsentIcon,
-  Visibility as VisibilityIcon,
-  Edit as EditIcon,
-  AccessTime as ClockIcon,
-  FreeBreakfast as BreakIcon,
-  Timer as OvertimeIcon,
   Event as DateIcon,
-  Work as JobIcon,
-  Groups as TeamIcon,
-  Download as DownloadIcon,
-  HourglassEmpty as UndertimeIcon
+  Error as ErrorIcon,
+  AccessTime as OvertimeIcon,
+  TimerOff as UndertimeIcon,
+  NavigateBefore as NavigateBeforeIcon,
+  NavigateNext as NavigateNextIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  Close as CloseIcon,
+  EventAvailable as PresentIconModal,
+  EventBusy as AbsentIconModal,
+  EventNote as EventNoteIcon,
+  BeachAccess as LeaveIconModal
+  
 } from '@mui/icons-material';
-import SearchIcon from '@mui/icons-material/Search';
-import axios from 'axios';
-import '../content_page/css/admintable.css';
-import SideNavBar from "../content_page/sidebar";
-
-// Status Badge Component
-const StatusBadge = ({ status }) => {
-  const statusStyles = {
-    Active: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
-    Inactive: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
-    Leave: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
-    Floating: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
-    Present: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
-    Working: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
-    Late: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
-    Undertime: { background: 'linear-gradient(to right, #FFA000, #FFCA28)', color: 'white' },
-    Absent : { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' },
-    Taken: { background: 'linear-gradient(to right, #4CAF50, #81C784)', color: 'white' },
-    Missed: { background: 'linear-gradient(to right, #F44336, #E57373)', color: 'white' }
-  };
-
-  return (
-    <span style={{
-      padding: '2px 8px',
-      borderRadius: '10px',
-      fontSize: '0.75em',
-      fontWeight: '600',
-      textTransform: 'capitalize',
-      ...statusStyles[status] || { background: '#e0e0e0' }
-    }}>
-      {status}
-    </span>
-  );
+import axios from 'api/axios';
+import SideNavBar from 'layouts/attendance_dashboard/content_page/sidebar';
+SideNavBar
+// Utility functions
+const isWeekend = (date) => {
+  const day = date.getDay();
+  return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
 };
 
-// Time Formatter Component
-const formatTimeProfessional = (timeString) => {
-  if (!timeString) return '--:--';
+const getTwoWeekPeriods = (currentDate = new Date()) => {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
   
+  // First period: 1st to 15th (inclusive)
+  const firstPeriodStart = new Date(year, month, 1);
+  const firstPeriodEnd = new Date(year, month, 15);
+  
+  // Second period: 16th to last day of month
+  const secondPeriodStart = new Date(year, month, 16);
+  const secondPeriodEnd = new Date(year, month + 1, 0); // Last day of month
+  
+  return [
+    { 
+      start: firstPeriodStart, 
+      end: firstPeriodEnd, 
+      label: `1-15`
+    },
+    { 
+      start: secondPeriodStart, 
+      end: secondPeriodEnd, 
+      label: `16-${secondPeriodEnd.getDate()}` 
+    }
+  ];
+};
+
+const formatTimeProfessional = (timeString) => {
+  if (!timeString) return '';
   try {
     const time = new Date(`2000-01-01T${timeString}`);
     const hours = time.getHours();
     const minutes = time.getMinutes().toString().padStart(2, '0');
     const isPM = hours >= 12;
     const hour12 = hours % 12 || 12;
-    
-    const pmStyles = {
-      background: 'linear-gradient(to right, #2c3e50, #4a6491)',
-      color: '#ecf0f1',
-      textShadow: '0 1px 1px rgba(0,0,0,0.3)',
-      boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
-    };
-    const amStyles = {
-      background: 'linear-gradient(to right, #f5f7fa, #e4e8f0)',
-      color: '#2980b9',
-      textShadow: '0 1px 1px rgba(255,255,255,0.8)',
-      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
-    };
-    
-    return (
-      <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-        <span style={{ fontWeight: 600, marginRight: '2px' }}>
-          {`${hour12}:${minutes}`}
-        </span>
-        <span style={{
-          fontSize: '0.7em',
-          padding: '2px 6px',
-          borderRadius: '10px',
-          fontWeight: 700,
-          letterSpacing: '0.5px',
-          textTransform: 'uppercase',
-          ...(isPM ? pmStyles : amStyles)
-        }}>
-          {isPM ? 'PM' : 'AM'}
-        </span>
-      </span>
-    );
+    return `${hour12}:${minutes} ${isPM ? 'PM' : 'AM'}`;
   } catch (e) {
     console.error('Error formatting time:', e);
     return timeString;
   }
 };
 
-const formatTimeForExcel = (timeString) => {
-  if (!timeString) return '--:--';
-  
-  try {
-    const time = new Date(`2000-01-01T${timeString}`);
-    const hours = time.getHours();
-    const minutes = time.getMinutes().toString().padStart(2, '0');
-    const isPM = hours >= 12;
-    const hour12 = hours % 12 || 12;
-    
-    return `${hour12}:${minutes} ${isPM ? 'PM' : 'AM'}`;
-  } catch (e) {
-    console.error('Error formatting time for Excel:', e);
-    return timeString;
-  }
-};
-
-//Convert date type 
 const formatDisplayDate = (dateString) => {
   if (!dateString) return '--';
-  
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
     month: 'long',
@@ -156,323 +99,295 @@ const formatDisplayDate = (dateString) => {
   });
 };
 
-// Main Table Component with Joined Data
-const DailyAttendanceTable = ({ employeeData, logsData, loading, error, onViewClick }) => {
-  const theme = useTheme();
-  const isXLargeScreen = useMediaQuery(theme.breakpoints.up('xl'));
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
+// Summary Card Component
+const SummaryCard = ({ title, value, icon, color = 'primary', onClick }) => (
+  <Paper 
+    elevation={2} 
+    onClick={onClick}
+    sx={{ 
+      p: 2, 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center',
+      borderRadius: 2,
+      borderLeft: `4px solid ${color}`,
+      transition: 'transform 0.2s, box-shadow 0.2s',
+      cursor: 'pointer',
+      '&:hover': {
+        transform: 'translateY(-4px)',
+        boxShadow: 4
+      }
+    }}
+  >
+    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+      {icon}
+      <Typography variant="subtitle2" sx={{ ml: 1, color: 'text.secondary' }}>
+        {title}
+      </Typography>
+    </Box>
+    <Typography variant="h5" component="div" sx={{ fontWeight: 'bold', color }}>
+      {value}
+    </Typography>
+  </Paper>
+);
 
+// Main Table Component
+const DailyAttendanceTable = ({ employeeData, logsData, loading, error }) => {
   if (loading) return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-      <CircularProgress />
+    <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+      <CircularProgress size={20} />
     </Box>
   );
   
   if (error) return (
-    <Box sx={{ p: 2 }}>
-      <Alert severity="error">{error}</Alert>
+    <Box sx={{ p: 1 }}>
+      <Alert severity="error" sx={{ fontSize: '0.8rem' }}>{error}</Alert>
     </Box>
   );
 
   if (!logsData || logsData.length === 0) return (
-    <Box sx={{ p: 2 }}>
-      <Alert severity="info">No attendance records found</Alert>
+    <Box sx={{ p: 1 }}>
+      <Alert severity="info" sx={{ fontSize: '0.8rem' }}>No attendance records found</Alert>
     </Box>
   );
 
-  // Enhanced responsive styles
-  const styles = {
-    container: {
-      width: '100%',
-      overflow: 'auto',
-      maxHeight: 'calc(100vh - 300px)',
-    },
-    table: {
-      width: '100%',
-      minWidth: isXLargeScreen ? '100%' : (isLargeScreen ? '1800px' : '1700px'),
-      tableLayout: 'auto'
-    },
-    header: {
-      position: 'sticky',
-      top: 0,
-      zIndex: 1,
-      backgroundColor: '#2E7D32',
-      color: 'white',
-      fontSize: isXLargeScreen ? '1.1rem' : '0.9rem',
-      '& th': {
-        padding: isXLargeScreen ? '16px 20px' : '12px 16px',
-        whiteSpace: 'nowrap'
-      }
-    },
-    cell: {
-      padding: isXLargeScreen ? '14px 18px' : '12px 14px',
-      fontSize: isXLargeScreen ? '0.95rem' : '0.85rem'
-    },
-    employeeCell: {
-      minWidth: isXLargeScreen ? '220px' : '180px'
-    },
-    iconSize: isXLargeScreen ? 'medium' : 'small',
-    avatar: {
-      width: isXLargeScreen ? 40 : 32,
-      height: isXLargeScreen ? 40 : 32,
-      marginBottom: 1
-    }
-  };
-
   return (
-    <TableContainer component={Paper} sx={styles.container}>
-      <table style={styles.table}>
+    <Box sx={{ width: '100%', overflowX: 'auto' }}>
+     <table style={{ 
+        width: '100%',
+        minWidth: '1200px',
+        borderCollapse: 'collapse',
+        fontSize: '0.875rem',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+      }}>
         <thead>
-          <tr style={styles.header}>
-            <th style={{ ...styles.cell, ...styles.employeeCell }}>Employee</th>
-            <th style={styles.cell}>Date</th>
-            <th style={styles.cell}>Job Details</th>
-            <th style={styles.cell}>Schedule</th>
-            <th style={styles.cell}>Actual Hours</th>
-            <th style={styles.cell}>Work Hours</th>
-            <th style={styles.cell}>Overtime</th>
-            <th style={styles.cell}>Status</th>
-            <th style={styles.cell}>Actions</th>
+          <tr style={{ 
+            backgroundColor: '#00B4D8', 
+            color: 'white', 
+            textAlign: 'left',
+            height: '48px'
+          }}>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1rem', fontWeight: '600' }}>Date</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1rem', fontWeight: '600' }}>Day</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1rem', fontWeight: '600' }}>Time In</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1rem', fontWeight: '600' }}>Start Break</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1rem', fontWeight: '600' }}>End Break</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1rem', fontWeight: '600' }}>Time Out</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1rem', fontWeight: '600' }}>Total Hours</th>
+            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '1rem', fontWeight: '600' }}>Remarks</th>
           </tr>
         </thead>
         <tbody>
-          {logsData.map((log) => {
-            const breakStatus = log.start_break ? 'Taken' : 'Missed';
+          {logsData.map((log, index) => {
+            const status = log.time_in ? 'Present' : (log.status || 'Absent');
+            const rowStyle = {
+              backgroundColor: index % 2 === 0 ? '#fafafa' : 'white',
+              transition: 'background-color 0.2s',
+              '&:hover': {
+                backgroundColor: '#f0f7ff'
+              }
+            };
             
             return (
-              <tr key={log.id}>
-                {/* Employee Info */}
-                <th scope="row" style={{ ...styles.cell, ...styles.employeeCell, backgroundColor: '#f5f5f5' }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <Avatar 
-                      alt={`${employeeData.first_name} ${employeeData.last_name}`} 
-                      src={employeeData.user_photo || '/default-avatar.png'}
-                      sx={styles.avatar}
-                    />
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.9rem' }}>
-                        {`${employeeData.first_name} ${employeeData.last_name}`}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#666', fontSize: '0.75rem' }}>
-                        {employeeData.email}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </th>
-                
-                {/* Date */}
-                <td style={styles.cell}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <DateIcon fontSize={styles.iconSize} color="action" />
-                    {log.date ? formatDisplayDate(log.date) : "No date"}
+              <tr key={log.id} style={rowStyle}>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {log.date ? formatDisplayDate(log.date) : "--"}
                   </Box>
                 </td>
-                
-                {/* Job Details */}
-                <td style={styles.cell}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <JobIcon fontSize={styles.iconSize} color="action" />
-                      <Typography variant="body2">
-                        {`${employeeData.type} (${employeeData.work_arrangement})`}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TeamIcon fontSize={styles.iconSize} color="action" />
-                      <Typography variant="body2">
-                        {`${employeeData.department} / ${employeeData.team}`}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </td>
-                
-                {/* Scheduled Hours */}
-                <td style={{ ...styles.cell, textAlign: 'center' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                    {formatTimeProfessional(employeeData.time_in)}
-                    <span style={{ color: '#777' }}>-</span>
-                    {formatTimeProfessional(employeeData.time_out)}
-                  </Box>
-                </td>
-
-                <td style={{ ...styles.cell, textAlign: 'center' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                    {employeeData.contract_hours || 0}
-                  </Box>
-                </td>
-                
-                {/* Attendance Logs */}
-                {/* <td style={styles.cell}>
+               <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  {log.date ? (
+                    <>
+                    {new Date(log.date).toLocaleDateString('en-US', { weekday: 'long' })}
+                    </>
+                  ) : (
+                    "--"
+                  )}
+                </Box>
+              </td>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>
                   {log.time_in ? formatTimeProfessional(log.time_in) : '--:--'}
                 </td>
-                
-                <td style={styles.cell}>
-                  {log.start_break ? (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                      <span>{formatTimeProfessional(log.start_break)}</span>
-                      <span style={{ fontSize: '0.7em' }}>to</span>
-                      <span>{formatTimeProfessional(log.end_break)}</span>
-                      <StatusBadge status={breakStatus} />
-                    </Box>
-                  ) : '--:--'}
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>
+                  {log.start_break ? formatTimeProfessional(log.start_break) : ''}
                 </td>
-                
-                <td style={styles.cell}>
-                  {log.time_out ? formatTimeProfessional(log.time_out) : '--:--'}
-                </td> */}
-                
-                <td style={{ ...styles.cell, textAlign: 'center' }}>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>
+                  {log.end_break ? formatTimeProfessional(log.end_break) : ''}
+                </td>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>
+                  {log.time_out ? formatTimeProfessional(log.time_out) : ''}
+                </td>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>
+                  {log.work_hours} hrs
+                </td>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>
                   <Chip 
-                    icon={<ClockIcon fontSize={styles.iconSize} />}
-                    label={`${log.work_hours || '--'}h`} 
+                    label={status} 
+                    size="small" 
+                    color={
+                      status === 'Present' ? 'success' : 
+                      status === 'Late' ? 'warning' : 
+                      status === 'Absent' ? 'error' : 'default'
+                    }
                     variant="outlined"
-                    color={log.work_hours >= employeeData.contract_hours ? 'success' : 'default'}
-                    size="small"
                   />
-                </td>
-                
-                <td style={{ ...styles.cell, textAlign: 'center' }}>
-                  <Chip 
-                    icon={<OvertimeIcon fontSize={styles.iconSize} />}
-                    label={`${log.overtime || '0'}h`}
-                    variant="outlined"
-                    color={log.overtime > 0 ? 'warning' : 'default'}
-                    size="small"
-                  />
-                </td>
-                
-                <td style={{ ...styles.cell, textAlign: 'center' }}>
-                  <StatusBadge status={log.status || 'Absent'} />
-                </td>
-                
-                <td style={{ ...styles.cell, textAlign: 'center' }}>
-                  <Tooltip title="View Details">
-                    <IconButton 
-                      color="primary" 
-                      onClick={() => onViewClick({ employee: employeeData, log })}
-                      size="small"
-                    >
-                      <VisibilityIcon fontSize={styles.iconSize} />
-                    </IconButton>
-                  </Tooltip>
                 </td>
               </tr>
             );
           })}
         </tbody>
       </table>
-    </TableContainer>
+    </Box>
   );
 };
 
-const AttendanceAdminTimesheet = () => {
-  const [tabValue, setTabValue] = useState(0);
+const AttendanceUserTimesheet = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [employeeData, setEmployeeData] = useState(null);
   const [logsData, setLogsData] = useState([]);
-  const [openModal, setOpenModal] = useState(false);
-  const [selectedLog, setSelectedLog] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 15;
+  const [currentPeriod, setCurrentPeriod] = useState(0);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
+  const [summaryModalData, setSummaryModalData] = useState({ type: '', dates: [] });
+  const itemsPerPage = 7;
 
-  // Filter logs by date if needed
-  const filteredData = logsData.filter(log => {
-    if (!searchTerm) return true;
-    
-    const searchLower = searchTerm.toLowerCase();
-    const logDate = log.date ? formatDisplayDate(log.date).toLowerCase() : '';
-    
-    return (
-      logDate.includes(searchLower) ||
-      (log.status?.toLowerCase()?.includes(searchLower))
-    );
-  });
+  const twoWeekPeriods = getTwoWeekPeriods(currentMonth);
+  const currentPeriodRange = twoWeekPeriods[currentPeriod];
 
-  // Paginate the filtered data
+  const filterByTwoWeekPeriod = (data) => {
+    if (!currentPeriodRange) return data;
+    return data.filter(log => {
+      const logDate = new Date(log.date);
+      logDate.setHours(0, 0, 0, 0); // Normalize time for comparison
+      
+      const startDate = new Date(currentPeriodRange.start);
+      startDate.setHours(0, 0, 0, 0);
+      
+      const endDate = new Date(currentPeriodRange.end);
+      endDate.setHours(23, 59, 59, 999); // Include the entire end date
+      
+      return logDate >= startDate && logDate <= endDate;
+    });
+  };
+
+  const filteredData = filterByTwoWeekPeriod(logsData);
+
+  const calculateStats = (data) => {
+    let totalLateHours = 0;
+    let totalUndertimeHours = 0;
+    let totalOvertimeHours = 0;
+    
+    const lateDates = data.filter(log => {
+      if (log.time_in_status === 'Late' && log.time_in && employeeData?.time_in) {
+        const [hours1, minutes1] = log.time_in.split(':').map(Number);
+        const [hours2, minutes2] = employeeData.time_in.split(':').map(Number);
+        const totalMinutes1 = hours1 * 60 + minutes1;
+        const totalMinutes2 = hours2 * 60 + minutes2;
+        const lateHours = (totalMinutes1 - totalMinutes2) / 60;
+        if (lateHours > 0) {
+          totalLateHours += lateHours;
+          return true;
+        }
+      }
+      return false;
+    }).map(log => log.date);
+
+    const undertimeDates = data.filter(log => {
+      if (log.time_out_status === 'Undertime' && log.undertime_hours) {
+        totalUndertimeHours += parseFloat(log.undertime_hours);
+        return true;
+      }
+      return false;
+    }).map(log => log.date);
+
+    const overtimeDates = data.filter(log => {
+      if (log.overtime) {
+        totalOvertimeHours += parseFloat(log.overtime) / 60;
+        return true;
+      }
+      return false;
+    }).map(log => log.date);
+
+    const presentDates = data.filter(log => log.status === 'Present').map(log => log.date);
+    const leaveDates = data.filter(log => log.status === 'Leave').map(log => log.date);
+    const absentDates = data.filter(log => !log.time_in && !log.status).map(log => log.date);
+
+    return {
+      totalLogs: data.length,
+      present: presentDates.length,
+      presentDates,
+      late: lateDates.length,
+      lateDates,
+      totalLateHours: totalLateHours.toFixed(2),
+      absent: absentDates.length,
+      absentDates,
+      leave: leaveDates.length,
+      leaveDates,
+      undertime: undertimeDates.length,
+      undertimeDates,
+      totalUndertimeHours: totalUndertimeHours.toFixed(2),
+      overtime: overtimeDates.length,
+      overtimeDates,
+      totalOvertimeHours: totalOvertimeHours.toFixed(2),
+    };
+  };
+
+  const stats = calculateStats(filteredData);
   const paginatedData = filteredData.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
-  // Reset to first page when search term changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
-
-  const exportToExcel = () => {
-    if (!logsData.length) return;
-
-    // Prepare the data for Excel
-    const excelData = logsData.map(log => ({
-      'Date': formatDisplayDate(log.date),
-      'Employee Name': `${employeeData.first_name} ${employeeData.last_name}`,
-      'Employment Type': `${employeeData.employment_type}`,
-      'Job Type': `${employeeData.type} (${employeeData.work_arrangement})`,
-      'Department/Team': `${employeeData.department} / ${employeeData.team}`,
-      'Scheduled Hours': `${formatTimeForExcel(employeeData.time_in)} - ${formatTimeForExcel(employeeData.time_out)}`,
-      'Contact Hours': `${employeeData.contract_hours || ''}`,    
-      'Actual Hours': `${log.work_hours}`,
-      'Overtime': `${log.overtime || '0'}h`,
-      'Employment Status': log.status || 'Absent'
-    }));
-
-    // Create worksheet
-    const ws = XLSX.utils.json_to_sheet(excelData);
+  const handleSummaryCardClick = (type) => {
+    let dates = [];
+    switch(type) {
+      case 'Present':
+        dates = stats.presentDates;
+        break;
+      case 'Leave':
+        dates = stats.leaveDates;
+        break;
+      case 'Absent':
+        dates = stats.absentDates;
+        break;
+      case 'Late':
+        dates = stats.lateDates;
+        break;
+      case 'Overtime':
+        dates = stats.overtimeDates;
+        break;
+      case 'Undertime':
+        dates = stats.undertimeDates;
+        break;
+      default:
+        break;
+    }
     
-    // Set column widths
-    const colWidths = [
-      { wch: 20 }, // Date
-      { wch: 30 }, // Employee Name
-      { wch: 25 }, // Job Type
-      { wch: 25 }, // Department/Team
-      { wch: 20 }, // Work Arrangement
-      { wch: 20 }, // Scheduled Hours
-      { wch: 12 }, // Time Out
-      { wch: 12 }, // Work Hours
-      { wch: 20 }, // Overtime
-      { wch: 25 } 
-    ];
-    ws['!cols'] = colWidths;
-    
-    // Create workbook
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Attendance Timesheet");
-    
-    // Generate file name
-    const fileName = `${employeeData.first_name}_${employeeData.last_name}_Timesheet.xlsx`;
-    
-    // Export the file
-    XLSX.writeFile(wb, fileName);
+    setSummaryModalData({ type, dates });
+    setSummaryModalOpen(true);
   };
 
   useEffect(() => {
     const fetchEmployeeData = async () => {
       try {
         setLoading(true);
-        const storedEmployee = localStorage.getItem('employee');
+     
         
-        if (!storedEmployee) {
-          throw new Error('No employee data found');
-        }
+        const logsRes = await axios.get(`attendance/admin/timesheet/`);
         
-        const emp = JSON.parse(storedEmployee);
-        
-        if (!emp?.id) {
-          throw new Error('Invalid employee data');
-        }
-        
-        setEmployeeData(emp);
-        
-        // Changed to use employee_id parameter for proper filtering
-        const logsRes = await axios.get(`http://localhost:8000/api/attendance/logs/?employee_id=${emp.id}`);
-        
-        if (!logsRes.data?.results) {
+        if (!logsRes.data?.logs) {
           throw new Error('Invalid logs data format');
         }
         
-        setLogsData(logsRes.data.results);
+        const updatedLogs = logsRes.data.logs.map(log => ({
+          ...log,
+          status: log.time_in ? 'Present' : (log.status || 'Absent')
+        }));
+        
+        setLogsData(updatedLogs); 
         setError(null);
       } catch (err) {
         console.error('Fetch error:', err);
@@ -486,297 +401,359 @@ const AttendanceAdminTimesheet = () => {
     fetchEmployeeData();
   }, []);
 
-  const handleViewClick = (data) => {
-    setSelectedLog(data);
-    setOpenModal(true);
+  const handlePeriodChange = (direction) => {
+    if (direction === 'prev') {
+      setCurrentPeriod(prev => (prev === 0 ? 1 : 0));
+    } else {
+      setCurrentPeriod(prev => (prev === 1 ? 0 : 1));
+    }
   };
 
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
-  };
-
-  const calculateStats = (data) => {
-    const lateCount = data.filter(log => log.time_in_status === 'Late').length;
-    const undertimeCount = data.filter(log => log.time_out_status === 'Undertime').length;
-    const overtimeCount = data.filter(log => log.overtime && log.overtime > 0).length;
-    const presentCount = data.filter(log => log.status === 'Present').length;
-    const absentCount = data.length - presentCount;
-    
-    // Calculate total undertime hours (make up hours)
-    const totalUndertime = data.reduce((total, log) => {
-      if (log.time_out_status === 'Undertime' && log.undertime_hours) {
-        return total + parseFloat(log.undertime_hours);
-      }
-      return total;
-    }, 0);
-    
-    // Calculate total overtime hours
-    const totalOvertime = data.reduce((total, log) => {
-      if (log.overtime) {
-        return total + parseFloat(log.overtime);
-      }
-      return total;
-    }, 0);
-
-    return {
-      totalLogs: data.length,
-      present: presentCount,
-      late: lateCount,
-      absent: absentCount,
-      undertime: undertimeCount,
-      totalUndertimeHours: totalUndertime.toFixed(2),
-      overtime: overtimeCount,
-      totalOvertimeHours: totalOvertime.toFixed(2),
-    };
+  const handleMonthChange = (direction) => {
+    const newMonth = new Date(currentMonth);
+    if (direction === 'prev') {
+      newMonth.setMonth(newMonth.getMonth() - 1);
+    } else {
+      newMonth.setMonth(newMonth.getMonth() + 1);
+    }
+    setCurrentMonth(newMonth);
+    setCurrentPeriod(0);
   };
 
   if (!employeeData) {
     return (
       <SideNavBar>
-        <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}>
-          <CircularProgress />
+        <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
+          <CircularProgress size={24} />
         </Box>
       </SideNavBar>
     );
   }
 
-  const stats = calculateStats(logsData);
+  const capitalizeFirstLetter = (string) => {
+    if (!string) return "";
+    return string.charAt(0).toUpperCase() + string.slice(1);
+  };
 
+  const formatDateToWords = (date) => {
+    if (!date) return "";
+    return new Date(date).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+  
   return (
     <SideNavBar>
-      <Box sx={{ p: 3 }}>
-        <Card sx={{ mb: 3 }}>
-          <Tabs 
-            value={tabValue} 
-            onChange={handleTabChange}
-            variant="fullWidth"
-            sx={{ '& .MuiTabs-indicator': { height: 4 } }}
-          >
-            <Tab label="Attendance Timesheet" icon={<TodayIcon />} iconPosition="start" sx={{ minHeight: 60 }} />
-            <Tab label="Summary" icon={<DateRangeIcon />} iconPosition="start" sx={{ minHeight: 60 }} />
-          </Tabs>
-          <CardContent>
-            {tabValue === 0 && (
-              <Box>
-                <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                  {employeeData.first_name}'s Timesheet History
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-                  <Chip 
-                    label={`${stats.totalLogs} Records`}
-                    color="info" 
-                    variant="outlined" 
-                    icon={<PersonIcon />} 
-                  />
-                  <Chip 
-                    label={`${stats.present} Present`}
-                    color="success" 
-                    variant="outlined" 
-                    icon={<PresentIcon />} 
-                  />
-                  <Chip 
-                    label={`${stats.late} Late`}
-                    color="warning" 
-                    variant="outlined" 
-                    icon={<LateIcon />} 
-                  />
-                  <Chip 
-                    label={`${stats.absent} Absent/Missing`}
-                    color="error" 
-                    variant="outlined" 
-                    icon={<AbsentIcon />} 
-                  />
-                </Box>
+      <Box sx={{ p: 2 }}>
+        <Card sx={{  
+          minHeight: 'calc(104vh - 64px)',
+          width: '100%',
+          maxWidth: '100%',
+          margin: '0 auto',
+          p: 3,
+          overflowX: 'hidden',
+          boxSizing: 'border-box',
+          mt: -12,
+          borderRadius: 2,
+          boxShadow: 3
+        }}>
 
-                {/* Search and Pagination Controls */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                  <TextField
-                    label="Search by date or status"
-                    variant="outlined"
-                    size="small"
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    sx={{ width: 300 }}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    <Button
-                      variant="contained"
-                      color="success"
-                      startIcon={<DownloadIcon />}
-                      onClick={exportToExcel}
-                      disabled={!logsData.length}
-                    >
-                      Export Excel
-                    </Button>
-                    <Pagination
-                      count={Math.ceil(filteredData.length / itemsPerPage)}
-                      page={currentPage}
-                      onChange={(event, page) => setCurrentPage(page)}
-                      color="primary"
-                      shape="rounded"
-                    />
-                  </Box>
-                </Box>
+          <CardContent sx={{ p: 2 }}>
+            {/* Employee Information Section */}
+            <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+              <Typography variant="h3" color="primary" sx={{ mb: 2, fontWeight: 'bold'}}>
+                Attendance Timesheet
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body1">
+                    <Box component="span">Name:</Box> {employeeData.first_name} {employeeData.last_name}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body1">
+                    <Box component="span">Department:</Box> {employeeData.department}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body1">
+                    <Box component="span">Schedule:</Box> {formatTimeProfessional(employeeData.time_in)} - {formatTimeProfessional(employeeData.time_out)}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body1">
+                    <Box component="span">Status:</Box> {capitalizeFirstLetter(employeeData?.employment_type)}
+                  </Typography>
+                </Grid>
+              </Grid>
+            </Paper>
 
-                {/* Daily Attendance Table */}
-                <DailyAttendanceTable 
-                  employeeData={employeeData}
-                  logsData={paginatedData}
-                  loading={loading}
-                  error={error}
-                  onViewClick={handleViewClick}
+            {/* Summary Section */}
+            <Grid container spacing={2} mb={2}>
+              <Grid item xs={6} sm={4} md={2}>
+                <SummaryCard 
+                  title="Present" 
+                  value={stats.present} 
+                  icon={<PresentIcon color="success" />} 
+                  color="#2ecc71"
+                  onClick={() => handleSummaryCardClick('Present')}
                 />
-              </Box>
-            )}
-            {tabValue === 1 && (
-              <Box>
-                <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
-                  Attendance Summary for {employeeData.first_name} {employeeData.last_name}
+              </Grid>
+              <Grid item xs={6} sm={4} md={2}>
+                <SummaryCard 
+                  title="Leave" 
+                  value={stats.leave} 
+                  icon={<DateIcon color="info" />} 
+                  color="#3498db"
+                  onClick={() => handleSummaryCardClick('Leave')}
+                />
+              </Grid>
+              <Grid item xs={6} sm={4} md={2}>
+                <SummaryCard 
+                  title="Absent" 
+                  value={stats.absent} 
+                  icon={<AbsentIcon color="error" />} 
+                  color="#e74c3c"
+                  onClick={() => handleSummaryCardClick('Absent')}
+                />
+              </Grid>
+              <Grid item xs={6} sm={4} md={2}>
+                <SummaryCard 
+                  title="Late" 
+                  value={`${stats.late}`} 
+                  icon={<LateIcon color="warning" />} 
+                  color="#f39c12"
+                  onClick={() => handleSummaryCardClick('Late')}
+                />
+              </Grid>
+              <Grid item xs={6} sm={4} md={2}>
+                <SummaryCard 
+                  title="Overtime" 
+                  value={`${stats.overtime}`} 
+                  icon={<OvertimeIcon color="secondary" />} 
+                  color="#9b59b6"
+                  onClick={() => handleSummaryCardClick('Overtime')}
+                />
+              </Grid>
+              <Grid item xs={6} sm={4} md={2}>
+                <SummaryCard 
+                  title="Undertime" 
+                  value={`${stats.undertime}`} 
+                  icon={<UndertimeIcon color="action" />} 
+                  color="#95a5a6"
+                  onClick={() => handleSummaryCardClick('Undertime')}
+                />
+              </Grid>
+            </Grid>
+
+            {/* Period Navigation */}
+            <Paper elevation={1} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2, gap: 2 }}>
+                <IconButton
+                  onClick={() => handleMonthChange('prev')}
+                  size="small"
+                  sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider' }}
+                >
+                  <ChevronLeftIcon />
+                </IconButton>
+                
+                <Typography variant="subtitle1" sx={{ minWidth: '200px', textAlign: 'center', color: 'black' }}>
+                  {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                 </Typography>
                 
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
-                  {/* Present/Absent Summary */}
-                  <Card sx={{ p: 2 }}>
-                    <Typography variant="subtitle1" sx={{ mb: 1 }}>Attendance Overview</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">Total Records:</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{stats.totalLogs}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">Present:</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#4CAF50' }}>
-                          {stats.present} ({Math.round((stats.present / stats.totalLogs) * 100)}%)
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">Absent:</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#F44336' }}>
-                          {stats.absent} ({Math.round((stats.absent / stats.totalLogs) * 100)}%)
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Card>
-                  
-                  {/* Late/Undertime Summary */}
-                  <Card sx={{ p: 2 }}>
-                    <Typography variant="subtitle1" sx={{ mb: 1 }}>Late & Undertime</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">Late Arrivals:</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.late} ({Math.round((stats.late / stats.totalLogs) * 100)}%)
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">Undertime Days:</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#FFA000' }}>
-                          {stats.undertime} ({Math.round((stats.undertime / stats.totalLogs) * 100)}%)
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">Total Make Up Hours:</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                          {stats.totalUndertimeHours} hours
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Card>
-                  
-                  {/* Overtime Summary */}
-                  <Card sx={{ p: 2 }}>
-                    <Typography variant="subtitle1" sx={{ mb: 1 }}>Overtime</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">Overtime Days:</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#4CAF50' }}>
-                          {stats.overtime} ({Math.round((stats.overtime / stats.totalLogs) * 100)}%)
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">Total Overtime Hours:</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                          {stats.totalOvertimeHours} hours
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Card>
-                </Box>
-                
-                {/* Recent Records */}
-                <Card sx={{ p: 2, mt: 2 }}>
-                  <Typography variant="subtitle1" sx={{ mb: 1 }}>Recent Attendance Records</Typography>
-                  <DailyAttendanceTable 
-                    employeeData={employeeData}
-                    logsData={logsData.slice(0, 5)}
-                    loading={loading}
-                    error={error}
-                    onViewClick={handleViewClick}
-                  />
-                </Card>
+                <IconButton
+                  onClick={() => handleMonthChange('next')}
+                  size="small"
+                  sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider' }}
+                >
+                  <ChevronRightIcon />
+                </IconButton>
               </Box>
-            )}
+
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2, gap: 2 }}>
+                <IconButton
+                  onClick={() => handlePeriodChange('prev')}
+                  size="small"
+                  disabled={currentPeriod === 0}
+                  sx={{ 
+                    borderRadius: 1, 
+                    backgroundColor: currentPeriod !== 0 ? 'primary.main' : 'action.disabled',
+                    color: 'white',
+                    '&:hover': {
+                      backgroundColor: currentPeriod !== 0 ? 'primary.dark' : 'action.disabled'
+                    }
+                  }}
+                >
+                  <NavigateBeforeIcon />
+                </IconButton>
+                
+                <Typography variant="subtitle1" sx={{ minWidth: '120px', textAlign: 'center', color: 'black' }}>
+                  {currentPeriodRange?.label || '1-15'}
+                </Typography>
+                
+                <IconButton
+                  onClick={() => handlePeriodChange('next')}
+                  size="small"
+                  disabled={currentPeriod === 1}
+                  sx={{ 
+                    borderRadius: 1, 
+                    backgroundColor: currentPeriod !== 1 ? 'primary.main' : 'action.disabled',
+                    color: 'white',
+                    '&:hover': {
+                      backgroundColor: currentPeriod !== 1 ? 'primary.dark' : 'action.disabled'
+                    }
+                  }}
+                >
+                  <NavigateNextIcon />
+                </IconButton>
+              </Box>
+
+              <Typography variant="subtitle1" sx={{ textAlign: 'center', color: 'black' }}>
+                Period: {formatDateToWords(currentPeriodRange?.start)} - {formatDateToWords(currentPeriodRange?.end)}
+              </Typography>
+            </Paper>
+
+            {/* Attendance Table */}
+            <DailyAttendanceTable 
+              employeeData={employeeData}
+              logsData={paginatedData}
+              // loading={loading}
+              error={error}
+            />
+
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Pagination
+                count={Math.ceil(filteredData.length / itemsPerPage)}
+                page={currentPage}
+                onChange={(event, page) => setCurrentPage(page)}
+                color="primary"
+                size="small"
+                sx={{ '& .MuiPaginationItem-root': { fontSize: '0.7rem' } }}
+              />
+            </Box>
           </CardContent>
         </Card>
+        
 
-        {/* Log View Modal */}
-        <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="md" fullWidth>
-          <DialogTitle>
-            {selectedLog?.employee.first_name}'s Log Details
+        {/* Summary Modal */}
+        <Dialog 
+          open={summaryModalOpen} 
+          onClose={() => setSummaryModalOpen(false)} 
+          maxWidth="sm" 
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+              overflow: 'hidden'
+            }
+          }}
+        >
+          <DialogTitle sx={{ 
+            backgroundColor: 'primary.main', 
+            color: 'white',
+            py: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography variant="h5" color="white" sx={{ ml: 2, fontWeight: 'bold' }}>
+                {summaryModalData.type} Dates
+              </Typography>
+            </Box>
+            <IconButton 
+              onClick={() => setSummaryModalOpen(false)} 
+              size="small"
+              sx={{ color: 'white' }}
+            >
+              <CloseIcon />
+            </IconButton>
           </DialogTitle>
-          <DialogContent dividers>
-            {selectedLog && (
-              <Box sx={{ p: 2 }}>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
-                  {/* Basic Info */}
-                  <Box>
-                    <Typography variant="subtitle1" fontWeight="bold">Employee Information</Typography>
-                    <Typography>Email: {selectedLog.employee.email}</Typography>
-                    <Typography>Department: {selectedLog.employee.department}</Typography>
-                    <Typography>Team: {selectedLog.employee.team}</Typography>
-                    <Typography>Employment Status: <StatusBadge status={selectedLog.employee.status} /></Typography>
-                  </Box>
-
-                  {/* Job Details */}
-                  <Box>
-                    <Typography variant="subtitle1" fontWeight="bold">Job Details</Typography>
-                    <Typography>Type: {selectedLog.employee.type}</Typography>
-                    <Typography>Work Arrangement: {selectedLog.employee.work_arrangement}</Typography>
-                    <Typography>Contract Hours: {selectedLog.employee.contract_hours}h</Typography>
-                    <Typography>
-                      Schedule: {formatTimeProfessional(selectedLog.employee.time_in)} - {formatTimeProfessional(selectedLog.employee.time_out)}
-                    </Typography>
-                  </Box>
-
-                  {/* Attendance Details */}
-                  <Box sx={{ gridColumn: '1 / -1', mt: 2 }}>
-                    <Typography variant="subtitle1" fontWeight="bold">Attendance Record</Typography>
-                    <Typography>Date: {formatDisplayDate(selectedLog.log.date)}</Typography>
-                    <Typography>Time In: {formatTimeProfessional(selectedLog.log.time_in)}</Typography>
-                    <Typography>Time Out: {formatTimeProfessional(selectedLog.log.time_out)}</Typography>
-                    <Typography>
-                      Break: {selectedLog.log.start_break ? 
-                        `${formatTimeProfessional(selectedLog.log.start_break)} - ${formatTimeProfessional(selectedLog.log.end_break)}` : 
-                        'No break recorded'}
-                    </Typography>
-                    <Typography>Work Hours: {selectedLog.log.work_hours || '--'} hours</Typography>
-                    <Typography>Undertime: {selectedLog.log.undertime_hours || '0'} hours</Typography>
-                    <Typography>Overtime: {selectedLog.log.overtime || '0'} hours</Typography>
-                    <Typography>Status: <StatusBadge status={selectedLog.log.status} /></Typography>
-                    <Typography>Break Status: <StatusBadge status={selectedLog.log.start_break ? 'Taken' : 'Missed'} /></Typography>
-                  </Box>
-                </Box>
+          <DialogContent sx={{ p: 3 }}>
+            {summaryModalData.dates.length > 0 ? (
+              <>
+                <Typography variant="body1" sx={{ 
+                  mb: 3, 
+                  textAlign: 'center',
+                  py: 1,
+                  borderRadius: 2,
+                  fontWeight: 'small',
+                  color: 'black !important'
+                }}>
+                  Total of <Box component="span" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                    {summaryModalData.dates.length}
+                  </Box> {summaryModalData.type.toLowerCase()} day(s)
+                </Typography>
+                <List 
+                  dense 
+                  sx={{ 
+                    maxHeight: '300px', 
+                    overflow: 'auto',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    py: 0
+                  }}
+                >
+                  {summaryModalData.dates.map((date, index) => (
+                    <ListItem 
+                      key={index}
+                      sx={{
+                        borderBottom: index < summaryModalData.dates.length - 1 ? '1px solid' : 'none',
+                        borderColor: 'divider',
+                        '&:last-child': {
+                          borderBottom: 'none'
+                        }
+                      }}
+                    >
+                      <ListItemText 
+                        primary={formatDisplayDate(date)} 
+                        primaryTypographyProps={{
+                          sx: {
+                            display: 'flex',
+                            alignItems: 'center',
+                            '&:before': {
+                              content: '"•"',
+                              color: 'primary.main',
+                              fontWeight: 'bold',
+                              fontSize: '20px',
+                              mr: 1.5
+                            }
+                          }
+                        }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </>
+            ) : (
+              <Box sx={{ 
+                textAlign: 'center', 
+                py: 4,
+                color: 'text.secondary'
+              }}>
+                <EventNoteIcon sx={{ fontSize: 60, opacity: 0.5, mb: 2 }} />
+                <Typography variant="body1">
+                  No {summaryModalData.type.toLowerCase()} days found for this period.
+                </Typography>
               </Box>
             )}
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenModal(false)} color="primary">
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button 
+              onClick={() => setSummaryModalOpen(false)} 
+              variant="contained"
+              sx={{
+                borderRadius: 2,
+                px: 3,
+                textTransform: 'none',
+                fontWeight: 'bold',
+                color: 'white !important'
+              }}
+            >
               Close
             </Button>
           </DialogActions>
@@ -786,4 +763,4 @@ const AttendanceAdminTimesheet = () => {
   );
 };
 
-export default AttendanceAdminTimesheet;
+export default AttendanceUserTimesheet;

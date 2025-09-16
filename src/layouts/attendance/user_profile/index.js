@@ -110,26 +110,6 @@ const UserProfile = ({ onClose }) => {
     setShowPassword(prev => ({ ...prev, [field]: !prev[field] }));
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
-      if (!validTypes.includes(file.type)) {
-        showAlert('Please upload an image (JPEG, PNG, GIF)', 'error');
-        return;
-      }
-      if (file.size > 2 * 1024 * 1024) {
-        showAlert('Image size should be less than 2MB', 'error');
-        return;
-      }
-      
-      setUserData(prev => ({
-        ...prev,
-        user_photo: file
-      }));
-    }
-  };
-
   const showAlert = (message, severity = "warning") => {
     setAlert({ open: true, severity, message });
     setTimeout(() => setAlert(prev => ({ ...prev, open: false })), 7000);
@@ -255,24 +235,13 @@ const UserProfile = ({ onClose }) => {
             <Person sx={{ verticalAlign: 'middle', mr: 1 }} />
             Personal Information
           </Typography>
-          <Box>
-            <Button
-              variant="outlined"
-              startIcon={<Cancel />}
-              onClick={onClose}
-              sx={{ mr: 2 }}
-            >
-              Close
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<Edit />}
-              onClick={() => setEditMode(prev => ({ ...prev, personalInfo: !prev.personalInfo }))}
-              disabled={editMode.password}
-            >
-              {editMode.personalInfo ? 'Cancel' : 'Edit'}
-            </Button>
-          </Box>
+          <Button
+            variant="outlined"
+            startIcon={<Cancel />}
+            onClick={onClose}
+          >
+            Close
+          </Button>
         </Box>
 
         <Divider sx={{ mb: 3 }} />
@@ -294,16 +263,6 @@ const UserProfile = ({ onClose }) => {
             {(userData.first_name || userData.last_name) &&
               `${(userData.first_name?.[0] || '')}${(userData.last_name?.[0] || '')}`.toUpperCase()}
         </Avatar>
-            {editMode.personalInfo && (
-              <Button 
-                variant="contained" 
-                component="label"
-                sx={{ color: 'white !important' }}
-              >
-                Upload Photo
-                <input type="file" hidden accept="image/*" onChange={handleFileChange} />
-              </Button>
-            )}
           </Grid>
           <Grid item xs={12} sm={8}>
             <Grid container spacing={2}>
@@ -314,7 +273,7 @@ const UserProfile = ({ onClose }) => {
                   name="first_name"
                   value={userData.first_name}
                   onChange={handlePersonalInfoChange}
-                  disabled={!editMode.personalInfo}
+                  disabled={true}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -331,7 +290,7 @@ const UserProfile = ({ onClose }) => {
                   name="last_name"
                   value={userData.last_name}
                   onChange={handlePersonalInfoChange}
-                  disabled={!editMode.personalInfo}
+                  disabled={true}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -348,7 +307,7 @@ const UserProfile = ({ onClose }) => {
                   name="address"
                   value={userData.address}
                   onChange={handlePersonalInfoChange}
-                  disabled={!editMode.personalInfo}
+                  disabled={true}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -365,7 +324,7 @@ const UserProfile = ({ onClose }) => {
                   name="email"
                   value={userData.email}
                   onChange={handlePersonalInfoChange}
-                  disabled={!editMode.personalInfo}
+                  disabled={true}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -382,7 +341,7 @@ const UserProfile = ({ onClose }) => {
                   name="contact_number"
                   value={userData.contact_number}
                   onChange={handlePersonalInfoChange}
-                  disabled={!editMode.personalInfo}
+                  disabled={true}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -392,19 +351,6 @@ const UserProfile = ({ onClose }) => {
                   }}
                 />
               </Grid>
-              {editMode.personalInfo && (
-                <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={handleSavePersonalInfo}
-                    disabled={loading}
-                    sx={{ color: 'white !important' }}
-                  >
-                    {loading ? 'Saving...' : 'Save'}
-                  </Button>
-                </Grid>
-              )}
             </Grid>
           </Grid>
         </Grid>
@@ -419,9 +365,8 @@ const UserProfile = ({ onClose }) => {
           </Typography>
           <Button
             variant="outlined"
-            startIcon={<Edit />}
+            startIcon={editMode.password ? <Cancel /> : <Edit />}
             onClick={() => setEditMode(prev => ({ ...prev, password: !prev.password }))}
-            disabled={editMode.personalInfo}
           >
             {editMode.password ? 'Cancel' : 'Change Password'}
           </Button>

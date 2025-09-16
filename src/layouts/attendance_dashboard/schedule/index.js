@@ -192,7 +192,7 @@ const ScheduleRequestTable = ({
                   </Box>
                 </Box>
               </td>
-              <td style={{ padding: '12px 16px' }}>
+              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                 {request.schedule_days.map((day, i) => (
                   <div key={i}>{formatDisplayDate(day.date)}</div>
                 ))}
@@ -1098,6 +1098,15 @@ const CustomizeScheduleRequestForm = () => {
   }, []);
   
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    
+    if (tabParam === 'requests') {
+      setCurrentTab(0); 
+    }
+  }, []);
+
+  useEffect(() => {
     const storedEmployee = localStorage.getItem('employee');
     if (storedEmployee) {
       const emp = JSON.parse(storedEmployee);
@@ -1371,6 +1380,15 @@ const CustomizeScheduleRequestForm = () => {
 
   const handleTabChange = (event, newValue) => {
     setCurrentTab(newValue);
+    
+    // Update URL with tab parameter
+    const newUrl = new URL(window.location);
+    if (newValue === 0) {
+      newUrl.searchParams.set('tab', 'requests');
+    } else {
+      newUrl.searchParams.delete('tab');
+    }
+    window.history.replaceState({}, '', newUrl);
   };
 
  return (
